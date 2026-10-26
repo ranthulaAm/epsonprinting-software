@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../services/printer/capability_discovery_service.dart';
 import '../../../services/printer/models/printer_intelligence_models.dart';
 import 'print_queue_item.dart';
+import 'resolution_system_models.dart';
 
 /// The 3 user-selectable print settings tiers.
 enum PrintSettingsTier {
@@ -162,8 +163,16 @@ class UnifiedPrintSettings {
   final bool advancedBwEnabled;
   final AdvancedBwTone advancedBwTone;
 
-  // 3. Resolution & Quality
+  // 3. Resolution & Quality (PPI vs DPI)
   final int customDpi;
+  final int hardwareDpi; // Driver DPI setting (e.g., 300, 600, 1200, 2400, 5760 dpi)
+  final RenderDpiChoice renderDpi; // Rasterization DPI (Auto, 150, 300, 600, 1200)
+  final ResamplingAlgorithm resampleFilter; // None, Bicubic, Lanczos
+  final bool isUpscaledForPrint;
+  final double upscaleMultiplier; // 1.0x, 2.0x, 4.0x
+  final bool keepVectorGraphics; // Keep vector text/paths as vector wherever driver allows
+  final double? currentEffectivePpi; // Computed effective PPI at printed size
+  final List<ResamplingLogRecord> resamplingHistory;
   final HalftoneScreening halftoneScreening;
   final bool biDirectionalPrinting;
 
@@ -263,6 +272,14 @@ class UnifiedPrintSettings {
     this.advancedBwEnabled = false,
     this.advancedBwTone = AdvancedBwTone.neutral,
     this.customDpi = 600,
+    this.hardwareDpi = 600,
+    this.renderDpi = RenderDpiChoice.auto,
+    this.resampleFilter = ResamplingAlgorithm.bicubic,
+    this.isUpscaledForPrint = false,
+    this.upscaleMultiplier = 1.0,
+    this.keepVectorGraphics = true,
+    this.currentEffectivePpi,
+    this.resamplingHistory = const [],
     this.halftoneScreening = HalftoneScreening.standard,
     this.biDirectionalPrinting = true,
     this.inkDensityPercent = 0,
@@ -331,6 +348,9 @@ class UnifiedPrintSettings {
     }
 
     if (tier == PrintSettingsTier.professional) {
+      parts.add('$hardwareDpi DPI');
+      if (currentEffectivePpi != null) parts.add('${currentEffectivePpi!.round()} PPI');
+      if (isUpscaledForPrint) parts.add('Upscaled ${upscaleMultiplier.toStringAsFixed(1)}x');
       if (advancedBwEnabled) parts.add('Advanced B&W (${advancedBwTone.name})');
       if (photoIdLayoutEnabled) parts.add('Passport Photo Sheet ($photosCount photos)');
       if (cdDvdPrintEnabled) parts.add('Direct CD/DVD Print');
@@ -367,6 +387,9 @@ class UnifiedPrintSettings {
     }
 
     if (tier == PrintSettingsTier.professional) {
+      parts.add('$hardwareDpi DPI');
+      if (currentEffectivePpi != null) parts.add('${currentEffectivePpi!.round()} PPI');
+      if (isUpscaledForPrint) parts.add('විශාල කළ (${upscaleMultiplier.toStringAsFixed(1)}x)');
       if (advancedBwEnabled) parts.add('විශේෂ කළු-සුදු (${_bwToneToSinhala(advancedBwTone)})');
       if (photoIdLayoutEnabled) parts.add('පාස්පෝට් ෆොටෝ ($photosCount ක්)');
       if (cdDvdPrintEnabled) parts.add('CD/DVD තැටි මුද්‍රණය');
@@ -436,6 +459,14 @@ class UnifiedPrintSettings {
     bool? advancedBwEnabled,
     AdvancedBwTone? advancedBwTone,
     int? customDpi,
+    int? hardwareDpi,
+    RenderDpiChoice? renderDpi,
+    ResamplingAlgorithm? resampleFilter,
+    bool? isUpscaledForPrint,
+    double? upscaleMultiplier,
+    bool? keepVectorGraphics,
+    double? currentEffectivePpi,
+    List<ResamplingLogRecord>? resamplingHistory,
     HalftoneScreening? halftoneScreening,
     bool? biDirectionalPrinting,
     int? inkDensityPercent,
@@ -521,6 +552,14 @@ class UnifiedPrintSettings {
       advancedBwEnabled: advancedBwEnabled ?? this.advancedBwEnabled,
       advancedBwTone: advancedBwTone ?? this.advancedBwTone,
       customDpi: customDpi ?? this.customDpi,
+      hardwareDpi: hardwareDpi ?? this.hardwareDpi,
+      renderDpi: renderDpi ?? this.renderDpi,
+      resampleFilter: resampleFilter ?? this.resampleFilter,
+      isUpscaledForPrint: isUpscaledForPrint ?? this.isUpscaledForPrint,
+      upscaleMultiplier: upscaleMultiplier ?? this.upscaleMultiplier,
+      keepVectorGraphics: keepVectorGraphics ?? this.keepVectorGraphics,
+      currentEffectivePpi: currentEffectivePpi ?? this.currentEffectivePpi,
+      resamplingHistory: resamplingHistory ?? this.resamplingHistory,
       halftoneScreening: halftoneScreening ?? this.halftoneScreening,
       biDirectionalPrinting: biDirectionalPrinting ?? this.biDirectionalPrinting,
       inkDensityPercent: inkDensityPercent ?? this.inkDensityPercent,
@@ -791,6 +830,68 @@ class SettingsCapabilityValidator {
             descriptionEn: 'Switch back to standard paper printing.',
             descriptionSi: 'සාමාන්‍ය කඩදාසි මුද්‍රණයට මාරු වන්න.',
             applyFix: (s) => s.copyWith(cdDvdPrintEnabled: false),
+          ),
+        ),
+      );
+    }
+
+    // 6. Effective PPI Low Resolution Check
+    if (settings.currentEffectivePpi != null && settings.currentEffectivePpi! < 150.0) {
+      final ppiVal = settings.currentEffectivePpi!.round();
+      issues.add(
+        SettingsValidationIssue(
+          settingKey: 'effectivePpi',
+          messageEn: 'This photo will print at $ppiVal PPI on ${settings.paperSize} and may look soft or pixelated.',
+          messageSi: 'මෙම ඡායාරූපය ${settings.paperSize} කොළයේ මුද්‍රණය වන්නේ $ppiVal PPI අගයකින් බැවින් බොඳ වී පෙනිය හැක.',
+          isBlocking: false,
+          autoFix: SettingsAutoFixAction(
+            labelEn: 'Upscale with Lanczos (2x)',
+            labelSi: 'Lanczos (2x) මඟින් විශාල කරන්න',
+            descriptionEn: 'High-fidelity windowed sinc resampling to increase printed pixels.',
+            descriptionSi: 'Lanczos-3 ක්‍රමයෙන් පික්සල් වැඩි කර පැහැදිලි බව රැකගන්න.',
+            applyFix: (s) => s.copyWith(
+              isUpscaledForPrint: true,
+              upscaleMultiplier: 2.0,
+              resampleFilter: ResamplingAlgorithm.lanczos,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 7. Media Type vs Hardware DPI Droplet Volume Check
+    if (settings.hardwareDpi >= 2400 && settings.mediaType.toLowerCase().contains('plain')) {
+      issues.add(
+        SettingsValidationIssue(
+          settingKey: 'hardwareDpi',
+          messageEn: 'Plain paper cannot absorb ${settings.hardwareDpi} DPI droplet volume without cockling/bleeding.',
+          messageSi: 'සාමාන්‍ය කඩදාසිවලට ${settings.hardwareDpi} DPI තීන්ත ප්‍රමාණය උරාගත නොහැකි බැවින් තීන්ත බොඳ විය හැක.',
+          isBlocking: false,
+          autoFix: SettingsAutoFixAction(
+            labelEn: 'Switch to 600 DPI Normal',
+            labelSi: '600 DPI සාමාන්‍ය තෝරන්න',
+            descriptionEn: 'Use balanced 600 DPI suitable for plain paper.',
+            descriptionSi: 'සාමාන්‍ය කඩදාසි සඳහා 600 DPI යොදන්න.',
+            applyFix: (s) => s.copyWith(hardwareDpi: 600),
+          ),
+        ),
+      );
+    }
+
+    // 8. Large Render DPI Memory Warning
+    if (settings.renderDpi == RenderDpiChoice.dpi1200) {
+      issues.add(
+        SettingsValidationIssue(
+          settingKey: 'renderDpi',
+          messageEn: '1200 Render DPI consumes ~420 MB RAM per page. Vector text will be preserved where driver allows.',
+          messageSi: '1200 Render DPI මඟින් එක් පිටුවකට ~420 MB මතකයක් වැයවේ. අකුරු vector ලෙසම සුරැකේ.',
+          isBlocking: false,
+          autoFix: SettingsAutoFixAction(
+            labelEn: 'Switch to Auto Render DPI',
+            labelSi: 'ස්වයංක්‍රීය Render DPI තෝරන්න',
+            descriptionEn: 'Use dynamic rasterization DPI based on printer hardware.',
+            descriptionSi: 'ප්‍රින්ටරයට ගැලපෙන පරිදි ස්වයංක්‍රීයව සකසන්න.',
+            applyFix: (s) => s.copyWith(renderDpi: RenderDpiChoice.auto),
           ),
         ),
       );
