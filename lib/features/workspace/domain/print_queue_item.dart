@@ -84,6 +84,9 @@ class FilePrintSettings {
     this.footerText = '',
     this.showPageNumbers = false,
     this.scaleFitToPage = true,
+    this.targetDpi = 600,
+    this.resampleAlgorithm = 'bicubic',
+    this.renderDpiChoice = 'auto',
     this.textFontFamily = 'NotoSansSinhala',
     this.textFontSizePt = 11.0,
     this.textLineSpacing = 1.4,
@@ -121,6 +124,9 @@ class FilePrintSettings {
   final String footerText;
   final bool showPageNumbers;
   final bool scaleFitToPage;
+  final int targetDpi;
+  final String resampleAlgorithm;
+  final String renderDpiChoice;
   final String textFontFamily;
   final double textFontSizePt;
   final double textLineSpacing;
@@ -190,6 +196,9 @@ class FilePrintSettings {
     String? footerText,
     bool? showPageNumbers,
     bool? scaleFitToPage,
+    int? targetDpi,
+    String? resampleAlgorithm,
+    String? renderDpiChoice,
     String? textFontFamily,
     double? textFontSizePt,
     double? textLineSpacing,
@@ -227,6 +236,9 @@ class FilePrintSettings {
       footerText: footerText ?? this.footerText,
       showPageNumbers: showPageNumbers ?? this.showPageNumbers,
       scaleFitToPage: scaleFitToPage ?? this.scaleFitToPage,
+      targetDpi: targetDpi ?? this.targetDpi,
+      resampleAlgorithm: resampleAlgorithm ?? this.resampleAlgorithm,
+      renderDpiChoice: renderDpiChoice ?? this.renderDpiChoice,
       textFontFamily: textFontFamily ?? this.textFontFamily,
       textFontSizePt: textFontSizePt ?? this.textFontSizePt,
       textLineSpacing: textLineSpacing ?? this.textLineSpacing,
