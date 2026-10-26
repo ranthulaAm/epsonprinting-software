@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Print Helper, Shop POS & PDF Studio — Live Web Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Sinhala:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Full-Window Drop Overlay -->
+  <div id="globalDropOverlay" class="global-drop-overlay hidden">
+    <div class="drop-modal-box">
+      <span class="material-symbols-rounded drop-icon">upload_file</span>
+      <h2 id="dropHeadline">Drop files anywhere to open or print</h2>
+      <p id="dropSub">Files are automatically added to Print Queue & loaded into PDF Toolkit</p>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Command Palette Modal (Ctrl+K / Cmd+K) -->
+  <div id="commandPaletteModal" class="modal-overlay hidden">
+    <div class="cmd-palette-box">
+      <div class="cmd-input-row">
+        <span class="material-symbols-rounded">search</span>
+        <input type="text" id="cmdInput" placeholder="Type a command, tool or file name... (e.g. Shop POS, OCR, Duplex, Receipt, Merge)" autofocus>
+        <span class="kbd-badge">ESC</span>
+      </div>
+      <div class="cmd-results" id="cmdResults">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual Duplex Visual Assistant Dialog Modal -->
+  <div id="manualDuplexModal" class="modal-overlay hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded" style="color:var(--primary)">flip</span>
+          <h3>Manual Duplex Paper Turn Assistant</h3>
+        </div>
+        <button class="btn-ghost btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="duplex-animation-box">
+          <div class="duplex-step-card active" id="duplexStep1">
+            <span class="step-num-pill">Step 1 of 2</span>
+            <h4>Odd Pages Completed</h4>
+            <p>Your printer has finished printing the front side (Pages 1, 3, 5). Take the printed stack from the output tray.</p>
+            <div class="paper-flip-visual">
+              <div class="animated-paper-sheet">
+                <span>FRONT (ODD)</span>
+              </div>
+              <span class="material-symbols-rounded flip-arrow">sync</span>
+            </div>
+            <p class="flip-instruction">Rotate the stack 180° so the printed side faces down, and place back into <strong>Tray 1</strong>.</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal">Cancel</button>
+        <button class="btn btn-primary" id="btnResumeEvenDuplex">
+          <span class="material-symbols-rounded">play_arrow</span>
+          <span>Resume & Print Even Pages</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Receipt Modal -->
+  <div id="receiptModal" class="modal-overlay hidden">
+    <div class="modal-dialog receipt-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded">receipt_long</span>
+          <h3>Print Shop Customer Receipt</h3>
+        </div>
+        <button class="btn-ghost btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="receipt-thermal-paper" id="receiptPaper">
+          <div class="receipt-header">
+            <h4>PRINT HELPER SHOP & COPY CENTER</h4>
+            <p>No. 45, Galle Road, Colombo • Tel: +94 11 234 5678</p>
+            <p class="receipt-dt" id="receiptDateTime">2026-10-26 23:30 • CASHIER #01</p>
+            <div class="receipt-divider">-----------------------------------------</div>
+          </div>
+          <div class="receipt-customer-row">
+            <span id="rcptCustomerName">Customer: Walk-in Client</span>
+            <span id="rcptJobCode">Ticket: #SHP-4089</span>
+          </div>
+          <div class="receipt-divider">-----------------------------------------</div>
+          <div class="receipt-items-list" id="rcptItemsList">
+            <div class="r-item"><span>Audit Report (14 pgs B&W Duplex)</span><span>LKR 140.00</span></div>
+            <div class="r-item"><span>Product Mockup (2 pgs Color Photo)</span><span>LKR 80.00</span></div>
+          </div>
+          <div class="receipt-divider">-----------------------------------------</div>
+          <div class="receipt-totals">
+            <div class="r-total-row"><span>Subtotal</span><span id="rcptSubtotal">LKR 220.00</span></div>
+            <div class="r-total-row"><span>Discount</span><span>LKR 0.00</span></div>
+            <div class="r-total-row grand"><span>TOTAL AMOUNT</span><span id="rcptGrandTotal">LKR 220.00</span></div>
+          </div>
+          <div class="receipt-divider">-----------------------------------------</div>
+          <div class="receipt-footer">
+            <p>Thank you for printing with us!</p>
+            <p>ස්තූතියි • Please retain this ticket for pickup</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal">Close</button>
+        <button class="btn btn-tonal" id="btnSaveReceiptPdf">
+          <span class="material-symbols-rounded">save</span>
+          <span>Save PDF</span>
+        </button>
+        <button class="btn btn-primary" id="btnPrintReceiptThermal">
+          <span class="material-symbols-rounded">print</span>
+          <span>Print Receipt</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Print Preview Dialog Modal -->
+  <div id="livePreviewModal" class="modal-overlay hidden">
+    <div class="modal-dialog preview-dialog-wide">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded">pageview</span>
+          <h3>Live Sheet Layout Preview & Imposition</h3>
+        </div>
+        <button class="btn-ghost btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body preview-body-layout">
+        <div class="sheet-viewport">
+          <div class="paper-sheet" id="paperSheetPreview">
+            <div class="sheet-watermark" id="sheetWatermarkText"></div>
+            <div class="sheet-grid" id="sheetPagesGrid">
+              <div class="sheet-page-cell">
+                <span class="page-num-badge">P. 1</span>
+                <div class="mock-doc-lines">
+                  <div class="mline title"></div>
+                  <div class="mline"></div>
+                  <div class="mline"></div>
+                  <div class="mline short"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="sheet-footer-info" id="sheetFooterInfo">
+            Sheet 1 of 4 • A4 (210 × 297 mm) • 1-Up Portrait
+          </div>
+        </div>
+
+        <div class="preview-controls-pane">
+          <h4>Layout & Imposition</h4>
+          <label>Pages Per Sheet (N-Up)</label>
+          <div class="segmented-toggle">
+            <button class="seg-btn active" data-nup="1">1-Up</button>
+            <button class="seg-btn" data-nup="2">2-Up</button>
+            <button class="seg-btn" data-nup="4">4-Up</button>
+            <button class="seg-btn" data-nup="booklet">Booklet</button>
+          </div>
+
+          <label>Margins & Scale</label>
+          <select id="selPreviewMargins" class="form-select">
+            <option value="standard">Standard (12 mm)</option>
+            <option value="none">Zero Margins (Borderless / 100%)</option>
+            <option value="fit">Fit to Printable Area</option>
+          </select>
+
+          <label>Orientation</label>
+          <div class="segmented-toggle">
+            <button class="seg-btn active" data-sheet-orient="portrait">Portrait</button>
+            <button class="seg-btn" data-sheet-orient="landscape">Landscape</button>
+          </div>
+
+          <label>Duplex Turn</label>
+          <select id="selPreviewDuplex" class="form-select">
+            <option value="long">Flip on Long Edge (Standard Book)</option>
+            <option value="short">Flip on Short Edge (Notepad)</option>
+            <option value="none">One-Sided</option>
+          </select>
+
+          <button class="btn btn-primary" id="btnConfirmPrintFromPreview" style="margin-top:auto;">
+            <span class="material-symbols-rounded">print</span>
+            <span>Print with These Settings</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Epson Diagnostics & Matrix Modal -->
+  <div id="epsonDiagModal" class="modal-overlay hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded" style="color:#0b57d0">precision_manufacturing</span>
+          <h3>Epson Diagnostics & Maintenance Matrix</h3>
+        </div>
+        <button class="btn-ghost btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px; color:var(--text-muted);">Execute low-level ESC/P-R diagnostic commands directly with your Epson EcoTank printer.</p>
+        
+        <div class="epson-service-list">
+          <div class="diag-action-card">
+            <div>
+              <strong>Nozzle Check Pattern</strong>
+              <p>Print a stepped test grid to detect clogged printhead nozzles</p>
+            </div>
+            <button class="btn btn-tonal btn-sm" onclick="showToast('🖨️ Sent Nozzle Check command to Epson L3250')">Run Test</button>
+          </div>
+
+          <div class="diag-action-card">
+            <div>
+              <strong>Head Cleaning Cycle</strong>
+              <p>Purge printhead nozzles with gentle micro-piezo pulses</p>
+            </div>
+            <button class="btn btn-tonal btn-sm" onclick="showToast('⚙️ Head cleaning in progress (estimated 90s)...')">Clean Head</button>
+          </div>
+
+          <div class="diag-action-card">
+            <div>
+              <strong>Ink Pad Counter Status</strong>
+              <p>Waste ink sponge saturation: <strong>23% (Good)</strong></p>
+            </div>
+            <span class="badge-active">Healthy</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Printer Abilities & Discovered Capabilities Modal -->
+  <div id="modalPrinterAbilities" class="modal-overlay hidden">
+    <div class="modal-dialog abilities-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded">tune</span>
+          <div>
+            <h3 id="abilitiesModalTitle">Printer Abilities & Features</h3>
+            <p class="subtitle" id="abilitiesModalSubtitle">Epson EcoTank L3250 • Verified Hardware Profile</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnCloseAbilitiesModal">&times;</button>
+      </div>
+      <div class="modal-body abilities-modal-body">
+        <!-- Technology & Supply Trait -->
+        <div class="abilities-group">
+          <h4>Technology & Supply System</h4>
+          <div class="trait-pills" id="abilitiesTechPills">
+            <span class="pill-badge accent">Continuous Ink Tank</span>
+            <span class="pill-badge muted">CMYK Dye</span>
+            <span class="pill-badge warning">Visual / Estimated Levels</span>
+            <span class="pill-badge muted">Waste Ink Pad Counter</span>
+          </div>
+        </div>
+
+        <!-- Paper & Trays -->
+        <div class="abilities-group">
+          <h4>Supported Paper & Trays</h4>
+          <p id="abilitiesPaperSizes"><strong>Sizes:</strong> A4, Letter, Legal, A5, A6, B5, 4x6 in, 5x7 in, Envelope #10, DL</p>
+          <p id="abilitiesMediaTypes"><strong>Media:</strong> Plain Paper, Epson Matte, Epson Premium Glossy, Photo Paper Glossy, Envelope</p>
+          <p id="abilitiesTrays"><strong>Trays:</strong> Rear Paper Feed Slot (100 sheets)</p>
+        </div>
+
+        <!-- Print Features -->
+        <div class="abilities-group">
+          <h4>Hardware Capabilities</h4>
+          <div class="trait-pills" id="abilitiesFeaturePills">
+            <span class="pill-badge warning">Manual Duplex Assistant Only</span>
+            <span class="pill-badge teal">Borderless (up to A4)</span>
+            <span class="pill-badge muted">Max 5760x1440 DPI</span>
+          </div>
+        </div>
+
+        <!-- Professional Capabilities -->
+        <div class="abilities-group">
+          <h4>Professional Features</h4>
+          <div class="trait-pills" id="abilitiesProPills">
+            <span class="pill-badge accent">ICC Color Management</span>
+            <span class="pill-badge muted">N-Up Grid & Booklet</span>
+            <span class="pill-badge muted">Passport Photo Sheet</span>
+            <span class="pill-badge muted">Document Stamps</span>
+          </div>
+        </div>
+
+        <!-- Data Sources Provenance -->
+        <div class="abilities-group">
+          <h4>Capability Provenance & Data Sources</h4>
+          <div class="provenance-list" id="abilitiesProvenanceList">
+            <div>• <strong>Duplex:</strong> Win32 DeviceCapabilities (Heuristic inference)</div>
+            <div>• <strong>Paper Sizes:</strong> epson_profiles.json (Verified hardware profile)</div>
+            <div>• <strong>Trays & Supplies:</strong> IPP / SNMP Telemetry (RFC 8011 & RFC 3805)</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btnCaptureDriverPrefs">
+          <span class="material-symbols-rounded">settings_applications</span>
+          <span>Capture Driver Preferences</span>
+        </button>
+        <div class="footer-spacer"></div>
+        <button class="btn btn-outline" id="btnCopyAbilitiesDiag">
+          <span class="material-symbols-rounded">content_copy</span>
+          <span>Copy Diagnostics</span>
+        </button>
+        <button class="btn btn-primary" id="btnDoneAbilitiesModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Non-blocking Hot-Plug / Spooler Toast Notification -->
+  <div id="hotPlugToast" class="hot-plug-toast hidden">
+    <span class="material-symbols-rounded">print</span>
+    <span class="toast-msg" id="hotPlugToastMsg">Epson L3250 connected. Reading printer features...</span>
+  </div>
+
+  <!-- Main App Shell -->
+  <div class="app-window">
+    <!-- Custom Frameless Title Bar -->
+    <header class="title-bar">
+      <div class="window-controls">
+        <span class="dot close"></span>
+        <span class="dot minimize"></span>
+        <span class="dot maximize"></span>
+      </div>
+
+      <div class="app-branding">
+        <span class="material-symbols-rounded app-icon">print</span>
+        <span class="app-title" id="lblAppTitle">Print Helper</span>
+        <span class="offline-badge">
+          <span class="material-symbols-rounded badge-icon">shield</span>
+          <span id="lblOffline">100% Offline</span>
+        </span>
+      </div>
+
+      <!-- Quick Command Search Bar (Ctrl+K) -->
+      <button class="search-command-pill" id="btnOpenCommandPalette" title="Search all tools and commands (Ctrl+K / Cmd+K)">
+        <span class="material-symbols-rounded">search</span>
+        <span class="search-placeholder">Search tools, actions (Ctrl+K)...</span>
+        <span class="kbd-shortcut">⌘K</span>
+      </button>
+
+      <div class="title-bar-actions">
+        <!-- Sample batch populate button -->
+        <button id="btnLoadDemo" class="btn-ghost" title="Quickly populate sample files">
+          <span class="material-symbols-rounded">auto_awesome</span>
+          <span>Sample Batch</span>
+        </button>
+
+        <!-- Language Switcher -->
+        <button id="btnLangToggle" class="btn-ghost" title="Switch Language (EN / සිංහල)">
+          <span class="material-symbols-rounded">translate</span>
+          <span id="currentLangLabel">සිංහල</span>
+        </button>
+
+        <!-- Theme Toggle -->
+        <button id="btnThemeToggle" class="btn-ghost" title="Toggle Light / Dark theme">
+          <span class="material-symbols-rounded" id="themeIcon">light_mode</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <div class="workspace-body">
+      <!-- Material 3 Navigation Rail (Exact 6 Branches: Print, Printers, Jobs, Tools, Shop, Settings) -->
+      <nav class="nav-rail">
+        <button class="nav-item active" data-tab="print" title="Print">
+          <div class="nav-icon-wrap">
+            <span class="material-symbols-rounded">print</span>
+            <span class="nav-badge hidden" id="railBadge">0</span>
+          </div>
+          <span class="nav-label" id="lblNavPrint">Print</span>
+        </button>
+
+        <button class="nav-item" data-tab="printers" title="Printers">
+          <div class="nav-icon-wrap">
+            <span class="material-symbols-rounded">router</span>
+          </div>
+          <span class="nav-label" id="lblNavPrinters">Printers</span>
+        </button>
+
+        <button class="nav-item" data-tab="jobs" title="Jobs">
+          <div class="nav-icon-wrap">
+            <span class="material-symbols-rounded">layers</span>
+          </div>
+          <span class="nav-label" id="lblNavJobs">Jobs</span>
+        </button>
+
+        <button class="nav-item" data-tab="tools" title="Tools">
+          <div class="nav-icon-wrap">
+            <span class="material-symbols-rounded">picture_as_pdf</span>
+          </div>
+          <span class="nav-label" id="lblNavTools">Tools</span>
+        </button>
+
+        <button class="nav-item" data-tab="shop" title="Shop">
+          <div class="nav-icon-wrap">
+            <span class="material-symbols-rounded">point_of_sale</span>
+            <span class="shop-pulse-indicator"></span>
+          </div>
+          <span class="nav-label" id="lblNavShop">Shop</span>
+        </button>
+
+        <button class="nav-item" data-tab="settings" title="Settings">
+          <div class="nav-icon-wrap">
+            <span class="material-symbols-rounded">settings</span>
+          </div>
+          <span class="nav-label" id="lblNavSettings">Settings</span>
+        </button>
+      </nav>
+
+      <!-- View Containers -->
+      <main class="content-area">
+        <!-- 1. PRINT TAB (Three Clear Zones) -->
+        <section id="tabPrint" class="tab-pane active">
+          <!-- Top Responsive Queue Toggle (shown when screen < 1100px) -->
+          <div class="responsive-queue-toggle-bar">
+            <button class="btn btn-outline btn-sm" id="btnToggleQueueDrawer">
+              <span class="material-symbols-rounded">queue</span>
+              <span id="lblToggleQueueDrawer">Files (0)</span>
+            </button>
+            <button class="btn btn-tonal btn-sm" id="btnResponsiveAddFiles">
+              <span class="material-symbols-rounded">add</span>
+              <span id="lblResponsiveAdd">Add Files</span>
+            </button>
+            <span class="spacer"></span>
+            <span class="total-pages-tag" id="lblResponsiveTotalPages">0 pages</span>
+          </div>
+
+          <div class="workspace-three-zones">
+            <!-- ZONE 1: Left Queue & Drop Zone (~30% when >= 1100px; drawer when < 1100px) -->
+            <div class="zone-left-queue" id="zoneLeftQueue">
+              <div class="zone-card">
+                <div class="zone-header">
+                  <h3 id="lblQueueHeader">Files to Print</h3>
+                  <span class="badge" id="lblQueueCount">0 files</span>
+                </div>
+                <!-- Pinned Drop Box -->
+                <div class="pinned-drop-box" id="pinnedDropBox">
+                  <span class="material-symbols-rounded drop-icon">upload_file</span>
+                  <p id="lblDropZoneTitle">Drop files here to print</p>
+                  <div class="drop-actions-row">
+                    <button class="btn btn-tonal btn-sm" id="btnPickFilesTop">
+                      <span class="material-symbols-rounded">add</span>
+                      <span id="lblBtnAddTop">Add Files</span>
+                    </button>
+                    <button class="btn btn-outline btn-sm" id="btnPasteFilesTop">Ctrl+V</button>
+                  </div>
+                </div>
+                <!-- Scrollable File List -->
+                <div class="queue-scroll-list" id="queueScrollList">
+                  <div class="empty-queue-msg" id="emptyQueueMsg">
+                    <span class="material-symbols-rounded">folder_open</span>
+                    <p id="lblQueueEmptyHint">No files added yet</p>
+                  </div>
+                  <div id="cardsList" class="cards-list"></div>
+                </div>
+                <div class="queue-bottom-row" id="queueBottomRow">
+                  <button class="btn btn-ghost btn-sm text-danger" id="btnClearAll">
+                    <span id="lblBtnClearQueue">Clear All</span>
+                  </button>
+                  <span class="summary-pages" id="queueSummaryText">0 pages</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ZONE 2: Center Live Document Preview (~45%) -->
+            <div class="zone-center-preview">
+              <div class="zone-card preview-card">
+                <div class="zone-header">
+                  <h3 id="lblPreviewHeader">Preview</h3>
+                  <span class="badge" id="lblPreviewDocInfo">A4 • Color</span>
+                </div>
+                <div class="preview-canvas-area" id="previewCanvasArea">
+                  <div class="paper-sheet-simulated" id="paperSheetSimulated">
+                    <div class="sheet-header-mock">
+                      <div class="mock-icon"></div>
+                      <div class="mock-lines"><div></div><div></div></div>
+                    </div>
+                    <div class="sheet-body-mock">
+                      <div></div><div></div><div></div><div></div><div></div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Pinned Bottom Navigation & Zoom Bar -->
+                <div class="preview-bottom-bar">
+                  <button class="btn btn-ghost btn-sm" id="btnPrevPage">
+                    <span class="material-symbols-rounded">chevron_left</span>
+                    <span id="lblPrevPage">Previous</span>
+                  </button>
+                  <span class="page-counter" id="lblPageCounter">Page 1 of 1</span>
+                  <button class="btn btn-ghost btn-sm" id="btnNextPage">
+                    <span id="lblNextPage">Next</span>
+                    <span class="material-symbols-rounded">chevron_right</span>
+                  </button>
+                  <div class="zoom-controls">
+                    <button class="btn-icon-sm" id="btnZoomOut">-</button>
+                    <span id="lblZoomLevel">100%</span>
+                    <button class="btn-icon-sm" id="btnZoomIn">+</button>
+                    <button class="btn btn-outline btn-sm" id="btnFitPage">Fit</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ZONE 3: Right Print Panel (~25%, min 320px) with Pinned Print Button -->
+            <div class="zone-right-settings">
+              <div class="zone-card print-settings-card">
+                <div class="zone-header">
+                  <h3 id="lblPrintSettingsHeader">Print Settings</h3>
+                </div>
+
+                <!-- 1. Tier Switcher Bar (Basic | Standard | Professional) -->
+                <div class="tier-switcher" id="tierSwitcher">
+                  <button class="tier-btn active" data-tier="basic" id="btnTierBasic">Basic</button>
+                  <button class="tier-btn" data-tier="standard" id="btnTierStandard">Standard</button>
+                  <button class="tier-btn" data-tier="professional" id="btnTierPro">Professional</button>
+                </div>
+
+                <!-- 2. Search & Only Changed Filter Bar -->
+                <div class="settings-search-row">
+                  <div class="search-input-wrap">
+                    <span class="material-symbols-rounded">search</span>
+                    <input type="text" id="txtSettingsSearch" placeholder="Search settings..." />
+                  </div>
+                  <button class="btn btn-outline btn-sm filter-btn" id="btnToggleOnlyChanged" title="Show only changed settings">
+                    <span class="material-symbols-rounded">filter_alt</span>
+                    <span id="lblFilterChanged">Changed</span>
+                  </button>
+                </div>
+
+                <!-- Scrollable Settings Zone: Never pushes Print button off screen! -->
+                <div class="settings-scroll-body" id="settingsScrollBody">
+                  <!-- Sticky Plain-Language Summary Strip -->
+                  <div class="sticky-summary-strip" id="stickySummaryStrip">
+                    <span class="material-symbols-rounded icon-info">info</span>
+                    <span class="summary-text" id="lblLiveSummaryText">A4, Plain Paper, Black & White, 2-sided, 1 copy</span>
+                  </div>
+
+                  <!-- Validation Conflicts & Auto-Fix Banner -->
+                  <div class="validation-alerts-container hidden" id="validationAlertsBox"></div>
+
+                  <!-- Printer Selector with Abilities Button -->
+                  <div class="form-row setting-item" data-keywords="printer driver model">
+                    <label id="lblPrinterSelect">Printer</label>
+                    <div class="select-with-button">
+                      <select id="printerSelect" class="form-select"></select>
+                      <button class="btn-icon-sm" id="btnOpenAbilities" title="View Printer Abilities & Diagnostics">
+                        <span class="material-symbols-rounded">tune</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Compact-by-default Expandable Printer Live Info -->
+                  <div class="printer-compact-info" id="printerCompactInfo">
+                    <div class="compact-header">
+                      <div class="status-left">
+                        <span class="status-dot ready"></span>
+                        <strong id="compactPrinterName">HP LaserJet Pro M404dn</strong>
+                      </div>
+                      <span class="badge-status ready" id="compactStatusBadge">Ready</span>
+                    </div>
+                    <div class="compact-supplies" id="compactSupplies">
+                      <div class="mini-bar-wrap"><span>K</span><div class="mini-bar"><div style="width:84%"></div></div></div>
+                      <div class="mini-bar-wrap"><span>C</span><div class="mini-bar"><div style="width:72%"></div></div></div>
+                      <div class="mini-bar-wrap"><span>M</span><div class="mini-bar"><div style="width:68%"></div></div></div>
+                      <div class="mini-bar-wrap"><span>Y</span><div class="mini-bar"><div style="width:80%"></div></div></div>
+                    </div>
+                    <div class="compact-paper-duplex">
+                      <span>A4 loaded</span> • <span>Auto Duplex</span>
+                    </div>
+                    <div class="compact-toggle" id="btnTogglePrinterDetails">
+                      <span id="lblToggleDetails">Show more details</span>
+                      <span class="material-symbols-rounded" id="iconToggleDetails">expand_more</span>
+                    </div>
+                    <div class="expanded-details hidden" id="printerExpandedDetails">
+                      <p>Trays: Tray 1 (A4 Loaded), Tray 2 (Empty)</p>
+                      <p>Capabilities: Auto Duplex, High-DPI</p>
+                      <button class="btn btn-outline btn-sm" id="btnCopyDiag">Copy printer diagnostics</button>
+                    </div>
+                  </div>
+
+                  <!-- SECTION: BASIC SETTINGS -->
+                  <div class="settings-section" id="sectionBasicSettings">
+                    <!-- Copies -->
+                    <div class="form-row setting-item" data-keywords="copies quantity පිටපත්">
+                      <label id="lblCopies">Copies</label>
+                      <div class="stepper">
+                        <button id="btnCopiesMinus">-</button>
+                        <span id="lblCopiesValue">1</span>
+                        <button id="btnCopiesPlus">+</button>
+                      </div>
+                    </div>
+
+                    <!-- Page Range -->
+                    <div class="form-row setting-item" data-keywords="page range subset පිටු">
+                      <label id="lblPageRange">Page Range</label>
+                      <input type="text" id="txtPageRange" class="form-input form-input-sm" placeholder="All (e.g. 1-3, 5)" />
+                    </div>
+
+                    <!-- Color Mode -->
+                    <div class="form-row setting-item" data-keywords="color bw mono පාට">
+                      <label id="lblColor">Color</label>
+                      <div class="segmented-control">
+                        <button class="seg-btn active" id="btnColorColor">Color</button>
+                        <button class="seg-btn" id="btnColorBw">B&W</button>
+                      </div>
+                    </div>
+
+                    <!-- Sides / Duplex -->
+                    <div class="form-row setting-item" data-keywords="sides duplex double single දෙපැත්ත">
+                      <label id="lblSides">Sides</label>
+                      <div class="select-with-button">
+                        <select id="selSides" class="form-select">
+                          <option value="single">Single-sided</option>
+                          <option value="double-long" selected>Two-sided (Long Edge)</option>
+                          <option value="double-short">Two-sided (Short Edge)</option>
+                        </select>
+                        <button class="btn-icon-sm" id="btnOpenDuplexAssist" title="Manual Duplex Assistant">
+                          <span class="material-symbols-rounded">flip_to_back</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Paper Size -->
+                    <div class="form-row setting-item" data-keywords="paper size a4 letter legal photo ප්‍රමාණය">
+                      <label id="lblPaperSize">Paper Size</label>
+                      <select id="selPaperSize" class="form-select">
+                        <option value="A4" selected>A4</option>
+                        <option value="Letter">Letter</option>
+                        <option value="Legal">Legal</option>
+                        <option value="Photo 4x6">Photo 4x6</option>
+                      </select>
+                    </div>
+
+                    <!-- Orientation -->
+                    <div class="form-row setting-item" data-keywords="orientation portrait landscape දිශාව">
+                      <label id="lblOrientation">Orientation</label>
+                      <div class="segmented-control">
+                        <button class="seg-btn active" id="btnOrientPort">Portrait</button>
+                        <button class="seg-btn" id="btnOrientLand">Landscape</button>
+                      </div>
+                    </div>
+
+                    <!-- Fit to Page -->
+                    <div class="form-row setting-item" data-keywords="fit scale page">
+                      <label id="lblFitToPage">Fit to Page</label>
+                      <input type="checkbox" id="chkFitToPage" checked />
+                    </div>
+                  </div>
+
+                  <!-- SECTION: STANDARD SETTINGS -->
+                  <div class="settings-section hidden" id="sectionStandardSettings">
+                    <div class="section-divider-label">
+                      <span class="material-symbols-rounded">tune</span>
+                      <strong id="lblStandardHeader">Standard Office Options</strong>
+                    </div>
+
+                    <!-- Paper Type -->
+                    <div class="form-row setting-item" data-keywords="paper type media plain glossy matte envelope කඩදාසි">
+                      <label id="lblPaperType">Paper Type</label>
+                      <select id="selPaperType" class="form-select">
+                        <option value="Plain Paper" selected>Plain Paper</option>
+                        <option value="Epson Matte">Epson Matte</option>
+                        <option value="Epson Premium Glossy">Photo Paper Glossy</option>
+                        <option value="Envelope">Envelope</option>
+                      </select>
+                    </div>
+
+                    <!-- Print Quality -->
+                    <div class="form-row setting-item" data-keywords="quality draft normal high best ගුණාත්මක">
+                      <label id="lblQuality">Print Quality</label>
+                      <select id="selQuality" class="form-select">
+                        <option value="draft">Draft (Fast)</option>
+                        <option value="normal" selected>Standard (Normal)</option>
+                        <option value="high">High Quality</option>
+                      </select>
+                    </div>
+
+                    <!-- Paper Tray -->
+                    <div class="form-row setting-item" data-keywords="tray cassette feed තැටිය">
+                      <label id="lblPaperTray">Paper Tray</label>
+                      <select id="selPaperTray" class="form-select">
+                        <option value="Auto Select">Auto Select</option>
+                        <option value="Main Cassette">Main Cassette</option>
+                        <option value="Rear Feed Slot">Rear Feed Slot</option>
+                      </select>
+                    </div>
+
+                    <!-- Pages Per Sheet (N-Up) -->
+                    <div class="form-row setting-item" data-keywords="nup pages sheet grid">
+                      <label id="lblPagesPerSheet">Pages per Sheet</label>
+                      <select id="selPagesPerSheet" class="form-select">
+                        <option value="1" selected>1 page (Normal)</option>
+                        <option value="2">2 pages per sheet</option>
+                        <option value="4">4 pages per sheet</option>
+                        <option value="6">6 pages per sheet</option>
+                        <option value="9">9 pages per sheet</option>
+                      </select>
+                    </div>
+
+                    <!-- Borderless -->
+                    <div class="form-row setting-item" data-keywords="borderless margins photo දාර">
+                      <label id="lblBorderless">Borderless</label>
+                      <input type="checkbox" id="chkBorderless" />
+                    </div>
+
+                    <!-- Collate & Reverse -->
+                    <div class="form-row-checkboxes setting-item" data-keywords="collate reverse">
+                      <label class="checkbox-inline">
+                        <input type="checkbox" id="chkCollate" checked />
+                        <span id="lblCollate">Collate</span>
+                      </label>
+                      <label class="checkbox-inline">
+                        <input type="checkbox" id="chkReverseOrder" />
+                        <span id="lblReverseOrder">Reverse Order</span>
+                      </label>
+                    </div>
+
+                    <!-- Ink-Saving & Black Ink Only -->
+                    <div class="form-row-checkboxes setting-item" data-keywords="ink saving black only economy">
+                      <label class="checkbox-inline">
+                        <input type="checkbox" id="chkInkSaving" />
+                        <span id="lblInkSaving">Ink-Saving Mode</span>
+                      </label>
+                      <label class="checkbox-inline">
+                        <input type="checkbox" id="chkBlackOnly" />
+                        <span id="lblBlackOnly">Black Ink Only</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- SECTION: PROFESSIONAL SETTINGS -->
+                  <div class="settings-section hidden" id="sectionProSettings">
+                    <div class="section-divider-label">
+                      <span class="material-symbols-rounded">auto_awesome</span>
+                      <strong id="lblProHeader">Professional Color & Imposition</strong>
+                    </div>
+
+                    <!-- Color Management -->
+                    <div class="form-row setting-item" data-keywords="color management icc profile proofing">
+                      <label id="lblColorManagement">Color Mgmt</label>
+                      <select id="selColorMgmtMode" class="form-select">
+                        <option value="driver" selected>Driver Managed (Recommended)</option>
+                        <option value="app">App Managed (ICC Profile)</option>
+                        <option value="off">No Color Management (Raw RGB)</option>
+                      </select>
+                    </div>
+
+                    <div class="form-row setting-item pro-sub-row hidden" id="rowIccProfile" data-keywords="icc profile rgb cmyk">
+                      <label>ICC Profile</label>
+                      <select id="selIccProfile" class="form-select">
+                        <option value="sRGB">sRGB IEC61966-2.1</option>
+                        <option value="AdobeRGB">Adobe RGB (1998)</option>
+                        <option value="EpsonStandard">Epson Standard (RGB)</option>
+                        <option value="EpsonGlossy">Epson Premium Glossy Photo</option>
+                      </select>
+                    </div>
+
+                    <!-- Advanced B&W Toning -->
+                    <div class="form-row setting-item" data-keywords="bw tone sepia warm cool monochromatic">
+                      <label id="lblAdvBw">Advanced B&W</label>
+                      <div class="select-with-button">
+                        <input type="checkbox" id="chkAdvBw" />
+                        <select id="selBwTone" class="form-select" disabled>
+                          <option value="neutral">Neutral Black</option>
+                          <option value="cool">Cool Tone (Blue)</option>
+                          <option value="warm">Warm Tone (Soft)</option>
+                          <option value="sepia">Sepia (Brown)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Resolution (DPI) -->
+                    <div class="form-row setting-item" data-keywords="resolution dpi quality 600 1200 5760">
+                      <label>Resolution</label>
+                      <select id="selCustomDpi" class="form-select">
+                        <option value="300">300 DPI (Draft)</option>
+                        <option value="600" selected>600 DPI (Normal)</option>
+                        <option value="1200">1200 DPI (High)</option>
+                        <option value="5760">5760x1440 DPI (Photo Best)</option>
+                      </select>
+                    </div>
+
+                    <!-- Sheet Imposition -->
+                    <div class="form-row setting-item" data-keywords="imposition booklet step repeat poster banner">
+                      <label>Imposition</label>
+                      <select id="selImpositionMode" class="form-select">
+                        <option value="standard" selected>Standard (1-Up)</option>
+                        <option value="booklet">Booklet (Saddle-Stitch)</option>
+                        <option value="stepRepeat">Step & Repeat (Labels)</option>
+                        <option value="poster">Poster Tiling (2x2 Sheets)</option>
+                        <option value="banner">Banner Panoramic</option>
+                      </select>
+                    </div>
+
+                    <!-- Passport & ID Photo Layout -->
+                    <div class="form-row setting-item" data-keywords="passport photo id visa පාස්පෝට්">
+                      <label id="lblPassportPhoto">Passport / ID</label>
+                      <div class="select-with-button">
+                        <input type="checkbox" id="chkPassportId" />
+                        <select id="selPassportPreset" class="form-select" disabled>
+                          <option value="passport35x45">Passport 35x45 mm (SL/EU)</option>
+                          <option value="visa2x2">Visa 2x2 in (US/Square)</option>
+                          <option value="id30x40">NIC / ID 30x40 mm</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- 4-step Borderless Expansion Bleed Slider -->
+                    <div class="form-row setting-item" id="rowBleedSlider" data-keywords="bleed borderless expansion overspray">
+                      <label>Expansion Bleed</label>
+                      <div class="slider-with-label">
+                        <input type="range" id="rangeBleed" min="0" max="3" step="1" value="2" />
+                        <span id="lblBleedStep">Mid</span>
+                      </div>
+                    </div>
+
+                    <!-- Document Stamp Overlay -->
+                    <div class="form-row setting-item" data-keywords="stamp watermark copy paid draft මුද්‍රාව">
+                      <label>Stamp Overlay</label>
+                      <select id="selStampOverlay" class="form-select">
+                        <option value="none" selected>None</option>
+                        <option value="COPY">COPY</option>
+                        <option value="PAID">PAID</option>
+                        <option value="DRAFT">DRAFT</option>
+                        <option value="sinhalaCopy">පිටපත (Sinhala Copy)</option>
+                        <option value="sinhalaPaid">ගෙවන ලදී (Sinhala Paid)</option>
+                        <option value="sinhalaDraft">කෙටුම්පත (Sinhala Draft)</option>
+                      </select>
+                    </div>
+
+                    <!-- Direct CD/DVD Print -->
+                    <div class="form-row setting-item" data-keywords="cd dvd disc print">
+                      <label>CD/DVD Print</label>
+                      <input type="checkbox" id="chkCdDvd" />
+                    </div>
+
+                    <!-- Staff Lock -->
+                    <div class="form-row setting-item" data-keywords="staff lock pin shop security">
+                      <label id="lblStaffLock">Staff Lock</label>
+                      <input type="checkbox" id="chkStaffLock" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Pinned Print Action Button: Fixed at bottom of panel, never scrolls! -->
+                <div class="pinned-print-bar">
+                  <button class="btn btn-primary btn-large btn-block" id="btnRightPrint">
+                    <span class="material-symbols-rounded">print</span>
+                    <span id="lblBtnRightPrint">Print</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. SHOP MODE POS & BILLING TAB (NEW) -->
+        <section id="tabShop" class="tab-pane">
+          <!-- Shop Mode Top Tabs (F1 Quick Print, F2 Customer Jobs, F3 Multi-Printer Fleet, F4 Price List & Report) -->
+          <div class="tools-subbar shop-mode-subbar">
+            <div class="segmented-toggle-pills" id="shopSubbar">
+              <button class="pill-btn active" data-shop-view="counter">
+                <span class="material-symbols-rounded">receipt_long</span>
+                <span>[F1] Quick Counter POS</span>
+              </button>
+              <button class="pill-btn" data-shop-view="customers">
+                <span class="material-symbols-rounded">badge</span>
+                <span>[F2] Customer Jobs & Scanner</span>
+              </button>
+              <button class="pill-btn" data-shop-view="fleet">
+                <span class="material-symbols-rounded">hub</span>
+                <span>[F3] Multi-Printer Live Fleet</span>
+              </button>
+              <button class="pill-btn" data-shop-view="pricing">
+                <span class="material-symbols-rounded">payments</span>
+                <span>[F4] Price List & Daily Report</span>
+              </button>
+            </div>
+            <div class="shop-cashier-badge">
+              <span class="material-symbols-rounded">storefront</span>
+              <span>Cashier: Counter #01 • Active Shift</span>
+            </div>
+          </div>
+
+          <!-- Shop Subview 1: Quick Counter Flow -->
+          <div class="subview-pane active" id="shopViewCounter">
+            <div class="shop-counter-grid">
+              <!-- Left: Customer Details & File Drop -->
+              <div class="shop-panel">
+                <h3>Customer Ticket & Batch Intake</h3>
+                <div class="form-row-2">
+                  <div>
+                    <label>Customer Name / Phone</label>
+                    <input type="text" id="shopCustomerName" placeholder="e.g. Kasun Perera (+94 77 123 4567)" class="form-input">
+                  </div>
+                  <div>
+                    <label>Pickup / Job Tag</label>
+                    <input type="text" id="shopJobTag" value="SHP-2026-0042" class="form-input" readonly>
+                  </div>
+                </div>
+
+                <div class="shop-drop-mini" id="shopDropMini">
+                  <span class="material-symbols-rounded">add_to_photos</span>
+                  <p>Drop Customer Files Here or Paste from USB Flash Drive</p>
+                  <button class="btn btn-tonal btn-sm" id="btnShopBrowseFiles">Browse Files...</button>
+                </div>
+
+                <!-- Customer active batch files -->
+                <div class="shop-batch-table">
+                  <table class="jobs-table">
+                    <thead>
+                      <tr><th>File</th><th>Pages</th><th>Color Mode</th><th>Duplex</th><th>Price</th></tr>
+                    </thead>
+                    <tbody id="shopBatchTbody">
+                      <tr><td>Annual_Report_Audit.pdf</td><td>14</td><td>B&W</td><td>2-Sided</td><td>LKR 140.00</td></tr>
+                      <tr><td>Product_Design_A4.png</td><td>2</td><td>Full Color</td><td>1-Sided</td><td>LKR 80.00</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Right: Real-time Cashier Total & Dispatch -->
+              <div class="shop-panel cashier-summary-panel">
+                <h3>Counter Billing & Dispatch</h3>
+                
+                <div class="bill-breakdown-box">
+                  <div class="bill-row"><span>Total Document Pages</span><strong>16 pages</strong></div>
+                  <div class="bill-row"><span>Black & White Pages (14 × LKR 10.00)</span><span>LKR 140.00</span></div>
+                  <div class="bill-row"><span>Color Pages (2 × LKR 40.00)</span><span>LKR 80.00</span></div>
+                  <div class="bill-row"><span>Binding / Lamination</span><span>LKR 0.00</span></div>
+                  <div class="bill-divider"></div>
+                  <div class="bill-row grand-total">
+                    <span>CUSTOMER TOTAL</span>
+                    <strong class="total-price" id="shopCalculatedTotal">LKR 220.00</strong>
+                  </div>
+                  <div class="bill-est-cost">
+                    Estimated Ink & Paper Supply Cost: <strong>LKR 46.50</strong> (Profit: <span class="text-success">LKR 173.50</span>)
+                  </div>
+                </div>
+
+                <div class="cashier-actions-col">
+                  <button class="btn btn-primary btn-large" id="btnShopPrintAndReceipt">
+                    <span class="material-symbols-rounded">point_of_sale</span>
+                    <span>Print Batch & Issue Receipt</span>
+                  </button>
+
+                  <div class="quick-counter-btns">
+                    <button class="btn btn-outline" id="btnReprintLastJob">
+                      <span class="material-symbols-rounded">replay</span>
+                      <span>1-Click Reprint Last Job</span>
+                    </button>
+                    <button class="btn btn-tonal" id="btnOpenReceiptPreview">
+                      <span class="material-symbols-rounded">receipt</span>
+                      <span>Thermal Receipt</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Shop Subview 2: Customer Jobs & Barcode Scanner -->
+          <div class="subview-pane" id="shopViewCustomers">
+            <div class="tab-header-row">
+              <div class="barcode-search-box">
+                <span class="material-symbols-rounded">barcode_scanner</span>
+                <input type="text" id="barcodeSearchInput" placeholder="Scan customer barcode or type Ticket ID (e.g. SHP-4089)..." class="form-input">
+              </div>
+              <button class="btn btn-primary btn-sm" id="btnNewCustomerTicket">
+                <span class="material-symbols-rounded">person_add</span>
+                <span>New Customer Ticket</span>
+              </button>
+            </div>
+
+            <div class="customer-jobs-grid" id="customerJobsGrid">
+              <!-- Customer Ticket 1 -->
+              <div class="cust-job-card">
+                <div class="cust-card-top">
+                  <div>
+                    <h4>Kasun Perera</h4>
+                    <span class="ticket-code">TICKET #SHP-4089</span>
+                  </div>
+                  <span class="badge-status status-printing">Printing (45%)</span>
+                </div>
+                <div class="cust-meta">
+                  <span>📄 2 Files • 16 Pages</span>
+                  <strong>LKR 220.00 (Paid)</strong>
+                </div>
+                <p class="cust-notes">Notes: Spiral bind report with transparent plastic cover.</p>
+                <div class="cust-card-actions">
+                  <button class="btn btn-tonal btn-sm btn-view-rcpt">Receipt</button>
+                  <button class="btn btn-outline btn-sm" onclick="showToast('Marked Ticket #SHP-4089 as Done')">Mark Done</button>
+                </div>
+              </div>
+
+              <!-- Customer Ticket 2 -->
+              <div class="cust-job-card">
+                <div class="cust-card-top">
+                  <div>
+                    <h4>Dilshan Fernando</h4>
+                    <span class="ticket-code">TICKET #SHP-4088</span>
+                  </div>
+                  <span class="badge-status status-done">Ready for Pickup</span>
+                </div>
+                <div class="cust-meta">
+                  <span>📄 1 File • 48 Pages</span>
+                  <strong>LKR 480.00 (Due)</strong>
+                </div>
+                <p class="cust-notes">Notes: Urgent thesis printing double-sided.</p>
+                <div class="cust-card-actions">
+                  <button class="btn btn-tonal btn-sm btn-view-rcpt">Receipt</button>
+                  <button class="btn btn-primary btn-sm" onclick="showToast('Ticket #SHP-4088 Picked up & Closed')">Hand Over</button>
+                </div>
+              </div>
+
+              <!-- Customer Ticket 3 -->
+              <div class="cust-job-card">
+                <div class="cust-card-top">
+                  <div>
+                    <h4>Ayesha Gunawardena</h4>
+                    <span class="ticket-code">TICKET #SHP-4087</span>
+                  </div>
+                  <span class="badge-status status-waiting">Waiting in Queue</span>
+                </div>
+                <div class="cust-meta">
+                  <span>📄 4 Files • 8 Pages Color</span>
+                  <strong>LKR 320.00 (Paid)</strong>
+                </div>
+                <p class="cust-notes">Notes: High-DPI photo flyers on gloss paper.</p>
+                <div class="cust-card-actions">
+                  <button class="btn btn-tonal btn-sm btn-view-rcpt">Receipt</button>
+                  <button class="btn btn-primary btn-sm" onclick="showToast('Started printing Ticket #SHP-4087')">Start Print</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Shop Subview 3: Multi-Printer Live Fleet Dashboard & Routing Rules -->
+          <div class="subview-pane" id="shopViewFleet">
+            <div class="fleet-dashboard-header">
+              <h3>Shop Multi-Printer Live Telemetry</h3>
+              <span class="badge-active">3 Printers Online • Auto-Routing Active</span>
+            </div>
+
+            <div class="fleet-cards-grid">
+              <!-- Fleet Printer 1 -->
+              <div class="fleet-printer-card">
+                <div class="fleet-card-title">
+                  <span class="material-symbols-rounded">print</span>
+                  <div>
+                    <h4>HP LaserJet Pro M404dn</h4>
+                    <span>Workhorse B&W • IP: 192.168.1.120</span>
+                  </div>
+                  <span class="badge-active">Ready</span>
+                </div>
+                <div class="fleet-meters">
+                  <label>Black Toner: <strong>84%</strong></label>
+                  <div class="meter-track"><div class="meter-fill" style="width:84%"></div></div>
+                  <label style="margin-top:8px;">Tray 1 (A4): <strong>180/250 sheets</strong></label>
+                  <div class="meter-track"><div class="meter-fill" style="width:72%"></div></div>
+                </div>
+                <div class="fleet-role-tag">Rule: Auto-assigned for B&W batches > 10 pages</div>
+              </div>
+
+              <!-- Fleet Printer 2 -->
+              <div class="fleet-printer-card">
+                <div class="fleet-card-title">
+                  <span class="material-symbols-rounded">palette</span>
+                  <div>
+                    <h4>Canon imageCLASS MF445dw</h4>
+                    <span>Color Laser • IP: 192.168.1.144</span>
+                  </div>
+                  <span class="badge-active">Ready</span>
+                </div>
+                <div class="fleet-meters">
+                  <div class="cmyk-meters">
+                    <div class="cmyk-col"><span class="cmyk-bar c" style="height:70%"></span><span>C 70%</span></div>
+                    <div class="cmyk-col"><span class="cmyk-bar m" style="height:65%"></span><span>M 65%</span></div>
+                    <div class="cmyk-col"><span class="cmyk-bar y" style="height:80%"></span><span>Y 80%</span></div>
+                    <div class="cmyk-col"><span class="cmyk-bar k" style="height:88%"></span><span>K 88%</span></div>
+                  </div>
+                </div>
+                <div class="fleet-role-tag">Rule: Auto-assigned for Presentations & Color</div>
+              </div>
+
+              <!-- Fleet Printer 3 -->
+              <div class="fleet-printer-card">
+                <div class="fleet-card-title">
+                  <span class="material-symbols-rounded">water_drop</span>
+                  <div>
+                    <h4>Epson EcoTank L3250</h4>
+                    <span>InkTank Photos • USB Direct</span>
+                  </div>
+                  <span class="badge-warning">Low Ink (12%)</span>
+                </div>
+                <div class="fleet-meters">
+                  <div class="cmyk-meters">
+                    <div class="cmyk-col"><span class="cmyk-bar c" style="height:12%"></span><span>C 12%</span></div>
+                    <div class="cmyk-col"><span class="cmyk-bar m" style="height:18%"></span><span>M 18%</span></div>
+                    <div class="cmyk-col"><span class="cmyk-bar y" style="height:15%"></span><span>Y 15%</span></div>
+                    <div class="cmyk-col"><span class="cmyk-bar k" style="height:35%"></span><span>K 35%</span></div>
+                  </div>
+                </div>
+                <div class="fleet-role-tag">Rule: High-DPI Photos & Certificates</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Shop Subview 4: Price List, Cost/Profit Tracker & Daily Report -->
+          <div class="subview-pane" id="shopViewPricing">
+            <div class="tab-header-row">
+              <div>
+                <h3>Price Rules & Profit Calculator</h3>
+                <p class="tab-subtitle">Editable customer rates (LKR) and daily cashier profit audit</p>
+              </div>
+              <button class="btn btn-outline btn-sm" id="btnExportDailyReport">
+                <span class="material-symbols-rounded">download</span>
+                <span>Export Daily Report (CSV)</span>
+              </button>
+            </div>
+
+            <div class="pricing-split-grid">
+              <!-- Price List Table -->
+              <div class="shop-panel">
+                <h4>Editable Customer Price List (LKR)</h4>
+                <div class="price-edit-row">
+                  <span>A4 Black & White (Single-sided)</span>
+                  <input type="number" value="10.00" class="price-input"> LKR
+                </div>
+                <div class="price-edit-row">
+                  <span>A4 Black & White (Duplex / per side)</span>
+                  <input type="number" value="8.00" class="price-input"> LKR
+                </div>
+                <div class="price-edit-row">
+                  <span>A4 Standard Color (Text + Chart)</span>
+                  <input type="number" value="40.00" class="price-input"> LKR
+                </div>
+                <div class="price-edit-row">
+                  <span>A4 Full Page Photo / Glossy</span>
+                  <input type="number" value="120.00" class="price-input"> LKR
+                </div>
+                <div class="price-edit-row">
+                  <span>Spiral Binding (up to 100 pages)</span>
+                  <input type="number" value="150.00" class="price-input"> LKR
+                </div>
+                <button class="btn btn-primary btn-sm" style="margin-top:14px;" onclick="showToast('💾 Updated price rules saved successfully!')">Save Price List</button>
+              </div>
+
+              <!-- Daily Shift Summary -->
+              <div class="shop-panel">
+                <h4>Today's Shift Financial Audit</h4>
+                <div class="shift-stat-box">
+                  <div class="stat-item"><span class="s-val">LKR 14,850.00</span><span class="s-lbl">Gross Revenue</span></div>
+                  <div class="stat-item"><span class="s-val">LKR 3,120.00</span><span class="s-lbl">Supplies Cost (Ink+Paper)</span></div>
+                  <div class="stat-item highlight"><span class="s-val text-success">LKR 11,730.00</span><span class="s-lbl">Net Estimated Profit</span></div>
+                </div>
+
+                <div class="shift-details-list">
+                  <div class="bill-row"><span>Total Completed Jobs</span><strong>42 jobs</strong></div>
+                  <div class="bill-row"><span>B&W Pages Printed</span><strong>890 pages</strong></div>
+                  <div class="bill-row"><span>Color Pages Printed</span><strong>148 pages</strong></div>
+                  <div class="bill-row"><span>Paper Sheets Used</span><strong>680 sheets</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. PDF TOOLS TAB -->
+        <section id="tabTools" class="tab-pane">
+          <div class="tools-subbar">
+            <div class="segmented-toggle-pills" id="pdfToolsSubbar">
+              <button class="pill-btn active" data-subview="viewer">
+                <span class="material-symbols-rounded">menu_book</span>
+                <span>PDF Multi-Tab Viewer</span>
+              </button>
+              <button class="pill-btn" data-subview="organizer">
+                <span class="material-symbols-rounded">dashboard_customize</span>
+                <span>Page Tools & Organizer (13 Tools)</span>
+              </button>
+              <button class="pill-btn" data-subview="annotate">
+                <span class="material-symbols-rounded">edit_document</span>
+                <span>Annotate, Sign & AcroForms</span>
+              </button>
+              <button class="pill-btn" data-subview="security">
+                <span class="material-symbols-rounded">security</span>
+                <span>Security, Redaction & Compare</span>
+              </button>
+              <button class="pill-btn" data-subview="ocr">
+                <span class="material-symbols-rounded">transform</span>
+                <span>Convert & OCR (Sinhala + English)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Subview 1: Multi-Tab PDF Viewer -->
+          <div class="subview-pane active" id="subviewViewer">
+            <div class="viewer-tabs-bar">
+              <div class="viewer-tabs-list" id="viewerTabsList">
+                <div class="viewer-tab active" data-file="sinhala_sample">
+                  <span class="material-symbols-rounded tab-doc-icon">picture_as_pdf</span>
+                  <span>sinhala_orthography_test.pdf</span>
+                  <span class="tab-close-btn">&times;</span>
+                </div>
+                <div class="viewer-tab" data-file="financial_report">
+                  <span class="material-symbols-rounded tab-doc-icon">picture_as_pdf</span>
+                  <span>Annual_Financial_Audit_2026.pdf</span>
+                  <span class="tab-close-btn">&times;</span>
+                </div>
+              </div>
+              <button class="btn btn-ghost btn-sm" id="btnOpenNewDocViewer">
+                <span class="material-symbols-rounded">add</span>
+              </button>
+            </div>
+
+            <!-- Viewer Workspace -->
+            <div class="viewer-workspace-body">
+              <!-- Sidebar Thumbnails -->
+              <div class="viewer-sidebar">
+                <div class="sidebar-header">
+                  <span>Pages (4)</span>
+                  <span class="material-symbols-rounded">view_sidebar</span>
+                </div>
+                <div class="thumb-list">
+                  <div class="thumb-item active" data-page="1">
+                    <span class="thumb-num">1</span>
+                    <div class="mini-paper"></div>
+                  </div>
+                  <div class="thumb-item" data-page="2">
+                    <span class="thumb-num">2</span>
+                    <div class="mini-paper"></div>
+                  </div>
+                  <div class="thumb-item" data-page="3">
+                    <span class="thumb-num">3</span>
+                    <div class="mini-paper"></div>
+                  </div>
+                  <div class="thumb-item" data-page="4">
+                    <span class="thumb-num">4</span>
+                    <div class="mini-paper"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Main Document View -->
+              <div class="viewer-viewport">
+                <!-- Viewer floating toolbar -->
+                <div class="viewer-floating-bar">
+                  <button class="btn-ghost btn-sm" id="btnZoomOut" title="Zoom Out"><span class="material-symbols-rounded">zoom_out</span></button>
+                  <span class="zoom-level" id="lblZoomLevel">100%</span>
+                  <button class="btn-ghost btn-sm" id="btnZoomIn" title="Zoom In"><span class="material-symbols-rounded">zoom_in</span></button>
+                  <div class="v-divider"></div>
+                  <button class="btn-ghost btn-sm" id="btnRotateView" title="Rotate"><span class="material-symbols-rounded">rotate_right</span></button>
+                  <button class="btn-ghost btn-sm" id="btnFitWidth" title="Fit to Width"><span class="material-symbols-rounded">fit_screen</span></button>
+                  <div class="v-divider"></div>
+                  <button class="btn btn-tonal btn-sm" id="btnSendViewerToQueue">
+                    <span class="material-symbols-rounded">print</span>
+                    <span>Send to Print Queue</span>
+                  </button>
+                </div>
+
+                <!-- Simulated Rendered Page -->
+                <div class="rendered-page-container">
+                  <div class="pdf-virtual-page" id="virtualPageDisplay">
+                    <div class="pdf-page-header">
+                      <h3>ශ්‍රී ලංකා මුද්‍රණ සහායක — සිංහල පරීක්ෂණ පිටුව</h3>
+                      <span class="doc-date">2026-10-26 • රහසිගතයි</span>
+                    </div>
+                    <div class="pdf-sample-content">
+                      <p><strong>Sinhala Orthography & Ligature Validation:</strong></p>
+                      <p>මෙම පිටුව ශ්‍රී ලාංකීය යතුරුලියන ප්‍රමිතීන් (Noto Sans Sinhala / Iskoola Pota) සහ මුද්‍රණ පෙරදසුන් තාක්ෂණය පරීක්ෂා කිරීම සඳහා සකස් කරන ලද්දකි. බැඳි අකුරු (Ligatures), කොම්බුව සහ ඇලපිල්ල නිවැරදිව මුද්‍රණය කෙරේ.</p>
+                      <div class="sample-table-box">
+                        <div class="s-row header"><span>විස්තරය (Item)</span><span>පිටු (Pages)</span><span>තත්ත්වය (Status)</span></div>
+                        <div class="s-row"><span>වාර්ෂික මූල්‍ය විගණනය</span><span>14</span><span class="text-success">සම්පූර්ණයි</span></div>
+                        <div class="s-row"><span>ගිවිසුම් ෆයිල්</span><span>3</span><span class="text-success">සූදානම්</span></div>
+                      </div>
+                    </div>
+                    <div class="pdf-page-footer">
+                      <span>Print Helper Engine • Offline Secured</span>
+                      <span>Page 1 of 4</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subview 2: Page Organizer (13 Tools) -->
+          <div class="subview-pane" id="subviewOrganizer">
+            <div class="organizer-toolbar">
+              <div class="org-actions-row">
+                <button class="btn btn-tonal btn-sm" id="btnOrgMerge">
+                  <span class="material-symbols-rounded">call_merge</span>
+                  <span>Merge PDFs</span>
+                </button>
+                <button class="btn btn-tonal btn-sm" id="btnOrgSplit">
+                  <span class="material-symbols-rounded">call_split</span>
+                  <span>Split Range</span>
+                </button>
+                <button class="btn btn-tonal btn-sm" id="btnOrgRotateAll">
+                  <span class="material-symbols-rounded">rotate_right</span>
+                  <span>Rotate 90°</span>
+                </button>
+                <button class="btn btn-tonal btn-sm" id="btnOrgWatermark">
+                  <span class="material-symbols-rounded">branding_watermark</span>
+                  <span>Watermark</span>
+                </button>
+                <button class="btn btn-tonal btn-sm" id="btnOrgCompress">
+                  <span class="material-symbols-rounded">compress</span>
+                  <span>Compress (Eco)</span>
+                </button>
+                <button class="btn btn-tonal btn-sm" id="btnOrgBates">
+                  <span class="material-symbols-rounded">tag</span>
+                  <span>Bates Numbering</span>
+                </button>
+                <button class="btn btn-ghost btn-sm text-danger" id="btnOrgDeleteSelected">
+                  <span class="material-symbols-rounded">delete</span>
+                  <span>Delete Selected</span>
+                </button>
+              </div>
+              <button class="btn btn-primary btn-sm" id="btnExportOrganizedPdf">
+                <span class="material-symbols-rounded">save</span>
+                <span>Export Modified PDF</span>
+              </button>
+            </div>
+
+            <!-- Page Grid Organizer -->
+            <div class="pages-grid-container" id="pagesGridOrganizer">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Subview 3: Annotate, Sign & AcroForms -->
+          <div class="subview-pane" id="subviewAnnotate">
+            <div class="annotate-top-bar">
+              <div class="tool-picker">
+                <button class="tool-btn active" data-tool="hand"><span class="material-symbols-rounded">pan_tool</span> Pan</button>
+                <button class="tool-btn" data-tool="highlight"><span class="material-symbols-rounded">ink_highlighter</span> Highlight</button>
+                <button class="tool-btn" data-tool="note"><span class="material-symbols-rounded">sticky_note_2</span> Sticky Note</button>
+                <button class="tool-btn" data-tool="stamp"><span class="material-symbols-rounded">approval</span> Stamp</button>
+                <button class="tool-btn" data-tool="sign"><span class="material-symbols-rounded">signature</span> Sign</button>
+              </div>
+              <div class="annotate-actions">
+                <button class="btn btn-outline btn-sm" id="btnOpenSignaturePad">
+                  <span class="material-symbols-rounded">draw</span>
+                  <span>Draw Signature</span>
+                </button>
+                <button class="btn btn-tonal btn-sm" id="btnFlattenPdf">
+                  <span class="material-symbols-rounded">layers_clear</span>
+                  <span>Flatten PDF</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="annotate-canvas-area" id="annotateCanvasArea">
+              <div class="mock-document-sheet">
+                <div class="anno-stamp" id="sampleStamp">APPROVED • නිල වශයෙන් අනුමතයි</div>
+                <h3>Executive Approval & Sign-off Document</h3>
+                <p>Please review the enclosed contract terms. Sign and stamp below to finalize the printing dispatch order.</p>
+                <div class="signature-slot-box" id="sigSlotBox">
+                  <span class="sig-placeholder" id="sigPlaceholder">Click "Draw Signature" to sign here</span>
+                  <canvas id="drawnSignaturePreview" width="300" height="90" style="display:none"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subview 4: Security, Redaction & Compare -->
+          <div class="subview-pane" id="subviewSecurity">
+            <div class="security-grid">
+              <div class="sec-card">
+                <div class="sec-icon"><span class="material-symbols-rounded">lock</span></div>
+                <h3>256-bit AES Password Encryption</h3>
+                <p>Protect document with high-grade encryption. Restrict printing, editing, and copying.</p>
+                <input type="password" id="txtPdfPassword" placeholder="Enter owner password..." class="form-input">
+                <div class="perms-list">
+                  <label><input type="checkbox" checked> Allow High-Resolution Printing</label>
+                  <label><input type="checkbox"> Allow Content Extraction</label>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="showToast('🔒 256-bit AES Encryption applied to active PDF')">Apply Encryption</button>
+              </div>
+
+              <div class="sec-card">
+                <div class="sec-icon"><span class="material-symbols-rounded">blur_on</span></div>
+                <h3>Text & Area Redaction (Blackout)</h3>
+                <p>Permanently sanitize sensitive personally identifiable information (PII) before printing.</p>
+                <input type="text" id="txtRedactTerm" placeholder="Keywords to redact (e.g. NIC, Passwords, Names)" class="form-input">
+                <button class="btn btn-tonal btn-sm" onclick="showToast('✂️ Sanitized and redacted 4 instances of sensitive data')">Find & Redact Terms</button>
+              </div>
+
+              <div class="sec-card">
+                <div class="sec-icon"><span class="material-symbols-rounded">compare</span></div>
+                <h3>Side-by-Side Visual Diff / Compare</h3>
+                <p>Highlight text modifications, deleted sentences, and layout shifts between two revisions.</p>
+                <button class="btn btn-outline btn-sm" onclick="showToast('🔍 Visual Diff: 2 pages matched, 1 sentence altered on Page 2')">Compare with Previous Version</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subview 5: Convert & OCR Studio -->
+          <div class="subview-pane" id="subviewOcr">
+            <div class="ocr-studio-layout">
+              <div class="ocr-controls-box">
+                <h3>Tesseract OCR Text Extraction</h3>
+                <p class="tab-subtitle">On-device neural OCR with Sinhala (සිංහල) + English bilingual support.</p>
+                
+                <label>Script & Language Model</label>
+                <select class="form-select" id="selOcrLang">
+                  <option value="sin+eng">Sinhala + English (sin+eng) — Recommended</option>
+                  <option value="eng">English Only (eng)</option>
+                  <option value="sin">Sinhala Only (sin)</option>
+                </select>
+
+                <div class="ocr-buttons-row">
+                  <button class="btn btn-primary" id="btnRunOcr">
+                    <span class="material-symbols-rounded">psychology</span>
+                    <span>Extract Text from Active PDF</span>
+                  </button>
+                  <button class="btn btn-outline" id="btnPdfToImages">
+                    <span class="material-symbols-rounded">image</span>
+                    <span>Export Pages to PNG (300 DPI)</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="ocr-results-box">
+                <div class="ocr-results-header">
+                  <span>Recognized OCR Output</span>
+                  <button class="btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('txtOcrOutput').value); showToast('📋 OCR text copied to clipboard!');">
+                    <span class="material-symbols-rounded">content_copy</span>
+                    <span>Copy Text</span>
+                  </button>
+                </div>
+                <textarea id="txtOcrOutput" class="ocr-textarea" placeholder="OCR recognition text will appear here..."></textarea>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. PRINTERS TAB -->
+        <section id="tabPrinters" class="tab-pane">
+          <div class="tab-header-row">
+            <div>
+              <h2 id="lblPrintersHead">Printers</h2>
+              <p class="tab-subtitle" id="lblPrintersSub">Detected printers (Ready, Network & USB status)</p>
+            </div>
+            <div class="tab-header-buttons">
+              <button class="btn btn-outline btn-sm" id="btnRefreshPrinters">
+                <span class="material-symbols-rounded">refresh</span>
+                <span>Refresh Spooler</span>
+              </button>
+              <button class="btn btn-primary btn-sm" id="btnAddNetworkPrinter">
+                <span class="material-symbols-rounded">add</span>
+                <span>Add Network Printer</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="filter-chips-row">
+            <button class="filter-chip active" data-filter="all">All (5)</button>
+            <button class="filter-chip" data-filter="favorites">Favorites (2)</button>
+            <button class="filter-chip" data-filter="network">Network LAN (3)</button>
+            <button class="filter-chip" data-filter="usb">USB (1)</button>
+            <button class="filter-chip" data-filter="virtual">Virtual (1)</button>
+          </div>
+
+          <div class="printers-grid" id="printersGrid">
+            <!-- Dynamic Printer Cards Injected here -->
+          </div>
+        </section>
+
+        <!-- 5. JOBS TAB -->
+        <section id="tabJobs" class="tab-pane">
+          <div class="tab-header-row">
+            <div>
+              <h2>Print Jobs & History</h2>
+              <p class="tab-subtitle">Live spooler status, queued documents, and audit logs</p>
+            </div>
+            <button class="btn btn-outline btn-sm" id="btnClearHistory">
+              <span class="material-symbols-rounded">clear_all</span>
+              <span>Clear Completed</span>
+            </button>
+          </div>
+
+          <div class="jobs-table-container">
+            <table class="jobs-table">
+              <thead>
+                <tr>
+                  <th>Job ID</th>
+                  <th>Document</th>
+                  <th>Target Printer</th>
+                  <th>Pages</th>
+                  <th>Status</th>
+                  <th>Submitted</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="jobsTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 6. PRESETS TAB -->
+        <section id="tabPresets" class="tab-pane">
+          <div class="tab-header-row">
+            <div>
+              <h2>Print Presets</h2>
+              <p class="tab-subtitle">One-click batch profiles tailored for everyday workplace printing</p>
+            </div>
+          </div>
+
+          <div class="presets-grid" id="presetsGrid">
+            <div class="preset-card" data-preset="draft">
+              <div class="preset-icon bg-blue">
+                <span class="material-symbols-rounded">speed</span>
+              </div>
+              <div class="preset-info">
+                <h3>Office Draft (Eco Fast)</h3>
+                <p>Black & White • 2-sided • Fast draft toner mode. Ideal for meeting notes and internal briefs.</p>
+                <div class="preset-tags">
+                  <span class="tag">B&W</span>
+                  <span class="tag">Duplex</span>
+                  <span class="tag">Draft</span>
+                </div>
+              </div>
+              <button class="btn btn-tonal btn-apply-preset">Apply to Queue</button>
+            </div>
+
+            <div class="preset-card" data-preset="report">
+              <div class="preset-icon bg-green">
+                <span class="material-symbols-rounded">menu_book</span>
+              </div>
+              <div class="preset-info">
+                <h3>Formal Report (A4 Duplex)</h3>
+                <p>Color covers with high resolution text • Long-edge duplex • Standard A4 tray.</p>
+                <div class="preset-tags">
+                  <span class="tag">Color</span>
+                  <span class="tag">A4</span>
+                  <span class="tag">Duplex</span>
+                </div>
+              </div>
+              <button class="btn btn-tonal btn-apply-preset">Apply to Queue</button>
+            </div>
+
+            <div class="preset-card" data-preset="presentation">
+              <div class="preset-icon bg-purple">
+                <span class="material-symbols-rounded">imagesmode</span>
+              </div>
+              <div class="preset-info">
+                <h3>Vibrant Color Handouts</h3>
+                <p>Full 1200 DPI color fidelity • Single-sided • Premium paper tray prioritization.</p>
+                <div class="preset-tags">
+                  <span class="tag">High-DPI</span>
+                  <span class="tag">Color</span>
+                  <span class="tag">1-Sided</span>
+                </div>
+              </div>
+              <button class="btn btn-tonal btn-apply-preset">Apply to Queue</button>
+            </div>
+
+            <div class="preset-card" data-preset="labels">
+              <div class="preset-icon bg-orange">
+                <span class="material-symbols-rounded">loyalty</span>
+              </div>
+              <div class="preset-info">
+                <h3>Barcode & Shipping Labels</h3>
+                <p>Monochrome high-contrast • Single sheet feed • Strict 100% scale (no fit).</p>
+                <div class="preset-tags">
+                  <span class="tag">B&W</span>
+                  <span class="tag">Manual Tray</span>
+                  <span class="tag">100% Scale</span>
+                </div>
+              </div>
+              <button class="btn btn-tonal btn-apply-preset">Apply to Queue</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. SETTINGS TAB -->
+        <section id="tabSettings" class="tab-pane">
+          <div class="tab-header-row">
+            <div>
+              <h2>Application Settings</h2>
+              <p class="tab-subtitle">Preferences, offline privacy protections, and device routing</p>
+            </div>
+          </div>
+
+          <div class="settings-list">
+            <div class="settings-group">
+              <h3>Appearance & Language</h3>
+              <div class="setting-row">
+                <div class="setting-desc">
+                  <strong>Color Theme</strong>
+                  <span>Select light or dark interface theme</span>
+                </div>
+                <div class="setting-control">
+                  <select id="settingThemeSelect" class="form-select">
+                    <option value="dark">Dark Theme (Default)</option>
+                    <option value="light">Light Theme</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-desc">
+                  <strong>Application Language</strong>
+                  <span>Interface language and localization strings</span>
+                </div>
+                <div class="setting-control">
+                  <select id="settingLangSelect" class="form-select">
+                    <option value="en">English (US)</option>
+                    <option value="si">සිංහල (Sinhala)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <div class="ai-settings-banner">
+                <span class="material-symbols-rounded ai-sparkle-icon">auto_awesome</span>
+                <div>
+                  <h3>On-Device AI Document Intelligence</h3>
+                  <p class="tab-subtitle">Local neural models for document summaries, smart print preset recommendations, and automatic ink optimization.</p>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-desc">
+                  <strong>Local Intelligence Plugin</strong>
+                  <span>Run ONNX / Tesseract models completely on-device with zero internet connection</span>
+                </div>
+                <div class="setting-control">
+                  <select class="form-select" id="selAiProvider">
+                    <option value="local">Local On-Device Engine (Enabled)</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-desc">
+                  <strong>Smart Layout Recommendations</strong>
+                  <span>Automatically suggest 2-up booklet mode when large text-heavy documents are added</span>
+                </div>
+                <div class="setting-control">
+                  <input type="checkbox" checked>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3>Spooler & Offline Privacy</h3>
+              <div class="setting-row">
+                <div class="setting-desc">
+                  <strong>100% Offline Quarantine</strong>
+                  <span>All file rendering occurs directly on-device. Zero network transmissions.</span>
+                </div>
+                <div class="setting-control">
+                  <span class="badge-active">Active & Verified</span>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-desc">
+                  <strong>Auto-Clear Queue after Successful Print</strong>
+                  <span>Purge temp files from memory once the spooler accepts the job</span>
+                </div>
+                <div class="setting-control">
+                  <input type="checkbox" id="chkAutoClear" checked>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3>About Print Helper & PDF Studio</h3>
+              <div class="setting-row">
+                <div class="setting-desc">
+                  <strong>Version</strong>
+                  <span>Print Helper v1.0.0 (Production Build)</span>
+                </div>
+                <div class="setting-control">
+                  <span class="chip">Up to date</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Draw Signature Modal -->
+  <div id="drawSigModal" class="modal-overlay hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Draw Freehand Signature</h3>
+        <button class="btn-ghost btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <canvas id="sigPadCanvas" width="420" height="150" style="background:#fff; border-radius:8px; border:1px solid #ccc; cursor:crosshair;"></canvas>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:6px;">Use your mouse or trackpad to sign your name.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btnClearSigPad">Clear</button>
+        <button class="btn btn-primary" id="btnSaveSigPad">Place on Document</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Network Printer Modal -->
+  <div id="addPrinterModal" class="modal-overlay hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Add Network LAN Printer</h3>
+        <button class="btn-ghost btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Printer Name / Nickname</label>
+        <input type="text" id="netPrinterName" placeholder="e.g. Accounts Department Office" class="form-input">
+
+        <label>IP Address / Hostname</label>
+        <input type="text" id="netPrinterHost" placeholder="192.168.1.150" class="form-input">
+
+        <label>Protocol & Port</label>
+        <select id="netPrinterPort" class="form-select">
+          <option value="9100">RAW / JetDirect (Port 9100) — Recommended</option>
+          <option value="631">IPP / IPPS (Port 631)</option>
+          <option value="515">LPR / LPD (Port 515)</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveNetworkPrinter">Test & Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="preview_config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

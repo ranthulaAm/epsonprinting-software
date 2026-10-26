@@ -1,0 +1,258 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastUpdated": "2026-10-26",
+  "description": "Updatable Epson & Generic Printer Profile Database for Print Helper PrinterIntelligence. Can be edited or replaced without recompiling the application.",
+  "profiles": [
+    {
+      "familyId": "epson_ecotank_consumer_usb_wifi",
+      "manufacturer": "Epson",
+      "familyName": "Epson EcoTank L/ET Consumer Series",
+      "modelPatterns": [
+        "L1210", "L1250", "L3110", "L3150", "L3210", "L3250", "L3251", "L3260", "L3550",
+        "ET-1810", "ET-2710", "ET-2720", "ET-2810", "ET-2850"
+      ],
+      "supplyTechnology": "inkTank",
+      "expectedMarkers": ["Black Ink Bottle", "Cyan Ink Bottle", "Magenta Ink Bottle", "Yellow Ink Bottle", "Waste Ink Pad"],
+      "supportsExactInkPercentage": false,
+      "supportsMaintenanceBoxPercentage": false,
+      "autoDuplexDefault": "manualOnly",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A4",
+      "supportsRollPaper": false,
+      "supportsCdDvdPrint": false,
+      "maxOpticalDpi": "5760x1440",
+      "supportedPaperSizes": ["A4", "Letter", "Legal", "A5", "A6", "B5", "4x6 in (10x15 cm)", "5x7 in (13x18 cm)", "Envelope #10", "DL"],
+      "supportedMediaTypes": ["Plain Paper", "Epson Matte", "Epson Ultra Glossy", "Epson Premium Glossy", "Photo Paper Glossy", "Envelope"],
+      "trays": ["Rear Paper Feed Slot"],
+      "quirks": [
+        "Gravity-fed ink tanks do not have electronic float sensors; IPP marker-levels and SNMP prtMarkerSuppliesLevel report -3 (OK/Some remaining) rather than 0-100%. Visual inspection of physical tank window is recommended.",
+        "Rear feed slot lacks optical paper-size sliders; loaded paper size is reported from driver defaults unless overridden in printer panel.",
+        "Borderless 4x6 and A4 printing is supported on glossy/photo media; plain paper borderless may reduce print quality near bottom edge."
+      ]
+    },
+    {
+      "familyId": "epson_ecotank_mid_duplex",
+      "manufacturer": "Epson",
+      "familyName": "Epson EcoTank Duplex & Office L4000/L6000 / ET-3800/ET-4800 Series",
+      "modelPatterns": [
+        "L4150", "L4160", "L4260", "L6160", "L6170", "L6190", "L6260", "L6270", "L6290", "L6460", "L6490",
+        "ET-3750", "ET-3850", "ET-4750", "ET-4850", "ET-5150", "ET-5170", "ET-5800", "ET-5850"
+      ],
+      "supplyTechnology": "inkTank",
+      "expectedMarkers": ["Black Pigment Ink", "Cyan Ink", "Magenta Ink", "Yellow Ink", "Maintenance Box (C9344/T04D1)"],
+      "supportsExactInkPercentage": false,
+      "supportsMaintenanceBoxPercentage": true,
+      "autoDuplexDefault": "automatic",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A4",
+      "supportsRollPaper": false,
+      "supportsCdDvdPrint": false,
+      "maxOpticalDpi": "4800x1200",
+      "supportedPaperSizes": ["A4", "Letter", "Legal", "A5", "A6", "B5", "4x6 in (10x15 cm)", "5x7 in (13x18 cm)", "Envelope #10"],
+      "supportedMediaTypes": ["Plain Paper", "Bright White Paper", "Epson Matte", "Epson Ultra Glossy", "Epson Premium Glossy", "Photo Paper Glossy", "Thick Paper"],
+      "trays": ["Cassette 1", "Rear Slot"],
+      "quirks": [
+        "Pigment Black + Dye CMY (or all-pigment on L6490/ET-5850). Ink bottle levels report -3 (OK) until low-threshold reset, whereas the replaceable Maintenance Box reports an exact 0-100% remaining capacity over IPP/SNMP.",
+        "Automatic 2-sided (duplex) unit supports A4 and Letter plain paper only; photo paper and envelopes require 1-sided printing."
+      ]
+    },
+    {
+      "familyId": "epson_ecotank_photo_l8000_et8500",
+      "manufacturer": "Epson",
+      "familyName": "Epson EcoTank Photo 6-Color L8050/L18050 / ET-8500/ET-8550 Series",
+      "modelPatterns": [
+        "L805", "L850", "L1800", "L8050", "L8160", "L8180", "L18050",
+        "ET-8500", "ET-8550"
+      ],
+      "supplyTechnology": "inkTank",
+      "expectedMarkers": ["Black Ink", "Photo Black Ink", "Cyan Ink", "Magenta Ink", "Yellow Ink", "Grey / Light Cyan / Light Magenta Ink", "Maintenance Box"],
+      "supportsExactInkPercentage": false,
+      "supportsMaintenanceBoxPercentage": true,
+      "autoDuplexDefault": "automatic",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A3+",
+      "supportsRollPaper": true,
+      "supportsCdDvdPrint": true,
+      "maxOpticalDpi": "5760x1440",
+      "supportedPaperSizes": ["A3+", "A3", "A4", "Letter", "Legal", "8x10 in", "5x7 in (13x18 cm)", "4x6 in (10x15 cm)", "CD/DVD Tray"],
+      "supportedMediaTypes": ["Plain Paper", "Epson Ultra Glossy", "Epson Premium Glossy", "Epson Premium Semigloss", "Velvet Fine Art", "Epson Matte", "CD/DVD Surface"],
+      "trays": ["Cassette 1 (Photo)", "Cassette 2 (Main)", "Rear Fine Art Feed", "Straight Path Rear Slot", "CD/DVD Tray"],
+      "quirks": [
+        "Supports direct CD/DVD/Blu-ray disc surface printing and borderless up to A3+ (L18050/L8180/ET-8550).",
+        "Note: L8050 and L18050 are single-sided photo production engines (manual duplex only), while L8160/L8180/ET-8500/ET-8550 include automatic A4 duplex."
+      ]
+    },
+    {
+      "familyId": "epson_workforce_consumer",
+      "manufacturer": "Epson",
+      "familyName": "Epson WorkForce WF Consumer & SOHO Series",
+      "modelPatterns": [
+        "WF-2830", "WF-2850", "WF-2930", "WF-2950", "WF-3820", "WF-4820", "WF-4830", "WF-7310", "WF-7820", "WF-7840"
+      ],
+      "supplyTechnology": "inkCartridge",
+      "expectedMarkers": ["Black Cartridge", "Cyan Cartridge", "Magenta Cartridge", "Yellow Cartridge", "Maintenance Box"],
+      "supportsExactInkPercentage": true,
+      "supportsMaintenanceBoxPercentage": true,
+      "autoDuplexDefault": "automatic",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A3",
+      "supportsRollPaper": false,
+      "supportsCdDvdPrint": false,
+      "maxOpticalDpi": "4800x2400",
+      "supportedPaperSizes": ["A3+", "A3", "A4", "Letter", "Legal", "A5", "B5", "4x6 in (10x15 cm)", "5x7 in (13x18 cm)", "Envelope #10"],
+      "supportedMediaTypes": ["Plain Paper", "Epson Bright White", "Epson Matte", "Epson Premium Glossy", "Thick Paper 1", "Thick Paper 2", "Envelope"],
+      "trays": ["Cassette 1", "Cassette 2", "Rear Single-Sheet Slot"],
+      "quirks": [
+        "DURAbrite Ultra all-pigment cartridges include smart chips reporting exact 0-100% ink levels over IPP marker-levels and SNMP prtMarkerSuppliesLevel.",
+        "Wide-format models (WF-7310/WF-7820/WF-7840) support full A3 automatic duplex and up to A3+ single-sheet feeding."
+      ]
+    },
+    {
+      "familyId": "epson_workforce_pro_rips",
+      "manufacturer": "Epson",
+      "familyName": "Epson WorkForce Pro WF-C / RIPS Business Inkjet Series",
+      "modelPatterns": [
+        "WF-C5290", "WF-C5790", "WF-C5390", "WF-C5890", "WF-C579R", "WF-C869R", "WF-C878R", "WF-C879R", "WF-M5799"
+      ],
+      "supplyTechnology": "inkPack",
+      "expectedMarkers": ["Black Ink Pack", "Cyan Ink Pack", "Magenta Ink Pack", "Yellow Ink Pack", "Maintenance Box (T6716/C9382)"],
+      "supportsExactInkPercentage": true,
+      "supportsMaintenanceBoxPercentage": true,
+      "autoDuplexDefault": "automatic",
+      "supportsBorderless": false,
+      "borderlessMaxSize": "None",
+      "supportsRollPaper": false,
+      "supportsCdDvdPrint": false,
+      "maxOpticalDpi": "4800x1200",
+      "supportedPaperSizes": ["A3", "A4", "Letter", "Legal", "A5", "B4", "B5", "Executive", "Envelope #10", "DL", "C5"],
+      "supportedMediaTypes": ["Plain Paper", "Letterhead", "Recycled", "Color", "Preprinted", "High Quality Plain Paper", "Thick Paper 1", "Thick Paper 2", "Envelope"],
+      "trays": ["MP Tray (Rear)", "Cassette 1", "Cassette 2", "Cassette 3", "Cassette 4"],
+      "quirks": [
+        "Enterprise PrecisionCore RIPS packs report 1-100% supply levels, ISO yield capacities, optical paper-size guides per cassette via media-col-database / prtInputTable, and hardware life page counters.",
+        "Business pigment engines disable borderless printing by design to prevent ink misting on high-speed duplex rollers."
+      ]
+    },
+    {
+      "familyId": "epson_workforce_enterprise_amc",
+      "manufacturer": "Epson",
+      "familyName": "Epson WorkForce Enterprise WF-C20000 & AM-C Line-Head Series",
+      "modelPatterns": [
+        "WF-C17590", "WF-C20590", "WF-C20600", "WF-C20750", "WF-C21000",
+        "AM-C400", "AM-C550", "AM-C4000", "AM-C5000", "AM-C6000"
+      ],
+      "supplyTechnology": "inkCartridge",
+      "expectedMarkers": ["High-Capacity Black Ink", "High-Capacity Cyan Ink", "High-Capacity Magenta Ink", "High-Capacity Yellow Ink", "Maintenance Box", "Finisher Staples"],
+      "supportsExactInkPercentage": true,
+      "supportsMaintenanceBoxPercentage": true,
+      "autoDuplexDefault": "automatic",
+      "supportsBorderless": false,
+      "borderlessMaxSize": "None",
+      "supportsRollPaper": false,
+      "supportsCdDvdPrint": false,
+      "maxOpticalDpi": "600x2400",
+      "supportedPaperSizes": ["SRA3", "A3", "A4", "Letter", "Legal", "B4", "B5", "A5", "Envelope"],
+      "supportedMediaTypes": ["Plain Paper 1", "Plain Paper 2", "Thick Paper 1", "Thick Paper 2", "Thick Paper 3", "Letterhead", "Recycled"],
+      "trays": ["MP Tray", "Cassette 1", "Cassette 2", "Cassette 3", "Cassette 4", "High Capacity LCT"],
+      "quirks": [
+        "Full RFC 8011 IPP Everywhere and RFC 3805 Printer MIB telemetry: reports per-tray sheet counts, exact ink percentages, finisher/stapler output bins, and total mono/color impressions."
+      ]
+    },
+    {
+      "familyId": "epson_surecolor_pro_wideformat",
+      "manufacturer": "Epson",
+      "familyName": "Epson SureColor SC-P (Photo) & SC-T (Technical CAD) Series",
+      "modelPatterns": [
+        "SC-P400", "SC-P600", "SC-P700", "SC-P800", "SC-P900", "SC-P5000", "SC-P7500", "SC-P9500",
+        "SC-T2100", "SC-T3100", "SC-T3400", "SC-T5100", "SC-T5400"
+      ],
+      "supplyTechnology": "inkCartridge",
+      "expectedMarkers": ["Photo Black (PK)", "Matte Black (MK)", "Cyan", "Vivid Magenta", "Yellow", "Light Cyan", "Vivid Light Magenta", "Violet / Grey", "Maintenance Tank"],
+      "supportsExactInkPercentage": true,
+      "supportsMaintenanceBoxPercentage": true,
+      "autoDuplexDefault": "manualOnly",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "Roll / A1 / A2 / A3+",
+      "supportsRollPaper": true,
+      "supportsCdDvdPrint": true,
+      "maxOpticalDpi": "5760x1440",
+      "supportedPaperSizes": ["Roll Paper (17 in / 24 in / 36 in)", "A1", "A2", "A3+", "A3", "A4", "Letter", "Poster Board"],
+      "supportedMediaTypes": ["Plain Paper", "CAD Coated Paper", "Tracing Paper", "UltraSmooth Fine Art", "Photo Paper Glossy", " Velvet Fine Art", "Canvas"],
+      "trays": ["Roll Paper Spindle", "Auto Sheet Feeder", "Front Fine Art / Poster Board Path"],
+      "quirks": [
+        "SC-P700/P900 use dedicated Photo Black (PK) and Matte Black (MK) channels with automatic switching based on selected media type.",
+        "Supports Roll Paper with automatic rotary cutter (SC-T series and SC-P900 roll unit)."
+      ]
+    },
+    {
+      "familyId": "epson_expression_home_photo",
+      "manufacturer": "Epson",
+      "familyName": "Epson Expression Home & Photo XP Series",
+      "modelPatterns": [
+        "XP-2100", "XP-2150", "XP-3100", "XP-3150", "XP-4100", "XP-4150", "XP-4200",
+        "XP-6100", "XP-8600", "XP-8700", "XP-970", "XP-15000"
+      ],
+      "supplyTechnology": "inkCartridge",
+      "expectedMarkers": ["Black Claria Cartridge", "Cyan Claria Cartridge", "Magenta Claria Cartridge", "Yellow Claria Cartridge", "Photo Black / Red / Grey (XP Photo)", "Maintenance Box"],
+      "supportsExactInkPercentage": true,
+      "supportsMaintenanceBoxPercentage": true,
+      "autoDuplexDefault": "automatic",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A4 / A3+ (XP-15000)",
+      "supportsRollPaper": false,
+      "supportsCdDvdPrint": true,
+      "maxOpticalDpi": "5760x1440",
+      "supportedPaperSizes": ["A4", "Letter", "A5", "A6", "4x6 in (10x15 cm)", "5x7 in (13x18 cm)", "A3+ (XP-15000)"],
+      "supportedMediaTypes": ["Plain Paper", "Epson Ultra Glossy", "Epson Premium Glossy", "Epson Premium Semigloss", "Epson Matte", "Envelope"],
+      "trays": ["Cassette 1 (Photo 4x6/5x7)", "Cassette 2 (A4/Letter)", "Rear Feed Slot (XP-15000)"],
+      "quirks": [
+        "Claria Home/Photo HD cartridges report exact 0-100% chip levels. XP-6100/8700 include a dedicated motorized 4x6 photo cassette."
+      ]
+    },
+    {
+      "familyId": "epson_aculaser_laser",
+      "manufacturer": "Epson",
+      "familyName": "Epson AcuLaser & WorkForce AL-M Laser Series",
+      "modelPatterns": [
+        "AL-M220", "AL-M310", "AL-M320", "AL-M400", "AL-C300", "AL-C500", "AcuLaser"
+      ],
+      "supplyTechnology": "toner",
+      "expectedMarkers": ["Black Toner Cartridge", "Photoconductor Drum Unit", "Fuser Unit"],
+      "supportsExactInkPercentage": true,
+      "supportsMaintenanceBoxPercentage": true,
+      "autoDuplexDefault": "automatic",
+      "supportsBorderless": false,
+      "borderlessMaxSize": "None",
+      "supportsRollPaper": false,
+      "supportsCdDvdPrint": false,
+      "maxOpticalDpi": "1200x1200",
+      "supportedPaperSizes": ["A4", "Letter", "Legal", "A5", "B5", "Executive", "Envelope"],
+      "supportedMediaTypes": ["Plain Paper", "Thick Paper", "Labels", "Recycled", "Letterhead", "Envelope"],
+      "trays": ["MP Tray", "Standard Cassette 1", "Optional Cassette 2"],
+      "quirks": [
+        "Laser engine uses Toner cartridges and Photoconductor units rather than liquid ink; borderless printing is not supported."
+      ]
+    },
+    {
+      "familyId": "generic_standard_printer",
+      "manufacturer": "Generic",
+      "familyName": "Standard IPP / SNMP / Windows Spooler Printer",
+      "modelPatterns": ["HP", "LaserJet", "OfficeJet", "Canon", "PIXMA", "imageRUNNER", "Brother", "HL-", "MFC-", "DCP-", "Ricoh", "Kyocera", "Lexmark", "Xerox", "Generic"],
+      "supplyTechnology": "autoDetect",
+      "expectedMarkers": ["Black Supply"],
+      "supportsExactInkPercentage": true,
+      "supportsMaintenanceBoxPercentage": false,
+      "autoDuplexDefault": "autoDetect",
+      "supportsBorderless": false,
+      "borderlessMaxSize": "None",
+      "supportsRollPaper": false,
+      "supportsCdDvdPrint": false,
+      "maxOpticalDpi": "600x600",
+      "supportedPaperSizes": ["A4", "Letter", "Legal", "A5"],
+      "supportedMediaTypes": ["Plain Paper", "Thick Paper", "Photo Paper", "Envelope"],
+      "trays": ["Tray 1"],
+      "quirks": [
+        "Capabilities and supply levels are read directly from IPP Everywhere (RFC 8011), SNMP Printer MIB (RFC 3805), and Windows Spooler DeviceCapabilities without vendor assumptions."
+      ]
+    }
+  ]
+}

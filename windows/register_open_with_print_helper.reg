@@ -1,0 +1,31 @@
+Windows Registry Editor Version 5.00
+
+; ============================================================================
+; Print Helper - Windows Explorer "Open with Print Helper" Context Menu Setup
+; Update the path below if your built executable is in a different location.
+; ============================================================================
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\PrintHelper]
+@="Open with Print Helper"
+"Icon"="\"C:\\Program Files\\Print Helper\\print_helper.exe\",0"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\PrintHelper\command]
+@="\"C:\\Program Files\\Print Helper\\print_helper.exe\" \"%1\""
+
+; Also register under Applications for the standard Windows "Open with ->" submenu
+[HKEY_CURRENT_USER\Software\Classes\Applications\print_helper.exe]
+"FriendlyAppName"="Print Helper"
+
+[HKEY_CURRENT_USER\Software\Classes\Applications\print_helper.exe\SupportedTypes]
+".pdf"=""
+".png"=""
+".jpg"=""
+".jpeg"=""
+".bmp"=""
+".tif"=""
+".tiff"=""
+".webp"=""
+".txt"=""
+
+[HKEY_CURRENT_USER\Software\Classes\Applications\print_helper.exe\shell\open\command]
+@="\"C:\\Program Files\\Print Helper\\print_helper.exe\" \"%1\""

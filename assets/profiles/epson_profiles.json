@@ -1,0 +1,553 @@
+{
+  "schemaVersion": "2.0.0",
+  "lastUpdated": "2026-10-27",
+  "description": "Comprehensive Epson & Generic Printer Profile Database for Print Helper CapabilityDiscovery & PrinterIntelligence. Editable and loadable at runtime.",
+  "disclaimer": "Features, tray configurations, and borderless limits may vary slightly by country, firmware release, and optional hardware accessories.",
+  "families": [
+    {
+      "familyId": "epson_ecotank_consumer",
+      "familyName": "Epson EcoTank L & ET Consumer Series",
+      "iconName": "inkTankPrinter",
+      "familyTrait": "EcoTank",
+      "modelPatterns": [
+        "L1110", "L1210", "L1250", "L3100", "L3110", "L3150", "L3156", "L3160",
+        "L3210", "L3250", "L3251", "L3252", "L3256", "L3260", "L3550", "L5190", "L5290",
+        "ET-1810", "ET-2710", "ET-2720", "ET-2750", "ET-2810", "ET-2820", "ET-2840", "ET-2850"
+      ],
+      "supplyTechnology": "inkTank",
+      "colorLayout": "cmyk_dye",
+      "expectedMarkers": [
+        {"name": "Black Ink (003 / 103)", "color": "black", "type": "dye"},
+        {"name": "Cyan Ink (003 / 103)", "color": "cyan", "type": "dye"},
+        {"name": "Magenta Ink (003 / 103)", "color": "magenta", "type": "dye"},
+        {"name": "Yellow Ink (003 / 103)", "color": "yellow", "type": "dye"},
+        {"name": "Waste Ink Pad", "color": "maintenance", "type": "pad"}
+      ],
+      "hasDigitalInkPercentage": false,
+      "inkLevelReportingType": "visual_estimated",
+      "hasReplaceableMaintenanceBoxWithChip": false,
+      "isWasteInkPadCounterBased": true,
+      "autoDuplex": "manualOnly",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A4",
+      "borderlessExpansionBleedSupported": true,
+      "supportsRollPaper": false,
+      "supportsAutoCut": false,
+      "supportsCdDvdPrint": false,
+      "hasScannerAdf": false,
+      "maxOpticalDpi": "5760x1440",
+      "supportedDpis": [300, 600, 1200, 5760],
+      "supportedPaperSizes": [
+        "A4", "Letter", "Legal", "A5", "A6", "B5", "B6",
+        "4x6 in (10x15 cm)", "5x7 in (13x18 cm)", "Envelope #10", "DL", "C6"
+      ],
+      "supportedMediaTypes": [
+        "Plain Paper", "Epson Matte", "Epson Ultra Glossy",
+        "Epson Premium Glossy", "Photo Paper Glossy", "Envelope"
+      ],
+      "trays": [
+        {"id": "rear_tray", "name": "Rear Paper Feed Slot", "capacity": 100, "types": ["Plain Paper", "Photo Paper", "Envelopes"]}
+      ],
+      "defaultMargins": {
+        "plain": {"top": 3.0, "bottom": 3.0, "left": 3.0, "right": 3.0},
+        "photo": {"top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0},
+        "envelope": {"top": 5.0, "bottom": 5.0, "left": 5.0, "right": 5.0}
+      },
+      "mediaDependencyTriggers": [
+        {"media": "Epson Ultra Glossy", "action": "block_duplex", "reason": "Photo paper cannot be auto-duplexed without ink smudging"},
+        {"media": "Epson Premium Glossy", "action": "block_duplex", "reason": "Glossy paper requires single-sided feed"},
+        {"media": "Photo Paper Glossy", "action": "block_duplex", "reason": "Glossy paper requires single-sided feed"},
+        {"media": "Plain Paper", "action": "allow_high_speed_bidirectional", "reason": "Plain paper supports high-speed bi-directional printing"},
+        {"media": "Envelope", "action": "block_borderless", "reason": "Envelopes require fixed edge margins"}
+      ],
+      "verificationStatus": "verified",
+      "verificationNote": "Verified against Epson L3250 / ET-2810 ESC/P-R specs and PPD. Gravity tanks report -3 status code; maintenance box is integrated waste pad."
+    },
+    {
+      "familyId": "epson_ecotank_mid_duplex",
+      "familyName": "Epson EcoTank Duplex & Business Series",
+      "iconName": "officeWorkforce",
+      "familyTrait": "EcoTank",
+      "modelPatterns": [
+        "L4150", "L4160", "L4260", "L6160", "L6170", "L6190", "L6260", "L6270", "L6290",
+        "L6460", "L6490", "L6550", "L6570", "L6580", "L15150", "L15160",
+        "ET-3750", "ET-3850", "ET-4750", "ET-4850", "ET-5150", "ET-5170", "ET-5800", "ET-5850", "ET-16600"
+      ],
+      "supplyTechnology": "inkTank",
+      "colorLayout": "cmyk_pigment_black_dye_color",
+      "expectedMarkers": [
+        {"name": "Black Pigment Ink (001 / 101 / 502)", "color": "black", "type": "pigment"},
+        {"name": "Cyan Dye Ink (001 / 101 / 502)", "color": "cyan", "type": "dye"},
+        {"name": "Magenta Dye Ink (001 / 101 / 502)", "color": "magenta", "type": "dye"},
+        {"name": "Yellow Dye Ink (001 / 101 / 502)", "color": "yellow", "type": "dye"},
+        {"name": "Maintenance Box (C9344 / T04D1)", "color": "maintenance", "type": "box_chip"}
+      ],
+      "hasDigitalInkPercentage": false,
+      "inkLevelReportingType": "visual_estimated",
+      "hasReplaceableMaintenanceBoxWithChip": true,
+      "isWasteInkPadCounterBased": false,
+      "autoDuplex": "automatic",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A4",
+      "borderlessExpansionBleedSupported": true,
+      "supportsRollPaper": false,
+      "supportsAutoCut": false,
+      "supportsCdDvdPrint": false,
+      "hasScannerAdf": true,
+      "maxOpticalDpi": "4800x1200",
+      "supportedDpis": [300, 600, 1200, 2400, 4800],
+      "supportedPaperSizes": [
+        "A4", "A3", "Letter", "Legal", "A5", "A6", "B5", "Executive",
+        "4x6 in (10x15 cm)", "5x7 in (13x18 cm)", "Envelope #10", "DL"
+      ],
+      "supportedMediaTypes": [
+        "Plain Paper", "Bright White Paper", "Epson Matte", "Epson Ultra Glossy",
+        "Epson Premium Glossy", "Photo Paper Glossy", "Thick Paper / Cardstock", "Envelope"
+      ],
+      "trays": [
+        {"id": "cassette_1", "name": "Front Paper Cassette 1", "capacity": 250, "types": ["Plain Paper", "Bright White"]},
+        {"id": "rear_feed", "name": "Rear Specialty Feed Slot", "capacity": 20, "types": ["Photo Paper", "Thick Paper", "Envelopes"]}
+      ],
+      "defaultMargins": {
+        "plain": {"top": 3.0, "bottom": 3.0, "left": 3.0, "right": 3.0},
+        "photo": {"top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0},
+        "envelope": {"top": 5.0, "bottom": 5.0, "left": 5.0, "right": 5.0}
+      },
+      "mediaDependencyTriggers": [
+        {"media": "Thick Paper / Cardstock", "action": "require_rear_feed", "reason": "Heavy media (>160 gsm) must be loaded in the rear specialty slot"},
+        {"media": "Epson Ultra Glossy", "action": "block_duplex", "reason": "Glossy photo media does not support 2-sided printing"},
+        {"media": "Plain Paper", "action": "allow_auto_duplex", "reason": "Full auto-duplex supported on plain paper"}
+      ],
+      "verificationStatus": "verified",
+      "verificationNote": "Tested on L4260 and L6270. Maintenance box percentage is digitally reported over SNMP and IPP."
+    },
+    {
+      "familyId": "epson_workforce_consumer",
+      "familyName": "Epson WorkForce Home Office Series",
+      "iconName": "officeWorkforce",
+      "familyTrait": "WorkForce",
+      "modelPatterns": [
+        "WF-2810", "WF-2830", "WF-2850", "WF-2860", "WF-2870",
+        "WF-2910", "WF-2930", "WF-2950", "WF-2960"
+      ],
+      "supplyTechnology": "cartridge",
+      "colorLayout": "cmyk_pigment_black_dye_color",
+      "expectedMarkers": [
+        {"name": "Black Cartridge (212 / 232)", "color": "black", "type": "cartridge_chip"},
+        {"name": "Cyan Cartridge (212 / 232)", "color": "cyan", "type": "cartridge_chip"},
+        {"name": "Magenta Cartridge (212 / 232)", "color": "magenta", "type": "cartridge_chip"},
+        {"name": "Yellow Cartridge (212 / 232)", "color": "yellow", "type": "cartridge_chip"}
+      ],
+      "hasDigitalInkPercentage": true,
+      "inkLevelReportingType": "digital_chip",
+      "hasReplaceableMaintenanceBoxWithChip": false,
+      "isWasteInkPadCounterBased": true,
+      "autoDuplex": "automatic",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "Letter",
+      "borderlessExpansionBleedSupported": true,
+      "supportsRollPaper": false,
+      "supportsAutoCut": false,
+      "supportsCdDvdPrint": false,
+      "hasScannerAdf": true,
+      "maxOpticalDpi": "5760x1440",
+      "supportedDpis": [300, 600, 1200, 4800, 5760],
+      "supportedPaperSizes": ["Letter", "A4", "Legal", "A5", "A6", "4x6 in", "5x7 in", "Envelope #10"],
+      "supportedMediaTypes": ["Plain Paper", "Bright White", "Epson Matte", "Epson Premium Glossy", "Envelope"],
+      "trays": [
+        {"id": "front_tray", "name": "Front Paper Cassette", "capacity": 100, "types": ["Plain Paper", "Photo Paper", "Envelopes"]}
+      ],
+      "defaultMargins": {
+        "plain": {"top": 3.0, "bottom": 3.0, "left": 3.0, "right": 3.0},
+        "photo": {"top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0}
+      },
+      "mediaDependencyTriggers": [
+        {"media": "Epson Premium Glossy", "action": "block_duplex", "reason": "Glossy photo media does not support duplex"}
+      ],
+      "verificationStatus": "verified",
+      "verificationNote": "Cartridges contain microchips reporting precise ink percentages (0-100%)."
+    },
+    {
+      "familyId": "epson_workforce_pro",
+      "familyName": "Epson WorkForce Pro & RIPS Series",
+      "iconName": "officeWorkforce",
+      "familyTrait": "WorkForce Pro",
+      "modelPatterns": [
+        "WF-3820", "WF-4720", "WF-4730", "WF-4740", "WF-4820", "WF-4830", "WF-7310", "WF-7820", "WF-7840",
+        "WF-C5290", "WF-C5790", "WF-C5390", "WF-C5890", "WF-C8690", "WF-C878R", "WF-C879R"
+      ],
+      "supplyTechnology": "cartridge",
+      "colorLayout": "cmyk_all_pigment",
+      "expectedMarkers": [
+        {"name": "DURABrite Ultra Black (812 / 822 / T944)", "color": "black", "type": "pigment_chip"},
+        {"name": "DURABrite Ultra Cyan (812 / 822 / T944)", "color": "cyan", "type": "pigment_chip"},
+        {"name": "DURABrite Ultra Magenta (812 / 822 / T944)", "color": "magenta", "type": "pigment_chip"},
+        {"name": "DURABrite Ultra Yellow (812 / 822 / T944)", "color": "yellow", "type": "pigment_chip"},
+        {"name": "Maintenance Box (T6716 / C13T671600)", "color": "maintenance", "type": "box_chip"}
+      ],
+      "hasDigitalInkPercentage": true,
+      "inkLevelReportingType": "digital_chip",
+      "hasReplaceableMaintenanceBoxWithChip": true,
+      "isWasteInkPadCounterBased": false,
+      "autoDuplex": "automatic",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A3+",
+      "borderlessExpansionBleedSupported": true,
+      "supportsRollPaper": false,
+      "supportsAutoCut": false,
+      "supportsCdDvdPrint": false,
+      "hasScannerAdf": true,
+      "maxOpticalDpi": "4800x2400",
+      "supportedDpis": [300, 600, 1200, 2400, 4800],
+      "supportedPaperSizes": [
+        "A4", "A3", "A3+", "Letter", "Legal", "Executive", "A5", "A6", "B5", "Tabloid (11x17)",
+        "4x6 in", "5x7 in", "Envelope #10", "DL", "C4"
+      ],
+      "supportedMediaTypes": [
+        "Plain Paper", "Bright White", "Presentation Matte", "Premium Presentation Matte",
+        "Epson Premium Glossy", "Thick Paper / Cardstock", "Letterhead", "Envelope"
+      ],
+      "trays": [
+        {"id": "cassette_1", "name": "Cassette 1 (Lower)", "capacity": 250, "types": ["Plain Paper", "Letterhead"]},
+        {"id": "cassette_2", "name": "Cassette 2 (Upper)", "capacity": 250, "types": ["Plain Paper", "A3 / Tabloid"]},
+        {"id": "rear_tray", "name": "Rear Bypass Feed Slot", "capacity": 80, "types": ["Thick Cardstock", "Envelopes", "Specialty"]}
+      ],
+      "defaultMargins": {
+        "plain": {"top": 3.0, "bottom": 3.0, "left": 3.0, "right": 3.0},
+        "photo": {"top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0}
+      },
+      "mediaDependencyTriggers": [
+        {"media": "Thick Paper / Cardstock", "action": "require_rear_feed", "reason": "Heavy media (>160 gsm) must use the rear bypass tray to avoid paper jam"},
+        {"media": "Letterhead", "action": "require_single_sided", "reason": "Letterhead requires specified orientation and single-pass feed"},
+        {"media": "Plain Paper", "action": "allow_auto_duplex", "reason": "Fast hardware auto-duplex enabled"}
+      ],
+      "verificationStatus": "verified",
+      "verificationNote": "Hardware tested with WF-4830 over LAN. Full dual-pass ADF and chip maintenance box telemetry."
+    },
+    {
+      "familyId": "epson_workforce_enterprise",
+      "familyName": "Epson WorkForce Enterprise AM-C Linehead Series",
+      "iconName": "officeWorkforce",
+      "familyTrait": "WorkForce Enterprise AM-C",
+      "modelPatterns": [
+        "AM-C4000", "AM-C5000", "AM-C6000", "WF-C20590", "WF-C20600", "WF-C20750", "WF-C21000"
+      ],
+      "supplyTechnology": "inkTank",
+      "colorLayout": "cmyk_all_pigment",
+      "expectedMarkers": [
+        {"name": "Ultra High-Yield Black Bag (50k)", "color": "black", "type": "high_cap_chip"},
+        {"name": "Ultra High-Yield Cyan Bag (30k)", "color": "cyan", "type": "high_cap_chip"},
+        {"name": "Ultra High-Yield Magenta Bag (30k)", "color": "magenta", "type": "high_cap_chip"},
+        {"name": "Ultra High-Yield Yellow Bag (30k)", "color": "yellow", "type": "high_cap_chip"},
+        {"name": "Maintenance Box 1 (T6713)", "color": "maintenance", "type": "box_chip"},
+        {"name": "Maintenance Box 2 (T6713)", "color": "maintenance", "type": "box_chip"}
+      ],
+      "hasDigitalInkPercentage": true,
+      "inkLevelReportingType": "digital_chip",
+      "hasReplaceableMaintenanceBoxWithChip": true,
+      "isWasteInkPadCounterBased": false,
+      "autoDuplex": "automatic",
+      "supportsBorderless": false,
+      "borderlessMaxSize": "none",
+      "borderlessExpansionBleedSupported": false,
+      "supportsRollPaper": false,
+      "supportsAutoCut": false,
+      "supportsCdDvdPrint": false,
+      "hasScannerAdf": true,
+      "maxOpticalDpi": "600x2400",
+      "supportedDpis": [300, 600, 1200, 2400],
+      "supportedPaperSizes": [
+        "A4", "A3", "SRA3", "A5", "B4", "B5", "Letter", "Legal", "11x17", "12x18", "13x19"
+      ],
+      "supportedMediaTypes": [
+        "Plain Paper", "Recycled Paper", "Letterhead", "Thick Paper 1", "Thick Paper 2", "Coated Paper", "Envelope"
+      ],
+      "trays": [
+        {"id": "cassette_1", "name": "Cassette 1", "capacity": 550, "types": ["Plain Paper"]},
+        {"id": "cassette_2", "name": "Cassette 2", "capacity": 550, "types": ["Plain Paper"]},
+        {"id": "cassette_3", "name": "Cassette 3", "capacity": 550, "types": ["Plain Paper"]},
+        {"id": "cassette_4", "name": "Cassette 4", "capacity": 550, "types": ["Plain Paper"]},
+        {"id": "high_cap_feeder", "name": "Optional 3000-Sheet High-Capacity Tray", "capacity": 3000, "types": ["A4 Plain"]},
+        {"id": "bypass_tray", "name": "Multi-Purpose Bypass Tray", "capacity": 150, "types": ["SRA3", "Thick Paper", "Envelopes"]}
+      ],
+      "defaultMargins": {
+        "plain": {"top": 3.0, "bottom": 3.0, "left": 3.0, "right": 3.0}
+      },
+      "mediaDependencyTriggers": [
+        {"media": "Thick Paper 2", "action": "limit_speed", "reason": "Heavy cardstock requires lower fuser travel and drying pause"},
+        {"media": "SRA3", "action": "require_bypass_tray", "reason": "Oversized SRA3 must feed through multi-purpose bypass tray"}
+      ],
+      "verificationStatus": "verified",
+      "verificationNote": "Enterprise fixed-linehead print array. High-speed business printer with dual maintenance tanks and high capacity finisher."
+    },
+    {
+      "familyId": "epson_expression_photo",
+      "familyName": "Epson Expression Home & Photo Series",
+      "iconName": "photoStylus",
+      "familyTrait": "Expression",
+      "modelPatterns": [
+        "XP-2100", "XP-3100", "XP-4100", "XP-5100", "XP-6100",
+        "XP-8500", "XP-8600", "XP-8700", "XP-15000"
+      ],
+      "supplyTechnology": "cartridge",
+      "colorLayout": "photo_6color_dye",
+      "expectedMarkers": [
+        {"name": "Claria Photo HD Black", "color": "black", "type": "photo_dye"},
+        {"name": "Claria Photo HD Cyan", "color": "cyan", "type": "photo_dye"},
+        {"name": "Claria Photo HD Magenta", "color": "magenta", "type": "photo_dye"},
+        {"name": "Claria Photo HD Yellow", "color": "yellow", "type": "photo_dye"},
+        {"name": "Claria Photo HD Light Cyan", "color": "light_cyan", "type": "photo_dye"},
+        {"name": "Claria Photo HD Light Magenta", "color": "light_magenta", "type": "photo_dye"},
+        {"name": "Maintenance Box (T3661)", "color": "maintenance", "type": "box_chip"}
+      ],
+      "hasDigitalInkPercentage": true,
+      "inkLevelReportingType": "digital_chip",
+      "hasReplaceableMaintenanceBoxWithChip": true,
+      "isWasteInkPadCounterBased": false,
+      "autoDuplex": "automatic",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A3+",
+      "borderlessExpansionBleedSupported": true,
+      "supportsRollPaper": false,
+      "supportsAutoCut": false,
+      "supportsCdDvdPrint": true,
+      "hasScannerAdf": false,
+      "maxOpticalDpi": "5760x1440",
+      "supportedDpis": [300, 600, 1200, 2400, 5760],
+      "supportedPaperSizes": [
+        "A4", "A3", "A3+", "Letter", "Legal", "4x6 in", "5x7 in", "8x10 in", "11x14 in", "12x12 in", "Envelope"
+      ],
+      "supportedMediaTypes": [
+        "Plain Paper", "Epson Ultra Glossy", "Epson Premium Glossy", "Epson Velvet Fine Art",
+        "Epson Matte", "CD/DVD Printable Surface"
+      ],
+      "trays": [
+        {"id": "main_cassette", "name": "Main Paper Cassette", "capacity": 100, "types": ["Plain Paper", "A4"]},
+        {"id": "photo_cassette", "name": "Dedicated Photo Tray", "capacity": 20, "types": ["4x6 in", "5x7 in"]},
+        {"id": "rear_feed", "name": "Rear Specialty Media Feed", "capacity": 50, "types": ["A3+", "Velvet Fine Art", "Cardstock"]},
+        {"id": "cddvd_tray", "name": "Direct CD/DVD Print Tray", "capacity": 1, "types": ["CD/DVD"]}
+      ],
+      "defaultMargins": {
+        "plain": {"top": 3.0, "bottom": 3.0, "left": 3.0, "right": 3.0},
+        "photo": {"top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0}
+      },
+      "mediaDependencyTriggers": [
+        {"media": "CD/DVD Printable Surface", "action": "require_cddvd_tray", "reason": "Direct disc printing requires pulling down the dedicated CD/DVD tray guide"},
+        {"media": "Epson Velvet Fine Art", "action": "require_rear_feed", "reason": "Fine art paper must feed straight through the rear specialty slot"},
+        {"media": "Epson Velvet Fine Art", "action": "block_duplex", "reason": "Fine art media is strictly single-sided"}
+      ],
+      "verificationStatus": "verified",
+      "verificationNote": "Tested on XP-15000. 6-color Claria HD ink with dedicated Red and Gray inks on XP-15000."
+    },
+    {
+      "familyId": "epson_ecotank_photo_stylus",
+      "familyName": "Epson EcoTank Photo & Stylus Photo Series",
+      "iconName": "photoStylus",
+      "familyTrait": "Stylus Photo",
+      "modelPatterns": [
+        "L800", "L805", "L810", "L850", "L1800",
+        "L8050", "L8160", "L8180", "L18050",
+        "ET-8500", "ET-8550", "Stylus Photo R230", "Stylus Photo 1390", "Stylus Photo 1400"
+      ],
+      "supplyTechnology": "inkTank",
+      "colorLayout": "photo_6color_dye",
+      "expectedMarkers": [
+        {"name": "Photo Black Ink (057 / 114)", "color": "black", "type": "photo_dye"},
+        {"name": "Cyan Ink (057 / 114)", "color": "cyan", "type": "dye"},
+        {"name": "Magenta Ink (057 / 114)", "color": "magenta", "type": "dye"},
+        {"name": "Yellow Ink (057 / 114)", "color": "yellow", "type": "dye"},
+        {"name": "Light Cyan Ink (057 / 114)", "color": "light_cyan", "type": "dye"},
+        {"name": "Light Magenta / Gray Ink (057 / 114)", "color": "light_magenta", "type": "dye"},
+        {"name": "Maintenance Box (C9345 / C9344)", "color": "maintenance", "type": "box_chip"}
+      ],
+      "hasDigitalInkPercentage": false,
+      "inkLevelReportingType": "visual_estimated",
+      "hasReplaceableMaintenanceBoxWithChip": true,
+      "isWasteInkPadCounterBased": false,
+      "autoDuplex": "automatic",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A3+",
+      "borderlessExpansionBleedSupported": true,
+      "supportsRollPaper": false,
+      "supportsAutoCut": false,
+      "supportsCdDvdPrint": true,
+      "hasScannerAdf": false,
+      "maxOpticalDpi": "5760x1440",
+      "supportedDpis": [300, 600, 1200, 2400, 5760],
+      "supportedPaperSizes": [
+        "A4", "A3", "A3+", "Letter", "4x6 in", "5x7 in", "8x10 in", "11x14 in", "12x12 in", "PVC Card (CR80)"
+      ],
+      "supportedMediaTypes": [
+        "Plain Paper", "Epson Ultra Glossy", "Epson Premium Glossy", "Photo Paper Glossy",
+        "Epson Matte", "Velvet Fine Art", "CD/DVD Printable Surface", "PVC ID Card"
+      ],
+      "trays": [
+        {"id": "front_tray", "name": "Front Paper Cassette 1", "capacity": 100, "types": ["Plain Paper", "Photo 4x6"]},
+        {"id": "rear_feed", "name": "Rear Specialty / Board Feed", "capacity": 50, "types": ["A3+", "Thick Card", "Fine Art"]},
+        {"id": "cddvd_id_tray", "name": "CD/DVD & PVC Card Tray", "capacity": 1, "types": ["CD/DVD", "PVC ID Card"]}
+      ],
+      "defaultMargins": {
+        "plain": {"top": 3.0, "bottom": 3.0, "left": 3.0, "right": 3.0},
+        "photo": {"top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0}
+      },
+      "mediaDependencyTriggers": [
+        {"media": "PVC ID Card", "action": "require_id_tray", "reason": "Requires specialized 2-slot CR80 PVC tray accessory"},
+        {"media": "CD/DVD Printable Surface", "action": "require_cddvd_tray", "reason": "Disc tray guide must be engaged"},
+        {"media": "Velvet Fine Art", "action": "require_rear_feed", "reason": "Heavy media (>250 gsm) must feed from rear slot without bend"}
+      ],
+      "verificationStatus": "verified",
+      "verificationNote": "Hardware tested with EcoTank Photo L8050. 6-color continuous tank with replaceable C9345 maintenance box and CD/DVD/ID tray."
+    },
+    {
+      "familyId": "epson_surecolor_pro_photo",
+      "familyName": "Epson SureColor Pro Photo & Technical Series",
+      "iconName": "wideFormatSureColor",
+      "familyTrait": "SureColor",
+      "modelPatterns": [
+        "SC-P400", "SC-P600", "SC-P700", "SC-P800", "SC-P900", "SC-P5000", "SC-P7500", "SC-P9500",
+        "SC-T3100", "SC-T3400", "SC-T5100", "SC-T5400"
+      ],
+      "supplyTechnology": "cartridge",
+      "colorLayout": "fineart_8to10color",
+      "expectedMarkers": [
+        {"name": "UltraChrome PRO10 Photo Black", "color": "photo_black", "type": "pigment"},
+        {"name": "UltraChrome PRO10 Matte Black", "color": "matte_black", "type": "pigment"},
+        {"name": "UltraChrome PRO10 Cyan", "color": "cyan", "type": "pigment"},
+        {"name": "UltraChrome PRO10 Vivid Magenta", "color": "magenta", "type": "pigment"},
+        {"name": "UltraChrome PRO10 Yellow", "color": "yellow", "type": "pigment"},
+        {"name": "UltraChrome PRO10 Light Cyan", "color": "light_cyan", "type": "pigment"},
+        {"name": "UltraChrome PRO10 Vivid Light Magenta", "color": "light_magenta", "type": "pigment"},
+        {"name": "UltraChrome PRO10 Gray", "color": "gray", "type": "pigment"},
+        {"name": "UltraChrome PRO10 Light Gray", "color": "light_gray", "type": "pigment"},
+        {"name": "UltraChrome PRO10 Violet", "color": "violet", "type": "pigment"},
+        {"name": "Borderless Maintenance Tank", "color": "maintenance", "type": "box_chip"}
+      ],
+      "hasDigitalInkPercentage": true,
+      "inkLevelReportingType": "digital_chip",
+      "hasReplaceableMaintenanceBoxWithChip": true,
+      "isWasteInkPadCounterBased": false,
+      "autoDuplex": "none",
+      "supportsBorderless": true,
+      "borderlessMaxSize": "A2+",
+      "borderlessExpansionBleedSupported": true,
+      "supportsRollPaper": true,
+      "supportsAutoCut": true,
+      "supportsCdDvdPrint": true,
+      "hasScannerAdf": false,
+      "maxOpticalDpi": "5760x1440",
+      "supportedDpis": [360, 720, 1440, 2880, 5760],
+      "supportedPaperSizes": [
+        "A4", "A3", "A3+", "A2", "A1", "17x22 in", "Roll 13 in", "Roll 17 in", "Roll 24 in", "Custom Roll"
+      ],
+      "supportedMediaTypes": [
+        "Epson Ultra Premium Photo Luster", "Epson Metallic Glossy", "Epson Exhibition Canvas",
+        "Epson Velvet Fine Art", "Hot Press Natural", "Cold Press Bright", "Roll Paper", "Banner Vinyl"
+      ],
+      "trays": [
+        {"id": "top_feed", "name": "Top High-Capacity Sheet Feeder", "capacity": 120, "types": ["Luster", "Matte"]},
+        {"id": "front_fine_art", "name": "Front Fine Art Path (Straight-Through)", "capacity": 1, "types": ["Velvet Fine Art", "Canvas", "Posterboard up to 1.5mm"]},
+        {"id": "roll_unit", "name": "Integrated Roll Paper Unit with Auto-Cutter", "capacity": 1, "types": ["Roll Paper", "Canvas Roll", "Banner"]}
+      ],
+      "defaultMargins": {
+        "plain": {"top": 3.0, "bottom": 3.0, "left": 3.0, "right": 3.0},
+        "fineart": {"top": 15.0, "bottom": 15.0, "left": 3.0, "right": 3.0},
+        "roll": {"top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0}
+      },
+      "mediaDependencyTriggers": [
+        {"media": "Roll Paper", "action": "require_roll_unit", "reason": "Requires roll paper feeder adapter and rotary auto-cut selection"},
+        {"media": "Hot Press Natural", "action": "require_front_fine_art", "reason": "Thick fine art board must use the straight-through front path"},
+        {"media": "Cold Press Bright", "action": "require_front_fine_art", "reason": "Straight path prevents paper curl and head strike"}
+      ],
+      "verificationStatus": "verified",
+      "verificationNote": "Pro-grade fine-art printer. Dedicated Photo Black and Matte Black channels with no ink purging needed."
+    },
+    {
+      "familyId": "epson_aculaser_laser",
+      "familyName": "Epson WorkForce AL-M & AL-C Laser Series",
+      "iconName": "laserMono",
+      "familyTrait": "laser AL-M/AL-C",
+      "modelPatterns": [
+        "AL-M200DN", "AL-M200DW", "AL-M300DN", "AL-M300DTN", "AL-M320DN",
+        "AL-C300DN", "AL-C300DTN", "AL-C500DN", "AL-C500DXN", "AcuLaser M1400", "AcuLaser C1700"
+      ],
+      "supplyTechnology": "toner",
+      "colorLayout": "cmyk_laser",
+      "expectedMarkers": [
+        {"name": "Black Toner Cartridge", "color": "black", "type": "toner_chip"},
+        {"name": "Cyan Toner Cartridge", "color": "cyan", "type": "toner_chip"},
+        {"name": "Magenta Toner Cartridge", "color": "magenta", "type": "toner_chip"},
+        {"name": "Yellow Toner Cartridge", "color": "yellow", "type": "toner_chip"},
+        {"name": "Photoconductor Drum Unit", "color": "drum", "type": "drum_unit"},
+        {"name": "Waste Toner Collector Box", "color": "maintenance", "type": "waste_toner"}
+      ],
+      "hasDigitalInkPercentage": true,
+      "inkLevelReportingType": "digital_toner_percent",
+      "hasReplaceableMaintenanceBoxWithChip": true,
+      "isWasteInkPadCounterBased": false,
+      "autoDuplex": "automatic",
+      "supportsBorderless": false,
+      "borderlessMaxSize": "none",
+      "borderlessExpansionBleedSupported": false,
+      "supportsRollPaper": false,
+      "supportsAutoCut": false,
+      "supportsCdDvdPrint": false,
+      "hasScannerAdf": false,
+      "maxOpticalDpi": "1200x1200",
+      "supportedDpis": [600, 1200],
+      "supportedPaperSizes": ["A4", "Letter", "Legal", "Executive", "A5", "B5", "Envelope #10", "DL", "Monarch"],
+      "supportedMediaTypes": ["Plain Paper", "Recycled Paper", "Labels", "Thick Paper (up to 220 gsm)", "Transparency", "Envelope"],
+      "trays": [
+        {"id": "cassette_1", "name": "Main Paper Cassette", "capacity": 300, "types": ["Plain Paper"]},
+        {"id": "multipurpose_tray", "name": "Multi-Purpose Tray", "capacity": 50, "types": ["Thick Paper", "Labels", "Envelopes"]}
+      ],
+      "defaultMargins": {
+        "plain": {"top": 4.0, "bottom": 4.0, "left": 4.0, "right": 4.0},
+        "envelope": {"top": 5.0, "bottom": 5.0, "left": 5.0, "right": 5.0}
+      },
+      "mediaDependencyTriggers": [
+        {"media": "Labels", "action": "require_mp_tray", "reason": "Adhesive labels must be fed via MP Tray and cannot be duplexed"},
+        {"media": "Labels", "action": "block_duplex", "reason": "Duplexing labels can cause adhesive peeling in the fuser"}
+      ],
+      "verificationStatus": "unverified",
+      "verificationNote": "PCL6/PostScript3 compatible enterprise laser. May vary by regional firmware."
+    },
+    {
+      "familyId": "generic_standard_printer",
+      "familyName": "Generic Windows PCL/PostScript / IPP Printer",
+      "iconName": "genericPrinter",
+      "familyTrait": "Generic",
+      "modelPatterns": ["*"],
+      "supplyTechnology": "inkTank",
+      "colorLayout": "cmyk_dye",
+      "expectedMarkers": [
+        {"name": "Black Supply", "color": "black", "type": "generic"},
+        {"name": "Color Supply", "color": "color", "type": "generic"}
+      ],
+      "hasDigitalInkPercentage": true,
+      "inkLevelReportingType": "standard_spooler",
+      "hasReplaceableMaintenanceBoxWithChip": false,
+      "isWasteInkPadCounterBased": false,
+      "autoDuplex": "manualOnly",
+      "supportsBorderless": false,
+      "borderlessMaxSize": "none",
+      "borderlessExpansionBleedSupported": false,
+      "supportsRollPaper": false,
+      "supportsAutoCut": false,
+      "supportsCdDvdPrint": false,
+      "hasScannerAdf": false,
+      "maxOpticalDpi": "600x600",
+      "supportedDpis": [300, 600, 1200],
+      "supportedPaperSizes": ["A4", "Letter", "Legal", "A5"],
+      "supportedMediaTypes": ["Plain Paper"],
+      "trays": [
+        {"id": "auto_tray", "name": "Automatically Select", "capacity": 100, "types": ["Plain Paper"]}
+      ],
+      "defaultMargins": {
+        "plain": {"top": 4.23, "bottom": 4.23, "left": 4.23, "right": 4.23}
+      },
+      "mediaDependencyTriggers": [],
+      "verificationStatus": "unverified",
+      "verificationNote": "Universal fallback profile for standard Windows and IPP print queues."
+    }
+  ]
+}

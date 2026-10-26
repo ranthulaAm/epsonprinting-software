@@ -1,0 +1,24 @@
+# MSIX Windows 10/11 Packaging Configuration for Print Helper
+# Build command on Windows:
+#   flutter build windows --release
+#   dart run msix:create --config windows/packaging/msix_config.yaml
+
+msix_config:
+  display_name: Print Helper
+  publisher_display_name: Print Helper Open Source Project
+  identity_name: org.printhelper.desktop
+  msix_version: 1.0.0.0
+  logo_path: windows/runner/resources/app_icon.ico
+  capabilities: "" # Zero internet/cloud capabilities requested (100% offline-first; local network printing uses Win32 Spooler)
+  languages: en-us, si-lk
+  architecture: x64
+  install_certificate: false
+  execution_alias: printhelper
+  protocol_activation: printhelper
+  file_extension: .pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .rtf, .odt, .ods, .odp, .png, .jpg, .jpeg, .bmp, .tiff, .tif, .webp, .txt, .md, .markdown, .html, .epub, .phpack
+  context_menu:
+    executable_Types:
+      - type: "*"
+        commands:
+          - id: OpenWithPrintHelper
+            title: Open or Print with Print Helper

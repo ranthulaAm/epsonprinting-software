@@ -1,0 +1,12 @@
+{
+  "name": "print-helper-dev-preview",
+  "version": "1.0.0",
+  "description": "Live Auto-Reload Development Server for Print Helper & PDF Studio",
+  "scripts": {
+    "dev": "node dev_server.js",
+    "start": "node dev_server.js"
+  },
+  "keywords": ["print-helper", "live-preview", "hot-reload", "dev-server"],
+  "author": "",
+  "license": "MIT"
+}
