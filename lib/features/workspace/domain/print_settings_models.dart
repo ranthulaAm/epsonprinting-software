@@ -644,6 +644,9 @@ class UnifiedPrintSettings {
       footerText: footerText,
       showPageNumbers: showPageNumbers,
       scaleFitToPage: fitToPage,
+      targetDpi: hardwareDpi,
+      resampleAlgorithm: resampleFilter.name,
+      renderDpiChoice: renderDpi.name,
     );
   }
 }
