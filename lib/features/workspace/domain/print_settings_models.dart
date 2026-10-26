@@ -4,6 +4,7 @@ import '../../../services/printer/capability_discovery_service.dart';
 import '../../../services/printer/models/printer_intelligence_models.dart';
 import 'print_queue_item.dart';
 import 'resolution_system_models.dart';
+import 'tone_and_ink_models.dart';
 
 /// The 3 user-selectable print settings tiers.
 enum PrintSettingsTier {
@@ -177,6 +178,7 @@ class UnifiedPrintSettings {
   final bool biDirectionalPrinting;
 
   // 4. Tone & Ink
+  final ToneAndInkSettings toneAndInk;
   final int inkDensityPercent; // -50 to +50
   final String blackGeneration; // 'auto', 'minimum', 'medium', 'maximum'
   final bool glossOptimizer;
@@ -282,6 +284,7 @@ class UnifiedPrintSettings {
     this.resamplingHistory = const [],
     this.halftoneScreening = HalftoneScreening.standard,
     this.biDirectionalPrinting = true,
+    this.toneAndInk = const ToneAndInkSettings(),
     this.inkDensityPercent = 0,
     this.blackGeneration = 'auto',
     this.glossOptimizer = false,
@@ -355,6 +358,12 @@ class UnifiedPrintSettings {
       if (photoIdLayoutEnabled) parts.add('Passport Photo Sheet ($photosCount photos)');
       if (cdDvdPrintEnabled) parts.add('Direct CD/DVD Print');
       if (stampPreset != OverlayStampPreset.none) parts.add('Stamp overlay');
+      if (toneAndInk.inkSaverEnabled) {
+        parts.add('Ink Saver (~${toneAndInk.estimatedSavingsPercent.round()}% saved)');
+      }
+      if (toneAndInk.paperCompensation != PaperCompensationPreset.none) {
+        parts.add(toneAndInk.paperCompensation.labelEn.split(' ')[0]);
+      }
     }
 
     return parts.join(', ');
@@ -394,6 +403,12 @@ class UnifiedPrintSettings {
       if (photoIdLayoutEnabled) parts.add('පාස්පෝට් ෆොටෝ ($photosCount ක්)');
       if (cdDvdPrintEnabled) parts.add('CD/DVD තැටි මුද්‍රණය');
       if (stampPreset != OverlayStampPreset.none) parts.add('මුද්‍රා තැබීම');
+      if (toneAndInk.inkSaverEnabled) {
+        parts.add('තීන්ත ඉතිරිය (~${toneAndInk.estimatedSavingsPercent.round()}%)');
+      }
+      if (toneAndInk.paperCompensation != PaperCompensationPreset.none) {
+        parts.add(toneAndInk.paperCompensation.labelSi.split(' ')[0]);
+      }
     }
 
     return parts.join(', ');
@@ -469,6 +484,7 @@ class UnifiedPrintSettings {
     List<ResamplingLogRecord>? resamplingHistory,
     HalftoneScreening? halftoneScreening,
     bool? biDirectionalPrinting,
+    ToneAndInkSettings? toneAndInk,
     int? inkDensityPercent,
     String? blackGeneration,
     bool? glossOptimizer,
@@ -562,6 +578,7 @@ class UnifiedPrintSettings {
       resamplingHistory: resamplingHistory ?? this.resamplingHistory,
       halftoneScreening: halftoneScreening ?? this.halftoneScreening,
       biDirectionalPrinting: biDirectionalPrinting ?? this.biDirectionalPrinting,
+      toneAndInk: toneAndInk ?? this.toneAndInk,
       inkDensityPercent: inkDensityPercent ?? this.inkDensityPercent,
       blackGeneration: blackGeneration ?? this.blackGeneration,
       glossOptimizer: glossOptimizer ?? this.glossOptimizer,
@@ -647,6 +664,7 @@ class UnifiedPrintSettings {
       targetDpi: hardwareDpi,
       resampleAlgorithm: resampleFilter.name,
       renderDpiChoice: renderDpi.name,
+      toneAndInkMap: toneAndInk.toMap(),
     );
   }
 }
@@ -895,6 +913,48 @@ class SettingsCapabilityValidator {
             descriptionEn: 'Use dynamic rasterization DPI based on printer hardware.',
             descriptionSi: 'ප්‍රින්ටරයට ගැලපෙන පරිදි ස්වයංක්‍රීයව සකසන්න.',
             applyFix: (s) => s.copyWith(renderDpi: RenderDpiChoice.auto),
+          ),
+        ),
+      );
+    }
+
+    // 9. Tone & Ink: Double Adjustment Warning
+    if (settings.toneAndInk.isDoubleAdjustmentWarning) {
+      issues.add(
+        SettingsValidationIssue(
+          settingKey: 'toneAndInk_doubleAdjustment',
+          messageEn: 'Double color adjustment detected: Both printer driver color adjustment and Print Helper tone controls are active.',
+          messageSi: 'ප්‍රින්ටර් ඩ්‍රයිවර් සහ Print Helper යන දෙකෙන්ම එකවර වර්ණ වෙනස් කිරීම් සිදු වේ. මෙය වර්ණ අපැහැදිලි වීමට හේතු විය හැක.',
+          isBlocking: false,
+          autoFix: SettingsAutoFixAction(
+            labelEn: 'Let Print Helper Manage Tone',
+            labelSi: 'Print Helper ට භාර දෙන්න',
+            descriptionEn: 'Disable driver color adjustments to avoid double manipulation.',
+            descriptionSi: 'ඩ්‍රයිවර් වර්ණ සැකසුම් අක්‍රිය කර Print Helper පමණක් යොදන්න.',
+            applyFix: (s) => s.copyWith(
+              toneAndInk: s.toneAndInk.copyWith(driverColorAdjustmentActive: false),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 10. Tone & Ink: Heavy Plain Paper Density Bleed Warning
+    if (settings.mediaType.toLowerCase().contains('plain') && settings.toneAndInk.density > 20) {
+      issues.add(
+        SettingsValidationIssue(
+          settingKey: 'toneAndInk_densityPlain',
+          messageEn: 'High ink density (+${settings.toneAndInk.density}) on Plain Paper causes paper cockling and ink bleed-through.',
+          messageSi: 'සාමාන්‍ය කඩදාසිවලට අධික තීන්ත ඝනත්වය (+${settings.toneAndInk.density}) නිසා කොළ රැළි වැටී තීන්ත පිටුපසට කාන්දු විය හැක.',
+          isBlocking: false,
+          autoFix: SettingsAutoFixAction(
+            labelEn: 'Apply Plain Paper Compensation',
+            labelSi: 'සාමාන්‍ය කොළ පාලනය යොදන්න',
+            descriptionEn: 'Apply optimized midtone lift and text sharpness to reduce ink deposit.',
+            descriptionSi: 'තීන්ත පාලනය කර අකුරු තියුණු කරන පෙරසැකසුම යොදන්න.',
+            applyFix: (s) => s.copyWith(
+              toneAndInk: s.toneAndInk.applyPaperCompensation(PaperCompensationPreset.plainPaper),
+            ),
           ),
         ),
       );

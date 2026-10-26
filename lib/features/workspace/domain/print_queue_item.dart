@@ -87,6 +87,7 @@ class FilePrintSettings {
     this.targetDpi = 600,
     this.resampleAlgorithm = 'bicubic',
     this.renderDpiChoice = 'auto',
+    this.toneAndInkMap,
     this.textFontFamily = 'NotoSansSinhala',
     this.textFontSizePt = 11.0,
     this.textLineSpacing = 1.4,
@@ -127,6 +128,7 @@ class FilePrintSettings {
   final int targetDpi;
   final String resampleAlgorithm;
   final String renderDpiChoice;
+  final Map<String, dynamic>? toneAndInkMap;
   final String textFontFamily;
   final double textFontSizePt;
   final double textLineSpacing;
@@ -199,6 +201,7 @@ class FilePrintSettings {
     int? targetDpi,
     String? resampleAlgorithm,
     String? renderDpiChoice,
+    Map<String, dynamic>? toneAndInkMap,
     String? textFontFamily,
     double? textFontSizePt,
     double? textLineSpacing,
@@ -239,6 +242,7 @@ class FilePrintSettings {
       targetDpi: targetDpi ?? this.targetDpi,
       resampleAlgorithm: resampleAlgorithm ?? this.resampleAlgorithm,
       renderDpiChoice: renderDpiChoice ?? this.renderDpiChoice,
+      toneAndInkMap: toneAndInkMap ?? this.toneAndInkMap,
       textFontFamily: textFontFamily ?? this.textFontFamily,
       textFontSizePt: textFontSizePt ?? this.textFontSizePt,
       textLineSpacing: textLineSpacing ?? this.textLineSpacing,
@@ -281,6 +285,7 @@ class FilePrintSettings {
         'targetDpi': targetDpi,
         'resampleAlgorithm': resampleAlgorithm,
         'renderDpiChoice': renderDpiChoice,
+        'toneAndInkMap': toneAndInkMap,
         'textFontFamily': textFontFamily,
         'textFontSizePt': textFontSizePt,
         'textLineSpacing': textLineSpacing,
@@ -345,6 +350,7 @@ class FilePrintSettings {
       targetDpi: (map['targetDpi'] as num?)?.toInt() ?? 600,
       resampleAlgorithm: map['resampleAlgorithm'] as String? ?? 'bicubic',
       renderDpiChoice: map['renderDpiChoice'] as String? ?? 'auto',
+      toneAndInkMap: map['toneAndInkMap'] as Map<String, dynamic>?,
       textFontFamily: map['textFontFamily'] as String? ?? 'NotoSansSinhala',
       textFontSizePt: (map['textFontSizePt'] as num?)?.toDouble() ?? 11.0,
       textLineSpacing: (map['textLineSpacing'] as num?)?.toDouble() ?? 1.4,

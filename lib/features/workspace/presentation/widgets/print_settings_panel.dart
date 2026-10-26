@@ -10,9 +10,15 @@ import '../../../../services/printer/models/printer_intelligence_models.dart';
 import '../../../../services/printer/models/printer_models.dart';
 import '../../domain/print_queue_item.dart';
 import '../../domain/print_settings_models.dart';
+import '../../domain/resolution_system_models.dart';
+import '../../domain/tone_and_ink_models.dart';
 import 'manual_duplex_assistant_dialog.dart';
+import 'photo_size_helper_dialog.dart';
 import 'printer_abilities_dialog.dart';
 import 'printer_live_info_panel.dart';
+import 'resample_preview_dialog.dart';
+import 'test_pattern_dialog.dart';
+import 'tone_and_ink_panel.dart';
 
 /// Multi-tier print settings panel adhering to Windows 11 desktop styling,
 /// with Basic, Standard, and Professional tiers, capability filtering,
@@ -706,6 +712,13 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         ),
         const SizedBox(height: DesktopSpacing.s8),
 
+        // Printer Hardware Resolution (DPI)
+        _buildHardwareDpiPicker(palette, isSi),
+
+        // Effective Image Sharpness (PPI) & Photo Size Helper
+        _buildEffectivePpiBadge(palette, isSi),
+        const SizedBox(height: DesktopSpacing.s8),
+
         // Paper Tray
         FormRow(
           label: isSi ? 'කඩදාසි තැටිය' : 'Paper Tray',
@@ -818,6 +831,144 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // 0. Resolution & Resampling
+        _buildSectionTitle(palette, isSi ? 'විභේදනය සහ ප්‍රතිනියැදීම (Resolution & Resampling)' : 'Resolution & Resampling', Icons.blur_linear),
+
+        // Render DPI (Page Rasterization)
+        FormRow(
+          label: isSi ? 'විදැහුම් විභේදනය (Render DPI)' : 'Render DPI (Rasterization)',
+          isSinhala: isSi,
+          child: DropdownButton<RenderDpiChoice>(
+            value: s.renderDpi,
+            isExpanded: true,
+            underline: const SizedBox(),
+            items: RenderDpiChoice.values.map((choice) {
+              return DropdownMenuItem(
+                value: choice,
+                child: Text(isSi ? choice.labelSi : choice.labelEn, style: const TextStyle(fontSize: 12)),
+              );
+            }).toList(),
+            onChanged: (choice) {
+              if (choice != null) widget.onSettingsChanged(s.copyWith(renderDpi: choice));
+            },
+          ),
+        ),
+        // Live memory estimate & vector notice
+        Padding(
+          padding: const EdgeInsets.only(top: 2, bottom: DesktopSpacing.s8),
+          child: Row(
+            children: [
+              Icon(Icons.memory_rounded, size: 13, color: s.renderDpi == RenderDpiChoice.dpi1200 ? palette.warning : palette.textSecondary),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  isSi
+                      ? 'මතක භාවිතය: ~${EffectivePpiCalculator.estimateRasterMemoryMb(pageWInches: 8.27, pageHInches: 11.69, renderDpi: s.renderDpi.resolveDpi(s.hardwareDpi)).round()} MB/පිටුව. PDF අකුරු rasterize නොකරයි.'
+                      : 'Est. Memory: ~${EffectivePpiCalculator.estimateRasterMemoryMb(pageWInches: 8.27, pageHInches: 11.69, renderDpi: s.renderDpi.resolveDpi(s.hardwareDpi)).round()} MB/page. Vector text preserved directly.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: s.renderDpi == RenderDpiChoice.dpi1200 ? palette.warning : palette.textSecondary,
+                    fontWeight: s.renderDpi == RenderDpiChoice.dpi1200 ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Resample Filter
+        FormRow(
+          label: isSi ? 'ප්‍රතිනියැදි ෆිල්ටරය' : 'Resample Filter',
+          isSinhala: isSi,
+          child: DropdownButton<ResamplingAlgorithm>(
+            value: s.resampleFilter,
+            isExpanded: true,
+            underline: const SizedBox(),
+            items: ResamplingAlgorithm.values.map((algo) {
+              return DropdownMenuItem(
+                value: algo,
+                child: Text(isSi ? algo.nameSi : algo.nameEn, style: const TextStyle(fontSize: 12)),
+              );
+            }).toList(),
+            onChanged: (algo) {
+              if (algo != null) widget.onSettingsChanged(s.copyWith(resampleFilter: algo));
+            },
+          ),
+        ),
+        const SizedBox(height: DesktopSpacing.s6),
+
+        // Upscale for Print Button with Dialog
+        OutlinedButton.icon(
+          icon: const Icon(Icons.auto_fix_high_rounded, size: 14),
+          label: Text(isSi ? 'මුද්‍රණය සඳහා පැහැදිලි කරන්න (Upscale 2x)...' : 'Upscale for Print (2x Lanczos Preview)...'),
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => ResamplePreviewDialog(
+                fileName: 'Document / Image',
+                originalWidth: 800,
+                originalHeight: 600,
+                currentEffectivePpi: s.currentEffectivePpi > 0 ? s.currentEffectivePpi : 96.0,
+                strings: widget.strings,
+                onApplyUpscale: (algo, mult) {
+                  widget.onSettingsChanged(s.copyWith(
+                    resampleFilter: algo,
+                    isUpscaledForPrint: true,
+                    upscaleMultiplier: mult,
+                    currentEffectivePpi: (s.currentEffectivePpi > 0 ? s.currentEffectivePpi : 96.0) * mult,
+                  ));
+                },
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: DesktopSpacing.s10),
+
+        // Tone and Ink Adjustment Panel
+        _buildSectionTitle(palette, isSi ? 'ටෝන සහ තීන්ත පාලනය (Tone & Ink)' : 'Tone & Ink Adjustments', Icons.palette_outlined),
+        ToneAndInkPanel(
+          settings: s.toneAndInk,
+          isColorPrinter: caps.supportsColor,
+          driverColorAdjustmentAvailable: caps.supportsDriverColorAdjustment,
+          strings: widget.strings,
+          onSettingsChanged: (updatedTone) {
+            widget.onSettingsChanged(s.copyWith(toneAndInk: updatedTone));
+          },
+          onOpenDriverPreferences: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => PrinterAbilitiesDialog(
+                capabilities: caps,
+                strings: widget.strings,
+                onCapturePreferences: () {},
+                onCopyDiagnostics: () {},
+              ),
+            );
+          },
+          onPrintTestPattern: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => TestPatternDialog(
+                printerName: widget.activePrinterName,
+                strings: widget.strings,
+                onPrintDocument: () {},
+                onOpenDriverPreferences: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => PrinterAbilitiesDialog(
+                      capabilities: caps,
+                      strings: widget.strings,
+                      onCapturePreferences: () {},
+                      onCopyDiagnostics: () {},
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: DesktopSpacing.s12),
+
         _buildSectionTitle(palette, isSi ? 'වෘත්තීය වර්ණ සහ පිරිසැලසුම්' : 'Professional Color & Imposition', Icons.auto_awesome),
 
         // 1. Color Management & ICC
@@ -1014,6 +1165,148 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           onChanged: (val) => widget.onSettingsChanged(s.copyWith(isStaffLocked: val ?? false)),
         ),
       ],
+    );
+  }
+
+  // --- HARDWARE RESOLUTION (DPI) PICKER ---
+  Widget _buildHardwareDpiPicker(DesktopPalette palette, bool isSi) {
+    final s = widget.settings;
+    final availableDpis = widget.capabilities.supportedResolutionsDpi.isNotEmpty
+        ? widget.capabilities.supportedResolutionsDpi
+        : [300, 600, 1200, 2400, 4800];
+
+    final currentDpi = s.hardwareDpi > 0 ? s.hardwareDpi : 600;
+    final currentInfo = PrinterDpiOptionInfo.forDpi(dpi: currentDpi, mediaType: s.mediaType);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FormRow(
+          label: isSi ? 'මුද්‍රණ විභේදනය (DPI)' : 'Printer Resolution (DPI)',
+          isSinhala: isSi,
+          child: DropdownButton<int>(
+            value: availableDpis.contains(currentDpi) ? currentDpi : availableDpis.first,
+            isExpanded: true,
+            underline: const SizedBox(),
+            items: availableDpis.map((dpi) {
+              final info = PrinterDpiOptionInfo.forDpi(dpi: dpi, mediaType: s.mediaType);
+              final isSupported = info.isSupportedOnCurrentMedia;
+              return DropdownMenuItem<int>(
+                value: dpi,
+                enabled: isSupported,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        isSi ? info.labelSi : info.labelEn,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isSupported ? palette.textPrimary : palette.textTertiary,
+                          decoration: isSupported ? null : TextDecoration.lineThrough,
+                        ),
+                      ),
+                    ),
+                    if (!isSupported)
+                      Icon(Icons.block_rounded, size: 14, color: palette.error),
+                  ],
+                ),
+              );
+            }).toList(),
+            onChanged: (dpi) {
+              if (dpi != null) {
+                widget.onSettingsChanged(s.copyWith(hardwareDpi: dpi));
+              }
+            },
+          ),
+        ),
+        // Speed and Ink Note
+        Padding(
+          padding: const EdgeInsets.only(top: 2, bottom: DesktopSpacing.s8),
+          child: Text(
+            isSi ? currentInfo.speedAndInkNoteSi : currentInfo.speedAndInkNoteEn,
+            style: TextStyle(fontSize: 11, color: palette.textSecondary),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- EFFECTIVE PPI CHECKER BADGE ---
+  Widget _buildEffectivePpiBadge(DesktopPalette palette, bool isSi) {
+    final s = widget.settings;
+    final ppi = s.currentEffectivePpi > 0 ? s.currentEffectivePpi : 300.0;
+    final rating = PpiQualityRating.fromPpi(ppi);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: DesktopSpacing.s4),
+      padding: const EdgeInsets.all(DesktopSpacing.s10),
+      decoration: BoxDecoration(
+        color: rating.color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(DesktopRadius.r6),
+        border: Border.all(color: rating.color.withOpacity(0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(rating.icon, size: 16, color: rating.color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  isSi ? 'පැහැදිලි බව: ${ppi.round()} PPI (${rating.shortLabelSi})' : 'Sharpness: ${ppi.round()} PPI (${rating.shortLabelEn})',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: rating.color,
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => PhotoSizeHelperDialog(
+                      pixelWidth: 1800,
+                      pixelHeight: 1200,
+                      fileName: 'Selected Image',
+                      currentPaperSize: s.paperSize,
+                      strings: widget.strings,
+                      onSelectSize: (chosen) {
+                        widget.onSettingsChanged(s.copyWith(paperSize: chosen));
+                      },
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: palette.surface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: palette.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.photo_size_select_actual_outlined, size: 12, color: palette.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        isSi ? 'ප්‍රමාණ සහායක' : 'Photo Size Helper',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: palette.accent),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isSi ? rating.descriptionSi : rating.descriptionEn,
+            style: TextStyle(fontSize: 11, color: palette.textPrimary),
+          ),
+        ],
+      ),
     );
   }
 

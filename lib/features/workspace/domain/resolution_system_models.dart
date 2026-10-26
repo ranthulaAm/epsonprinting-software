@@ -61,8 +61,8 @@ enum PpiQualityRating {
   });
 
   static PpiQualityRating fromPpi(double ppi) {
-    if (ppi >= 300.0) return PpiQualityRating.crisp;
-    if (ppi >= 150.0) return PpiQualityRating.acceptable;
+    if (ppi >= 299.9) return PpiQualityRating.crisp;
+    if (ppi >= 149.9) return PpiQualityRating.acceptable;
     return PpiQualityRating.low;
   }
 }
@@ -566,15 +566,16 @@ class EffectivePpiCalculator {
     String? bestRecommendedName;
 
     for (final s in standardSizes) {
-      final ppiW = pixelWidth / (s.w / mmPerInch);
-      final ppiH = pixelHeight / (s.h / mmPerInch);
-      final ppi = math.min(ppiW, ppiH);
-      final rating = PpiQualityRating.fromPpi(ppi);
+      // Align paper orientation with image aspect ratio for optimal fit
+      final (paperLong, paperShort) = s.w >= s.h ? (s.w, s.h) : (s.h, s.w);
+      final (imgLong, imgShort) = pixelWidth >= pixelHeight
+          ? (pixelWidth.toDouble(), pixelHeight.toDouble())
+          : (pixelHeight.toDouble(), pixelWidth.toDouble());
 
-      if (rating == PpiQualityRating.crisp && bestRecommendedName == null) {
-        // Look for the largest size that still achieves Crisp (300+ PPI)
-        bestRecommendedName = s.name;
-      }
+      final ppiLong = imgLong / (paperLong / mmPerInch);
+      final ppiShort = imgShort / (paperShort / mmPerInch);
+      final ppi = math.min(ppiLong, ppiShort);
+      final rating = PpiQualityRating.fromPpi(ppi);
 
       suggestions.add(
         PhotoPrintSizeSuggestion(

@@ -321,6 +321,1037 @@
     </div>
   </div>
 
+  <!-- Photo Print Size Helper Modal -->
+  <div id="photoHelperModal" class="modal-overlay hidden">
+    <div class="modal-dialog photo-helper-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon">photo_size_select_actual</span>
+          <div>
+            <h3 id="lblPhotoHelperTitle">Photo Print Size Helper</h3>
+            <p class="modal-subtitle" id="lblPhotoHelperSub">Calculate resulting PPI & find the largest photo-grade size</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnClosePhotoHelper">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="helper-info-callout">
+          <span class="material-symbols-rounded">info</span>
+          <span id="lblPhotoHelperCallout">PPI (Pixels Per Inch) is image detail on paper. High printer DPI cannot fix low source PPI. 300+ PPI yields lab-quality photos.</span>
+        </div>
+
+        <div class="helper-source-bar">
+          <span class="material-symbols-rounded">image</span>
+          <span id="lblPhotoHelperSource">Source Image: <strong>sample_photo.jpg</strong> (1800 × 1200 px)</span>
+        </div>
+
+        <h4 class="helper-table-title" id="lblPhotoHelperTableTitle">Quality Across Standard Sizes:</h4>
+        <div class="photo-sizes-list" id="photoSizesList">
+          <!-- Populated dynamically by app.js -->
+        </div>
+
+        <div class="custom-dim-calculator">
+          <strong id="lblCustomCalcTitle">Custom Dimensions Calculator:</strong>
+          <div class="calc-inputs-row">
+            <label><span id="lblCustomW">W (cm):</span> <input type="number" id="txtCustomWidthCm" value="15.0" step="0.5" min="2" max="150" class="form-input form-input-sm" /></label>
+            <label><span id="lblCustomH">H (cm):</span> <input type="number" id="txtCustomHeightCm" value="10.0" step="0.5" min="2" max="150" class="form-input form-input-sm" /></label>
+            <div class="custom-ppi-result" id="customPpiResult">
+              <span class="badge-ppi crisp" id="badgeCustomPpi">305 PPI (Crisp)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal" id="btnCancelPhotoHelper">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resample & Upscale Preview Modal -->
+  <div id="resamplePreviewModal" class="modal-overlay hidden">
+    <div class="modal-dialog resample-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon">auto_fix_high</span>
+          <div>
+            <h3 id="lblResampleTitle">Image Resample & Print Upscale</h3>
+            <p class="modal-subtitle" id="lblResampleSub">Enhance image resolution before printing without silent resampling</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnCloseResampleModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="resample-controls-row">
+          <div class="control-col">
+            <label id="lblResampleFilterModal">Resampling Algorithm:</label>
+            <select id="selModalResampleAlgo" class="form-select form-select-sm">
+              <option value="none">None (Nearest Neighbor - Pixelated)</option>
+              <option value="bicubic">Bicubic Interpolation (Smooth)</option>
+              <option value="lanczos" selected>Lanczos-3 (Windowed Sinc - High Fidelity)</option>
+            </select>
+          </div>
+          <div class="control-col">
+            <label id="lblResampleMultiplier">Upscale Multiplier:</label>
+            <select id="selModalMultiplier" class="form-select form-select-sm">
+              <option value="1.5">1.5× (+50% Pixels)</option>
+              <option value="2.0" selected>2.0× Standard Upscale (4× Pixels)</option>
+              <option value="3.0">3.0× High Magnification</option>
+              <option value="4.0">4.0× Ultra Scale</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="resample-algo-desc" id="lblResampleAlgoDesc">
+          Lanczos-3 (Windowed Sinc): High-fidelity 3-lobe sinc filter. Preserves sharp photo edges without ringing or blur.
+        </div>
+
+        <!-- Before / After Side-by-Side Comparison -->
+        <div class="split-preview-container">
+          <div class="split-side split-before">
+            <div class="split-badge-label" id="lblBeforeLabel">Original (Before)</div>
+            <div class="split-canvas-mockup before-pattern">
+              <span class="material-symbols-rounded icon-mock">grid_4x4</span>
+              <div class="split-specs" id="lblBeforeSpecs">800 × 600 px</div>
+            </div>
+            <div class="split-ppi-rating">
+              <span class="badge-ppi low" id="badgeBeforePpi">96 PPI (Low Resolution)</span>
+            </div>
+          </div>
+
+          <div class="split-divider-arrow">
+            <span class="material-symbols-rounded">arrow_forward</span>
+          </div>
+
+          <div class="split-side split-after">
+            <div class="split-badge-label accent" id="lblAfterLabel">Resampled (After)</div>
+            <div class="split-canvas-mockup after-pattern">
+              <span class="material-symbols-rounded icon-mock accent">high_quality</span>
+              <div class="split-specs accent" id="lblAfterSpecs">1600 × 1200 px</div>
+            </div>
+            <div class="split-ppi-rating">
+              <span class="badge-ppi acceptable" id="badgeAfterPpi">192 PPI (Acceptable)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="resample-guarantee-note">
+          <span class="material-symbols-rounded">shield</span>
+          <span id="lblResampleGuarantee">Vector Guarantee: Text fonts and PDF paths are preserved as vector. Only bitmap photos are interpolated. Transformations are logged in job metadata.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal" id="btnCancelResample">Cancel</button>
+        <button class="btn btn-primary" id="btnApplyResample">
+          <span class="material-symbols-rounded">check_circle</span>
+          <span id="lblBtnApplyResample">Apply 2x Upscale to Job</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tone & Ink Quality Test Pattern Modal -->
+  <div id="testPatternModal" class="modal-overlay hidden">
+    <div class="modal-dialog test-pattern-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon" style="color:var(--accent);">gradient</span>
+          <div>
+            <h3 id="lblTestPatternTitle">Print Tone & Quality Test Pattern</h3>
+            <p class="modal-subtitle" id="lblTestPatternSub">Epson EcoTank L3250 — Gray Ramp, Color Patches & Nozzle Chart</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnCloseTestPatternModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Honest Advisory Notice -->
+        <div class="test-pattern-advisory">
+          <span class="material-symbols-rounded advisory-icon">shield</span>
+          <div class="advisory-text" id="lblTestPatternAdvisory">
+            <strong>Honest Print Guarantee:</strong> This test sheet is printed via standard Windows document spooling. Print Helper <em>NEVER</em> sends raw printer control or maintenance commands. If the nozzle check pattern shows broken lines or misalignments, please run head cleaning safely from the printer's own control panel or the Epson Driver Maintenance tab.
+          </div>
+        </div>
+
+        <!-- Visual Test Sheet Mockup -->
+        <div class="test-sheet-mockup">
+          <div class="test-sheet-header">
+            <span>PRINT HELPER DIAGNOSTIC TEST SHEET — EPSON ECOTANK L3250</span>
+            <span class="test-sheet-date">100% Vector Print via Spooler</span>
+          </div>
+
+          <!-- 11-Step Gray Ramp (0% to 100%) -->
+          <div class="ramp-label">11-Step Neutral Gray Ramp (Tone & Gamma Fidelity)</div>
+          <div class="gray-ramp-bar">
+            <div class="ramp-step step-0"><span>0%</span></div>
+            <div class="ramp-step step-10"><span>10%</span></div>
+            <div class="ramp-step step-20"><span>20%</span></div>
+            <div class="ramp-step step-30"><span>30%</span></div>
+            <div class="ramp-step step-40"><span>40%</span></div>
+            <div class="ramp-step step-50"><span>50%</span></div>
+            <div class="ramp-step step-60"><span>60%</span></div>
+            <div class="ramp-step step-70"><span>70%</span></div>
+            <div class="ramp-step step-80"><span>80%</span></div>
+            <div class="ramp-step step-90"><span>90%</span></div>
+            <div class="ramp-step step-100"><span>100%</span></div>
+          </div>
+
+          <!-- CMYK Color Patches -->
+          <div class="ramp-label">CMYK Primary Color Patches</div>
+          <div class="cmyk-patches-row">
+            <div class="color-patch patch-cyan"><span>Cyan (C)</span></div>
+            <div class="color-patch patch-magenta"><span>Magenta (M)</span></div>
+            <div class="color-patch patch-yellow"><span>Yellow (Y)</span></div>
+            <div class="color-patch patch-black"><span>Black (K)</span></div>
+          </div>
+
+          <!-- Text Sharpness & Nozzle Ladder -->
+          <div class="sharpness-nozzle-row">
+            <div class="sharpness-col">
+              <div class="ramp-label">Micro-Text Sharpness Target</div>
+              <div class="target-text text-4pt">4pt: Antigravity Print Helper precision micro typography sample</div>
+              <div class="target-text text-6pt">6pt: Crisp vector letterforms for fine legal contracts and invoices</div>
+              <div class="target-text text-8pt">8pt: Standard book typography and shop customer billing text</div>
+              <div class="target-text text-10pt">10pt: Clean readable body copy across all paper types</div>
+            </div>
+            <div class="nozzle-col">
+              <div class="ramp-label">Visual Nozzle Check (Staircase)</div>
+              <div class="nozzle-ladder-mockup">
+                <div class="nozzle-step c1"></div>
+                <div class="nozzle-step m1"></div>
+                <div class="nozzle-step y1"></div>
+                <div class="nozzle-step k1"></div>
+                <div class="nozzle-step c2"></div>
+                <div class="nozzle-step m2"></div>
+                <div class="nozzle-step y2"></div>
+                <div class="nozzle-step k2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btnOpenDriverMaint">
+          <span class="material-symbols-rounded">settings_applications</span>
+          <span id="lblBtnDriverMaint">Open Driver Maintenance</span>
+        </button>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-close-modal" id="btnCancelTestPattern">Close</button>
+        <button class="btn btn-primary" id="btnPrintTestPageNow">
+          <span class="material-symbols-rounded">print</span>
+          <span id="lblBtnPrintTestPage">Print Test Page Now</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Quotation & Invoice Modal (Quote Mode) -->
+  <div id="quoteModal" class="modal-overlay hidden">
+    <div class="modal-dialog quote-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon" style="color:var(--accent);">request_quote</span>
+          <div>
+            <h3 id="lblQuoteTitle">Customer Estimate & Quotation</h3>
+            <p class="modal-subtitle" id="lblQuoteCode">PH-QUOTE-20261027-018 • Walk-in Counter Rate</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnCloseQuoteModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="quote-customer-bar">
+          <div class="quote-info-col">
+            <span class="info-lbl">Customer / Account:</span>
+            <strong id="lblQuoteCustomer">Walk-in Customer</strong>
+          </div>
+          <div class="quote-info-col">
+            <span class="info-lbl">Customer Group:</span>
+            <span class="customer-tag-pill" id="lblQuoteGroupTag">Regular (Standard)</span>
+          </div>
+          <div class="quote-info-col">
+            <span class="info-lbl">Currency:</span>
+            <strong id="lblQuoteCurrency">LKR (Rs.)</strong>
+          </div>
+        </div>
+
+        <!-- Itemized Mixed-Page Table -->
+        <div class="quote-table-wrap">
+          <table class="jobs-table quote-items-table">
+            <thead>
+              <tr>
+                <th>Document / Segment</th>
+                <th>Classification</th>
+                <th>Impressions</th>
+                <th>Unit Rate</th>
+                <th style="text-align:right;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody id="quoteItemsTbody">
+              <tr>
+                <td><strong>annual_report.pdf</strong> (Pages 1-17)</td>
+                <td><span class="source-badge">B&W Text</span></td>
+                <td>17 pages × 1 copy</td>
+                <td>Rs. 12.00 (Tier 11-50)</td>
+                <td style="text-align:right;">Rs. 204.00</td>
+              </tr>
+              <tr>
+                <td><strong>annual_report.pdf</strong> (Pages 18-20)</td>
+                <td><span class="source-badge app">Color Charts</span></td>
+                <td>3 pages × 1 copy</td>
+                <td>Rs. 40.00</td>
+                <td style="text-align:right;">Rs. 120.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Totals & Surcharges Breakdown -->
+        <div class="quote-financial-summary">
+          <div class="quote-sum-row">
+            <span>Gross Page Impressions Subtotal:</span>
+            <strong id="lblQuoteGrossSubtotal">Rs. 324.00</strong>
+          </div>
+          <div class="quote-sum-row text-success" id="rowQuoteFreePages">
+            <span>Free Pages Allowance Deduction:</span>
+            <strong id="lblQuoteFreePagesDeduction">- Rs. 0.00</strong>
+          </div>
+          <div class="quote-sum-row text-success" id="rowQuoteGroupDisc">
+            <span>Customer Group Discount:</span>
+            <strong id="lblQuoteGroupDiscount">- Rs. 0.00</strong>
+          </div>
+          <div class="quote-sum-row" id="rowQuoteSurcharges">
+            <span>Special Media & Finishing Surcharges:</span>
+            <span id="lblQuoteSurcharges">Rs. 0.00</span>
+          </div>
+          <div class="quote-sum-row" id="rowQuoteMinCharge">
+            <span>Minimum Job Charge Adjustment:</span>
+            <span id="lblQuoteMinCharge">Rs. 0.00</span>
+          </div>
+          <div class="quote-sum-divider"></div>
+          <div class="quote-sum-row quote-grand-total">
+            <span>FINAL PAYABLE TOTAL:</span>
+            <strong class="total-price" id="lblQuoteGrandTotal">Rs. 324.00</strong>
+          </div>
+          <div class="quote-est-profit-callout" id="lblQuoteProfitAudit">
+            <span class="material-symbols-rounded">trending_up</span>
+            <span>Estimated Supplies Cost: <strong>Rs. 68.50</strong> • Estimated Net Profit: <strong>Rs. 255.50</strong> (labeled estimate)</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btnPrintQuotePdf">
+          <span class="material-symbols-rounded">picture_as_pdf</span>
+          <span>Generate Quote / Invoice PDF</span>
+        </button>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost btn-close-modal" id="btnCancelQuote">Close</button>
+        <button class="btn btn-primary" id="btnQuoteDispatchPrint">
+          <span class="material-symbols-rounded">print</span>
+          <span>Print Document Now</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Edit Price Rules Modal -->
+  <div id="bulkEditModal" class="modal-overlay hidden">
+    <div class="modal-dialog bulk-edit-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon" style="color:var(--accent);">tune</span>
+          <div>
+            <h3>Bulk Rate Adjustment</h3>
+            <p class="modal-subtitle">Update rates across all or filtered price dimensions simultaneously</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnCloseBulkEditModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>Target Dimension Scope:</label>
+          <select id="selBulkScope" class="form-select">
+            <option value="all" selected>All Rate Rules in Active Price List</option>
+            <option value="a4_only">A4 Document Rules Only</option>
+            <option value="a3_only">A3 Document Rules Only</option>
+            <option value="color_only">Color Rules Only</option>
+            <option value="photo_only">Photo Print Rules Only</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Adjustment Operation:</label>
+          <select id="selBulkOperation" class="form-select">
+            <option value="pct_increase" selected>Increase by Percentage (+%)</option>
+            <option value="pct_decrease">Decrease by Percentage (-%)</option>
+            <option value="fixed_add">Add Fixed Amount (+Rs.)</option>
+            <option value="fixed_sub">Subtract Fixed Amount (-Rs.)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Adjustment Amount / Value:</label>
+          <input type="number" id="inputBulkValue" value="10" class="form-input" min="0" step="0.5">
+        </div>
+        <div class="bulk-preview-note">
+          <span class="material-symbols-rounded">info</span>
+          <span>Example: A +10% adjustment changes an A4 B&W Rs. 15.00 rate to Rs. 16.50 (rounded per currency setting).</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal" id="btnCancelBulkEdit">Cancel</button>
+        <button class="btn btn-primary" id="btnApplyBulkEdit">
+          <span class="material-symbols-rounded">check</span>
+          <span>Apply Bulk Adjustment</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Price Change History / Audit Log Modal -->
+  <div id="auditLogModal" class="modal-overlay hidden">
+    <div class="modal-dialog audit-log-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon" style="color:var(--accent);">history</span>
+          <div>
+            <h3>Price Change History & Audit Log</h3>
+            <p class="modal-subtitle">Immutable audit trail of who, when and why prices were altered</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnCloseAuditLogModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="audit-table-wrap">
+          <table class="jobs-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Shop Staff / Owner</th>
+                <th>Rule ID</th>
+                <th>Change Field</th>
+                <th>Old Value</th>
+                <th>New Value</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody id="auditLogTbody">
+              <tr>
+                <td>2026-10-27 00:45</td>
+                <td>Shop Owner</td>
+                <td>rule_a4_doc_bw_single</td>
+                <td>tiers[11-50]</td>
+                <td>Rs. 13.00</td>
+                <td>Rs. 12.00</td>
+                <td>Volume discount alignment</td>
+              </tr>
+              <tr>
+                <td>2026-10-26 18:20</td>
+                <td>Shop Owner</td>
+                <td>rule_photo_4x6_glossy</td>
+                <td>basePrice</td>
+                <td>Rs. 75.00</td>
+                <td>Rs. 80.00</td>
+                <td>Photo resin paper cost hike</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" id="btnExportAuditCsv">Export Audit Log (CSV)</button>
+        <div class="spacer"></div>
+        <button class="btn btn-primary btn-sm btn-close-modal" id="btnCloseAudit">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Security PIN Modal for Price Editing -->
+  <div id="pricePinModal" class="modal-overlay hidden">
+    <div class="modal-dialog pin-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon" style="color:var(--accent);">lock</span>
+          <div>
+            <h3>Manager PIN Verification</h3>
+            <p class="modal-subtitle">Enter 4-digit Master PIN to unlock shop price editing</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnClosePinModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="pin-input-wrap">
+          <input type="password" id="inputMasterPin" maxlength="6" placeholder="Enter PIN (Default: 1234)" class="form-input text-center pin-field" autofocus>
+        </div>
+        <p class="pin-hint-text">Staff Lock is active to prevent unauthorized cashier rate alterations.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal" id="btnCancelPin">Cancel</button>
+        <button class="btn btn-primary" id="btnVerifyPin">Unlock Editor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Specialty Print Media Center Modal (8 Modules) -->
+  <div id="specialtyPrintModal" class="modal-overlay hidden">
+    <div class="modal-dialog specialty-print-dialog">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon" style="color:var(--accent);">stars</span>
+          <div>
+            <h3 id="lblSpecialtyCenterTitle">Specialty Print Media Center</h3>
+            <p class="modal-subtitle">
+              <span id="lblSpecialtySubtitle">Hardware-native specialty modules • Spooler-only dispatch</span>
+              <span class="badge badge-accent" id="badgeSpecialtyActivePrinter">EPSON L8050 Series</span>
+            </p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnCloseSpecialtyModal">&times;</button>
+      </div>
+
+      <!-- Specialty Module Tab Strip -->
+      <div class="specialty-tab-strip" id="specialtyTabStrip">
+        <button type="button" class="specialty-tab active" data-mod="cdDvd">
+          <span class="material-symbols-rounded">album</span>
+          <span class="tab-label" id="tabLblCdDvd">CD/DVD Disc</span>
+        </button>
+        <button type="button" class="specialty-tab" data-mod="pvc">
+          <span class="material-symbols-rounded">badge</span>
+          <span class="tab-label" id="tabLblPvc">PVC ID Card</span>
+        </button>
+        <button type="button" class="specialty-tab" data-mod="passport">
+          <span class="material-symbols-rounded">photo_camera_front</span>
+          <span class="tab-label" id="tabLblPassport">Passport Photos</span>
+        </button>
+        <button type="button" class="specialty-tab" data-mod="rigid">
+          <span class="material-symbols-rounded">layers</span>
+          <span class="tab-label" id="tabLblRigid">Rigid Media</span>
+        </button>
+        <button type="button" class="specialty-tab" data-mod="roll">
+          <span class="material-symbols-rounded">panorama_horizontal</span>
+          <span class="tab-label" id="tabLblRoll">Roll Paper</span>
+        </button>
+        <button type="button" class="specialty-tab" data-mod="sublimation">
+          <span class="material-symbols-rounded">coffee</span>
+          <span class="tab-label" id="tabLblSublimation">Dye-Sublimation</span>
+        </button>
+        <button type="button" class="specialty-tab" data-mod="labels">
+          <span class="material-symbols-rounded">label</span>
+          <span class="tab-label" id="tabLblLabels">ColorWorks Labels</span>
+        </button>
+        <button type="button" class="specialty-tab" data-mod="receipt">
+          <span class="material-symbols-rounded">receipt_long</span>
+          <span class="tab-label" id="tabLblReceipt">POS Receipt</span>
+        </button>
+      </div>
+
+      <div class="modal-body specialty-modal-body">
+        <!-- Left: Module Editor Controls -->
+        <div class="specialty-editor-pane">
+
+          <!-- 1. CD/DVD Panel -->
+          <div class="specialty-panel" id="panelSpecialtyCdDvd">
+            <h4 class="specialty-pane-title" id="titleCdDvd">Optical Disc Dimensions & Alignment</h4>
+            <div class="form-row">
+              <label id="lblDiscProfile">Disc Profile</label>
+              <div class="segmented-control">
+                <button type="button" class="seg-btn active" id="btnDisc12cm">Standard 12cm</button>
+                <button type="button" class="seg-btn" id="btnDisc8cm">Mini 8cm Disc</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label id="lblOuterDia">Outer Diameter (විෂ්කම්භය)</label>
+              <div class="slider-val-wrap">
+                <input type="range" id="rngOuterDia" min="70" max="120" step="0.5" value="116" class="form-range" />
+                <span class="slider-display" id="valOuterDia">116.0 mm</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <label id="lblInnerDia">Inner Diameter (Center Hub Hole)</label>
+              <div class="slider-val-wrap">
+                <input type="range" id="rngInnerDia" min="18" max="50" step="0.5" value="43" class="form-range" />
+                <span class="slider-display" id="valInnerDia">43.0 mm</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <label id="lblCircularText">Text on Circle Path (වෘත්තාකාර අකුරු)</label>
+              <input type="text" id="inputCircularText" class="form-input" value="PRINT HELPER WEDDING ARCHIVE 2026" placeholder="Enter disc label text" />
+            </div>
+
+            <!-- Mandatory Plain Paper Test Print Step -->
+            <div class="test-paper-guardrail" id="guardrailCdDvd">
+              <div class="guardrail-header">
+                <span class="material-symbols-rounded guardrail-icon" id="iconCdTestCheck">warning</span>
+                <strong id="titleCdTest">Mandatory Alignment Check</strong>
+              </div>
+              <p class="guardrail-desc" id="descCdTest">
+                Print a 1:1 alignment target on plain A4 paper first. Place your disc over the printed circles to confirm alignment before inserting the real tray.
+              </p>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnPrintCdTestPattern">
+                <span class="material-symbols-rounded">print</span>
+                <span id="txtPrintCdTest">Print 1:1 Test Target (Plain Paper)</span>
+              </button>
+              <span class="badge badge-success hidden" id="badgeCdTestVerified">Test Verified</span>
+            </div>
+
+            <!-- Disc Tray Loading Instructions -->
+            <div class="tray-instructions-card">
+              <h5 id="titleTrayInstructions">Disc Tray Loading Guide</h5>
+              <ol class="tray-steps-list" id="listTraySteps">
+                <li>Lower the front CD/DVD tray guide.</li>
+                <li>Place the inkjet-printable disc onto the tray.</li>
+                <li>Insert straight until the arrows on the tray and guide line up.</li>
+                <li>Click Print via Spooler (never push tray forcibly).</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- 2. PVC ID Card Panel -->
+          <div class="specialty-panel hidden" id="panelSpecialtyPvc">
+            <h4 class="specialty-pane-title" id="titlePvc">CR80 PVC ID Card Tray (Dual-Slot)</h4>
+            <div class="spec-chip">
+              <span class="material-symbols-rounded">info</span>
+              <span>ISO/IEC 7810 ID-1: 85.60 x 53.98 mm • 0.76 mm (30 mil)</span>
+            </div>
+            <div class="form-row">
+              <label id="lblTraySlots">Tray Capacity</label>
+              <div class="segmented-control">
+                <button type="button" class="seg-btn active" id="btnPvc2Slots">2 Cards / Tray (L8050/L18050)</button>
+                <button type="button" class="seg-btn" id="btnPvc1Slot">1 Card / Tray</button>
+              </div>
+            </div>
+
+            <!-- Mandatory Inkjet PVC reminder -->
+            <div class="alert-box alert-warning">
+              <span class="material-symbols-rounded">warning</span>
+              <div>
+                <strong id="titleInkjetPvcReminder">Mandatory: Inkjet-Coated PVC Required</strong>
+                <p id="descInkjetPvcReminder">Standard blank PVC plastic cards will smear instantly. You must use micro-porous inkjet PVC cards.</p>
+                <label class="checkbox-inline">
+                  <input type="checkbox" id="chkConfirmInkjetPvc" />
+                  <span id="lblConfirmInkjetPvc">I confirm I am using Inkjet-treated PVC cards</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Aftermarket Tray Opt-in -->
+            <div class="form-row checkbox-row">
+              <label class="checkbox-inline">
+                <input type="checkbox" id="chkAftermarketTray" />
+                <span id="lblAftermarketTray">Enable Aftermarket Tray Mode (e.g. CD-slot tray on L805)</span>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label id="lblPvcOffsetX">X Calibration Offset (-5.0 to +5.0 mm)</label>
+              <div class="slider-val-wrap">
+                <input type="range" id="rngPvcOffsetX" min="-5" max="5" step="0.2" value="0" class="form-range" />
+                <span class="slider-display" id="valPvcOffsetX">0.0 mm</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <label id="lblPvcOffsetY">Y Calibration Offset (-5.0 to +5.0 mm)</label>
+              <div class="slider-val-wrap">
+                <input type="range" id="rngPvcOffsetY" min="-5" max="5" step="0.2" value="0" class="form-range" />
+                <span class="slider-display" id="valPvcOffsetY">0.0 mm</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <label id="lblPvcBatch">Batch Import</label>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnImportPvcCsv">
+                <span class="material-symbols-rounded">upload_file</span>
+                <span id="txtImportPvcCsv">Load Batch from CSV / Photos</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Passport & ID Photo Sheets Panel -->
+          <div class="specialty-panel hidden" id="panelSpecialtyPassport">
+            <h4 class="specialty-pane-title" id="titlePassport">Passport & Visa Photo Imposition</h4>
+            <div class="form-row">
+              <label id="lblPassportPreset">Standard Preset</label>
+              <select id="selPassportPreset" class="form-select">
+                <option value="35x45" selected>Sri Lanka / UK / Schengen (35 x 45 mm)</option>
+                <option value="51x51">US Visa / Diversity Visa 2x2" (51 x 51 mm)</option>
+                <option value="30x40">Application / Student ID (30 x 40 mm)</option>
+                <option value="35x35">Square Photo / Indian Passport (35 x 35 mm)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label id="lblPassportPaper">Target Photo Sheet</label>
+              <div class="segmented-control">
+                <button type="button" class="seg-btn active" id="btnPaper4x6">Photo 4x6" (10x15 cm)</button>
+                <button type="button" class="seg-btn" id="btnPaperA4">A4 Photo Sheet</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label id="lblCropGuides">Cutting Guides Style</label>
+              <select id="selCropGuides" class="form-select">
+                <option value="dashed" selected>Dashed Cut Lines (කඩ ඉරි)</option>
+                <option value="corners">Corner Crop Marks (කොන් සලකුණු)</option>
+                <option value="solid">Thin Solid Borders (තනි ඉරි)</option>
+                <option value="none">No Guidelines (ඉරි නැත)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 4. Rigid Media Panel -->
+          <div class="specialty-panel hidden" id="panelSpecialtyRigid">
+            <h4 class="specialty-pane-title" id="titleRigid">Rigid & Posterboard Straight-Through Pass</h4>
+            <div class="form-row">
+              <label id="lblMediaThickness">Media Thickness (ඝනකම)</label>
+              <div class="slider-val-wrap">
+                <input type="range" id="rngMediaThickness" min="0.1" max="2.0" step="0.05" value="0.8" class="form-range" />
+                <span class="slider-display" id="valMediaThickness">0.80 mm</span>
+              </div>
+            </div>
+            <div class="alert-box" id="bannerRigidValidation">
+              <span class="material-symbols-rounded" id="iconRigidValidation">check_circle</span>
+              <div>
+                <strong id="titleRigidValidation">Safe Media Thickness</strong>
+                <p id="descRigidValidation">Thickness is within safe limits for straight-through rear manual feeder (up to 1.30 mm).</p>
+              </div>
+            </div>
+            <div class="feed-diagram-card">
+              <h5 id="titleFeedDiagram">Recommended Tray Path</h5>
+              <div class="diagram-pill" id="pillFeedPath">Rear Manual Straight-Through Feeder</div>
+              <p class="diagram-note" id="noteFeedPath">Open rear paper guide and keep printer clearance behind for straight ejection.</p>
+            </div>
+          </div>
+
+          <!-- 5. Roll Paper & Cutter Panel -->
+          <div class="specialty-panel hidden" id="panelSpecialtyRoll">
+            <h4 class="specialty-pane-title" id="titleRoll">Roll Media & Rotary Cutter Management</h4>
+            <div class="form-row">
+              <label id="lblRollWidth">Roll Width</label>
+              <select id="selRollWidth" class="form-select">
+                <option value="13">13 inches (330 mm) - A3+ Roll</option>
+                <option value="17">17 inches (432 mm) - A2 Roll</option>
+                <option value="24" selected>24 inches (610 mm) - A1 Roll</option>
+                <option value="36">36 inches (914 mm) - A0 Roll</option>
+                <option value="44">44 inches (1118 mm) - B0 Roll</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label id="lblAutoCutMode">Rotary Cutter Action</label>
+              <select id="selAutoCutMode" class="form-select">
+                <option value="page" selected>Cut Automatically After Each Page</option>
+                <option value="job">Cut Paper Only After Complete Job</option>
+                <option value="line">Print Dashed Cut Line (No Blade Cut)</option>
+                <option value="manual">Manual Cut with External Trimmer</option>
+              </select>
+            </div>
+            <div class="form-row checkbox-row">
+              <label class="checkbox-inline">
+                <input type="checkbox" id="chkRollBorderless" />
+                <span id="lblRollBorderless">Borderless Printing on Roll (Edge-to-Edge)</span>
+              </label>
+            </div>
+            <div class="spec-chip">
+              <span class="material-symbols-rounded">straighten</span>
+              <span id="txtBannerLimit">Max Banner Length: Up to 18,000 mm (18 meters)</span>
+            </div>
+          </div>
+
+          <!-- 6. Dye-Sublimation Merchandise Panel -->
+          <div class="specialty-panel hidden" id="panelSpecialtySublimation">
+            <h4 class="specialty-pane-title" id="titleSublimation">Dye-Sublimation Heat Transfer Merchandise</h4>
+            <div class="form-row">
+              <label id="lblSublimationItem">Merchandise Template</label>
+              <select id="selSublimationItem" class="form-select">
+                <option value="mug11" selected>11oz Ceramic Mug Wrap (200 x 95 mm)</option>
+                <option value="mug15">15oz Large Ceramic Mug (220 x 105 mm)</option>
+                <option value="tshirtA4">T-Shirt Chest / Back (A4 Transfer)</option>
+                <option value="lanyard">Lanyard Ribbon Continuous (900 x 20 mm)</option>
+                <option value="mousepad">Mousepad Rectangle (230 x 190 mm)</option>
+              </select>
+            </div>
+
+            <!-- Auto Mirror Lock -->
+            <div class="alert-box alert-success">
+              <span class="material-symbols-rounded">flip</span>
+              <div>
+                <strong id="titleAutoMirror">Horizontal Mirror: Automatically ON</strong>
+                <p id="descAutoMirror">Sublimation transfer paper is pressed face-down. Auto-mirror is locked ON to guarantee correct text orientation.</p>
+              </div>
+            </div>
+            <div class="spec-chip">
+              <span class="material-symbols-rounded">palette</span>
+              <span>ICC Profile: Epson DS Transfer Multi-Use General Purpose</span>
+            </div>
+          </div>
+
+          <!-- 7. ColorWorks Label Panel -->
+          <div class="specialty-panel hidden" id="panelSpecialtyLabels">
+            <h4 class="specialty-pane-title" id="titleLabels">ColorWorks Industrial On-Demand Labeling</h4>
+            <div class="form-row">
+              <label id="lblLabelShape">Label Media Shape</label>
+              <select id="selLabelShape" class="form-select">
+                <option value="diecut" selected>Die-Cut Rectangle 4x3" (101.6 x 76.2 mm)</option>
+                <option value="roll">Continuous Roll (Custom Length)</option>
+                <option value="ghs">GHS Chemical Hazard (Red Diamond Border)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label id="lblLabelBarcode">Barcode / Serial Number</label>
+              <input type="text" id="inputLabelBarcode" class="form-input" value="LBL-2026-9482" />
+            </div>
+            <div class="form-row">
+              <label id="lblLabelDispense">Dispense Action</label>
+              <select id="selLabelDispense" class="form-select">
+                <option value="cut" selected>Cut After Each Label (Built-in Rotary Blade)</option>
+                <option value="peeler">Peeler Mechanism (Liner Auto-Peel)</option>
+                <option value="tear">Continuous Tear-off</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 8. POS Receipt Panel -->
+          <div class="specialty-panel hidden" id="panelSpecialtyReceipt">
+            <h4 class="specialty-pane-title" id="titleReceipt">Shop Counter POS Thermal Receipt</h4>
+            <div class="form-row">
+              <label id="lblReceiptWidth">Thermal Paper Width</label>
+              <div class="segmented-control">
+                <button type="button" class="seg-btn active" id="btnReceipt80mm">80 mm Thermal (48 cols)</button>
+                <button type="button" class="seg-btn" id="btnReceipt58mm">58 mm Thermal (32 cols)</button>
+              </div>
+            </div>
+            <div class="form-row checkbox-row">
+              <label class="checkbox-inline">
+                <input type="checkbox" id="chkReceiptCut" checked />
+                <span id="lblReceiptCut">Auto-cut paper at receipt end (ESC/POS GS V 0)</span>
+              </label>
+            </div>
+            <div class="form-row checkbox-row">
+              <label class="checkbox-inline">
+                <input type="checkbox" id="chkReceiptCashDrawer" />
+                <span id="lblReceiptCashDrawer">Kick cash drawer open on print (ESC p 0)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Live Interactive Visual Canvas -->
+        <div class="specialty-preview-pane">
+          <div class="preview-header-bar">
+            <span class="preview-title" id="lblSpecialtyPreviewTitle">Interactive 1:1 Live Preview</span>
+            <span class="badge" id="badgePreviewDimensions">116mm Ring</span>
+          </div>
+
+          <div class="specialty-canvas-container" id="specialtyCanvasWrap">
+            <!-- Dynamic Canvas Rendered by app.js -->
+            <div id="specialtyCanvasInner"></div>
+          </div>
+
+          <div class="specialty-preview-footer">
+            <span class="preview-stat" id="lblSpecialtyPreviewStat">Printable Area: 9,116.1 mm²</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal" id="btnCancelSpecialty">Cancel</button>
+        <button class="btn btn-primary" id="btnPrintSpecialtySpooler">
+          <span class="material-symbols-rounded">print</span>
+          <span id="txtPrintSpecialtySpooler">Print via Spooler</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subnet Discovery Permission Consent Modal -->
+  <div id="subnetScanModal" class="modal-overlay hidden">
+    <div class="modal-dialog" style="max-width: 520px;">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon" style="color:var(--primary);">radar</span>
+          <div>
+            <h3 id="lblSubnetScanTitle">Subnet Discovery Permission Required</h3>
+            <p class="modal-subtitle" id="lblSubnetScanSubtitle">Probing 254 host IP addresses across the specified CIDR</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnCloseSubnetScanModal">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px; font-size: 13px;">
+        <div class="alert-box-warning" style="background:#fff8e1; border:1px solid #ffd54f; border-radius:6px; padding:12px; margin-bottom:14px; display:flex; gap:10px;">
+          <span class="material-symbols-rounded" style="color:#e65100; font-size:20px;">security</span>
+          <div>
+            <strong id="lblSubnetScanWarningHead">Network Security Notice</strong>
+            <p id="lblSubnetScanWarningBody" style="margin:4px 0 0; font-size:12px; color:#5d4037;">
+              This operation sends SNMP (UDP port 161) and IPP (TCP port 631) discovery packets to all 254 addresses in the subnet. Unapproved scans on corporate networks may trigger intrusion detection alerts.
+            </p>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label style="font-weight:600; display:block; margin-bottom:4px;" id="lblTargetSubnetLabel">Target Subnet CIDR Range:</label>
+          <input type="text" id="inputTargetSubnetCidr" class="form-control" value="192.168.1.0/24" style="width:100%; padding:8px 10px; border:1px solid var(--outline); border-radius:6px; font-family:monospace; font-size:13px;" />
+        </div>
+
+        <div style="background:var(--bg-surface-container); border:1px solid var(--outline); border-radius:6px; padding:10px; font-size:12px; display:flex; flex-direction:column; gap:4px;">
+          <div><strong>SNMP Community:</strong> <code>public</code> (first pass attempt, then configured profile)</div>
+          <div><strong>Timeout per Host:</strong> 1500 ms (max 10 concurrent requests)</div>
+          <div><strong>Protocol Order:</strong> IPP (RFC 8011) first &rarr; SNMP (RFC 3805) second &rarr; Driver third</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 12px 16px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-ghost btn-close-modal" id="btnCancelSubnetScan">Cancel</button>
+        <button class="btn btn-primary" id="btnAuthorizeSubnetScan">
+          <span class="material-symbols-rounded">check_circle</span>
+          <span id="lblAuthorizeSubnetScan">Authorize &amp; Scan Subnet</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job Rerouting / Failover Confirmation Modal -->
+  <div id="routingFailoverModal" class="modal-overlay hidden">
+    <div class="modal-dialog" style="max-width: 560px;">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon" style="color:#d32f2f;">swap_horiz</span>
+          <div>
+            <h3 id="lblFailoverModalTitle">Job Rerouting Confirmation</h3>
+            <p class="modal-subtitle" id="lblFailoverModalSubtitle">Target printer is offline or unavailable. Operator approval required.</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnCloseFailoverModal">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+        <div class="failover-alert-banner" style="background:#fee2e2; border:1px solid #fca5a5; border-radius:6px; padding:12px; margin-bottom:14px; display:flex; gap:10px;">
+          <span class="material-symbols-rounded" style="color:#b91c1c; font-size:22px;">error_outline</span>
+          <div>
+            <strong id="lblFailoverAlertHead" style="color:#991b1b; font-size:13px;">Selected Printer Cannot Accept This Job</strong>
+            <p id="lblFailoverAlertDetail" style="margin:4px 0 0; font-size:12px; color:#7f1d1d;">
+              Epson SureColor SC-P900 is offline. Proposing automatic failover to another capable printer.
+            </p>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;" id="lblFailoverRationaleHeading">Decision Rationale (One-line Explanation):</label>
+          <div id="failoverRationaleSentenceEn" style="margin-top:4px; padding:10px 12px; background:var(--bg-surface-container); border-left:3px solid var(--primary); border-radius:4px; font-size:13px; font-weight:600; color:var(--primary);">
+            Rerouted to Epson EcoTank L8050 because target printer is offline and L8050 supports borderless photo printing.
+          </div>
+          <div id="failoverRationaleSentenceSi" style="margin-top:4px; padding:8px 12px; background:var(--bg-surface-container); border-radius:4px; font-size:12px; color:var(--text-muted); font-style:italic;">
+            ඉලක්කගත මුද්‍රණ යන්ත්‍රය ක්‍රියාවිරහිත බැවින් සහ L8050 මඟින් ඡායාරූප මුද්‍රණය කළ හැකි බැවින් L8050 වෙත යොමු කරන ලදී.
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;">
+          <div style="background:var(--bg-surface-low); border:1px solid #fca5a5; border-radius:6px; padding:10px;">
+            <div style="display:flex; align-items:center; gap:6px; color:#b91c1c; font-size:11px; font-weight:700;">
+              <span class="material-symbols-rounded" style="font-size:14px;">cancel</span>
+              <span id="lblOriginalTargetLabel">Original Target</span>
+            </div>
+            <div id="failoverOriginalName" style="font-weight:700; font-size:13px; margin-top:4px;">Pro Art SC-P900</div>
+            <div id="failoverOriginalReason" style="font-size:11px; color:#b91c1c; margin-top:2px;">Offline / Power disconnected</div>
+          </div>
+          <div style="background:var(--bg-surface-low); border:1px solid #86efac; border-radius:6px; padding:10px;">
+            <div style="display:flex; align-items:center; gap:6px; color:#15803d; font-size:11px; font-weight:700;">
+              <span class="material-symbols-rounded" style="font-size:14px;">check_circle</span>
+              <span id="lblProposedFailoverLabel">Proposed Failover</span>
+            </div>
+            <div id="failoverProposedName" style="font-weight:700; font-size:13px; margin-top:4px;">Studio Photo L8050</div>
+            <div id="failoverProposedReason" style="font-size:11px; color:#15803d; margin-top:2px;">Ready • 0 jobs queued • 6-color ink full</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 12px 16px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-ghost" id="btnKeepInQueue">Keep in Current Queue</button>
+        <button class="btn btn-primary" id="btnApproveReroute" style="background:#0969da;">
+          <span class="material-symbols-rounded">alt_route</span>
+          <span id="lblApproveRerouteText">Approve &amp; Reroute Job</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fleet Routing Rules Configuration Modal -->
+  <div id="fleetRoutingRulesModal" class="modal-overlay hidden">
+    <div class="modal-dialog" style="max-width: 600px;">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded modal-title-icon" style="color:var(--accent);">route</span>
+          <div>
+            <h3 id="lblRoutingRulesTitle">Fleet Routing Rules &amp; Policies</h3>
+            <p class="modal-subtitle" id="lblRoutingRulesSubtitle">Configurable routing priority, hardware constraints, and load balancing</p>
+          </div>
+        </div>
+        <button class="btn-ghost btn-close-modal" id="btnCloseRoutingRulesModal">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px; font-size:13px;">
+        <div class="routing-rules-list" style="display:flex; flex-direction:column; gap:10px;">
+          <!-- Rule 1: Specialty Hardware -->
+          <div class="rule-card" style="display:flex; align-items:flex-start; justify-content:space-between; padding:10px 12px; background:var(--bg-surface-container); border:1px solid var(--outline); border-radius:6px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="badge" style="background:#0969da; color:#fff; font-size:10px;">Priority 1</span>
+                <strong>Specialty Hardware Constraint</strong>
+              </div>
+              <p style="margin:4px 0 0; font-size:12px; color:var(--text-muted);">
+                Route CD/DVD, PVC ID Card, Rigid Board, Roll, and Sublimation jobs strictly to printers with confirmed hardware support.
+              </p>
+            </div>
+            <label class="switch" style="margin-left:12px;">
+              <input type="checkbox" id="chkRuleSpecialty" checked disabled />
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <!-- Rule 2: High Volume Dispatch -->
+          <div class="rule-card" style="display:flex; align-items:flex-start; justify-content:space-between; padding:10px 12px; background:var(--bg-surface-container); border:1px solid var(--outline); border-radius:6px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="badge" style="background:#0969da; color:#fff; font-size:10px;">Priority 2</span>
+                <strong>High-Volume (>50 pages) Load Balancing</strong>
+              </div>
+              <p style="margin:4px 0 0; font-size:12px; color:var(--text-muted);">
+                Route bulk document jobs exceeding 50 pages to high-speed RIPS or WorkForce printers with auto-duplex.
+              </p>
+            </div>
+            <label class="switch" style="margin-left:12px;">
+              <input type="checkbox" id="chkRuleHighVolume" checked />
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <!-- Rule 3: Photo & Fine Art Priority -->
+          <div class="rule-card" style="display:flex; align-items:flex-start; justify-content:space-between; padding:10px 12px; background:var(--bg-surface-container); border:1px solid var(--outline); border-radius:6px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="badge" style="background:#0969da; color:#fff; font-size:10px;">Priority 3</span>
+                <strong>Photo &amp; Fine Art Chromatic Priority</strong>
+              </div>
+              <p style="margin:4px 0 0; font-size:12px; color:var(--text-muted);">
+                Route borderless photo and fine-art prints to 6-color (L8050) or 10-color (SC-P900) photo printers.
+              </p>
+            </div>
+            <label class="switch" style="margin-left:12px;">
+              <input type="checkbox" id="chkRulePhoto" checked />
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <!-- Rule 4: Offline Failover with Consent -->
+          <div class="rule-card" style="display:flex; align-items:flex-start; justify-content:space-between; padding:10px 12px; background:var(--bg-surface-container); border:1px solid var(--outline); border-radius:6px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="badge" style="background:#0969da; color:#fff; font-size:10px;">Priority 4</span>
+                <strong>Offline / Low Supplies Failover (Operator Consent)</strong>
+              </div>
+              <p style="margin:4px 0 0; font-size:12px; color:var(--text-muted);">
+                When the target printer is offline or ink is exhausted, find the nearest capable alternate and prompt the operator.
+              </p>
+            </div>
+            <label class="switch" style="margin-left:12px;">
+              <input type="checkbox" id="chkRuleFailover" checked />
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 12px 16px; display:flex; justify-content:flex-end;">
+        <button class="btn btn-primary btn-close-modal" id="btnSaveRoutingRules">Save &amp; Apply Rules</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Non-blocking Hot-Plug / Spooler Toast Notification -->
   <div id="hotPlugToast" class="hot-plug-toast hidden">
     <span class="material-symbols-rounded">print</span>
@@ -485,6 +1516,14 @@
                   <span class="badge" id="lblPreviewDocInfo">A4 • Color</span>
                 </div>
                 <div class="preview-canvas-area" id="previewCanvasArea">
+                  <div class="preview-approx-badge hidden" id="previewApproxBadge">
+                    <span class="material-symbols-rounded">visibility</span>
+                    <span id="lblPreviewApprox">Approximate print preview (Tone active)</span>
+                  </div>
+                  <div class="compare-mode-badge hidden" id="compareModeBadge">
+                    <span class="material-symbols-rounded">compare</span>
+                    <span id="lblCompareMode">Showing Original (Unadjusted)</span>
+                  </div>
                   <div class="paper-sheet-simulated" id="paperSheetSimulated">
                     <div class="sheet-header-mock">
                       <div class="mock-icon"></div>
@@ -690,6 +1729,29 @@
                       </select>
                     </div>
 
+                    <!-- Printer Resolution (Hardware DPI) -->
+                    <div class="form-row setting-item" data-keywords="resolution dpi printer dots විභේදනය">
+                      <label id="lblResolutionDpi">Printer DPI</label>
+                      <select id="selHardwareDpi" class="form-select">
+                        <option value="360">360 DPI — Fast / Draft</option>
+                        <option value="720" selected>720 DPI — Standard / Normal</option>
+                        <option value="1440">1440 DPI — High Quality / Fine</option>
+                        <option value="2880">2880 DPI — Best / Photo Grade</option>
+                        <option value="5760">5760 DPI — Ultra Fine Detail</option>
+                      </select>
+                    </div>
+                    <div class="dpi-speed-ink-note" id="lblDpiSpeedInkNote">Balanced print speed and standard ink consumption. Excellent for text and office graphics.</div>
+
+                    <!-- Effective Image Sharpness (PPI) & Photo Size Helper -->
+                    <div class="ppi-sharpness-card" id="ppiSharpnessCard">
+                      <div class="ppi-card-header">
+                        <span class="material-symbols-rounded ppi-icon" id="iconPpiStatus">verified</span>
+                        <strong id="lblPpiTitle">Sharpness: 300 PPI (Crisp)</strong>
+                        <button class="btn btn-outline btn-xs btn-photo-helper" id="btnOpenPhotoHelper">Photo Size Helper</button>
+                      </div>
+                      <div class="ppi-card-desc" id="lblPpiDesc">Photo-grade crisp quality at current printed size.</div>
+                    </div>
+
                     <!-- Paper Tray -->
                     <div class="form-row setting-item" data-keywords="tray cassette feed තැටිය">
                       <label id="lblPaperTray">Paper Tray</label>
@@ -745,6 +1807,44 @@
 
                   <!-- SECTION: PROFESSIONAL SETTINGS -->
                   <div class="settings-section hidden" id="sectionProSettings">
+                    <!-- Resolution & Resampling Sub-section -->
+                    <div class="section-divider-label">
+                      <span class="material-symbols-rounded">blur_linear</span>
+                      <strong id="lblResamplingHeader">Resolution & Resampling</strong>
+                    </div>
+
+                    <!-- Render DPI (Rasterization) -->
+                    <div class="form-row setting-item" data-keywords="render dpi rasterization memory megabytes විදැහුම්">
+                      <label id="lblRenderDpi">Render DPI</label>
+                      <select id="selRenderDpi" class="form-select">
+                        <option value="auto" selected>Auto (Matches Printer DPI)</option>
+                        <option value="150">150 DPI (Fast Draft Raster)</option>
+                        <option value="300">300 DPI (Standard Print)</option>
+                        <option value="600">600 DPI (High Detail)</option>
+                        <option value="1200">1200 DPI (Ultra Fine - High Memory)</option>
+                      </select>
+                    </div>
+                    <div class="render-memory-indicator" id="renderMemoryIndicator">
+                      <span class="material-symbols-rounded">memory</span>
+                      <span id="lblRenderMemoryText">Est. Memory: ~25 MB/page. Vector text preserved directly.</span>
+                    </div>
+
+                    <!-- Resample Filter -->
+                    <div class="form-row setting-item" data-keywords="resample filter lanczos bicubic upscale ප්‍රතිනියැදීම">
+                      <label id="lblResampleFilter">Resample Filter</label>
+                      <select id="selResampleFilter" class="form-select">
+                        <option value="none">None (Nearest Neighbor)</option>
+                        <option value="bicubic">Bicubic Interpolation</option>
+                        <option value="lanczos" selected>Lanczos-3 (Windowed Sinc)</option>
+                      </select>
+                    </div>
+                    <div class="upscale-action-wrap">
+                      <button class="btn btn-outline btn-sm btn-resample-preview" id="btnOpenResampleModal">
+                        <span class="material-symbols-rounded">auto_fix_high</span>
+                        <span id="lblBtnUpscale">Upscale for Print (2x Lanczos Preview)...</span>
+                      </button>
+                    </div>
+
                     <div class="section-divider-label">
                       <span class="material-symbols-rounded">auto_awesome</span>
                       <strong id="lblProHeader">Professional Color & Imposition</strong>
@@ -783,6 +1883,272 @@
                         </select>
                       </div>
                     </div>
+
+                    <!-- Tone and Ink Adjustments Sub-section -->
+                    <div class="section-divider-label">
+                      <span class="material-symbols-rounded">tune</span>
+                      <strong id="lblToneInkHeader">Tone & Ink Adjustments</strong>
+                    </div>
+
+                    <!-- Paper-Type Compensation Presets -->
+                    <div class="form-row setting-item" data-keywords="paper compensation bleed matte glossy presets කඩදාසි වෙනස්කම්">
+                      <div class="slider-header-row">
+                        <label id="lblTonePaperPreset">Paper Compensation</label>
+                        <span class="source-badge app" title="Print Helper Universal Software Adjustment">
+                          <span class="material-symbols-rounded">tune</span>
+                          <span class="badge-txt" id="badgePaperPresetApp">Print Helper adjustment</span>
+                        </span>
+                      </div>
+                      <select id="selTonePaperPreset" class="form-select">
+                        <option value="none" selected>None (Uncompensated)</option>
+                        <option value="plainPaper">Plain Paper (Compensate Bleed / Lift Midtones)</option>
+                        <option value="mattePaper">Matte Paper (Rich Shadow Density / Boost Black)</option>
+                        <option value="glossyPhoto">Glossy Photo (Dynamic Range / Enhance Vibrance)</option>
+                      </select>
+                      <p class="setting-help-text" id="lblTonePaperPresetDesc">Standard uncompensated output.</p>
+                    </div>
+
+                    <!-- Overall Density Slider (-100 to +100) -->
+                    <div class="form-row setting-item" data-keywords="density ink deposit lighter darker ඝනත්වය">
+                      <div class="slider-header-row">
+                        <label id="lblDensity">Overall Density</label>
+                        <span class="source-badge app" title="Print Helper Universal Software Adjustment">
+                          <span class="material-symbols-rounded">tune</span>
+                          <span class="badge-txt">Print Helper adjustment</span>
+                        </span>
+                        <span class="slider-val" id="valDensity">0</span>
+                      </div>
+                      <input type="range" id="rangeDensity" class="tone-slider" min="-100" max="100" value="0" />
+                    </div>
+
+                    <!-- Brightness (-100 to +100) -->
+                    <div class="form-row setting-item" data-keywords="brightness light dark දීප්තිය">
+                      <div class="slider-header-row">
+                        <label id="lblBrightness">Brightness</label>
+                        <span class="source-badge app" title="Print Helper Universal Software Adjustment">
+                          <span class="material-symbols-rounded">tune</span>
+                          <span class="badge-txt">Print Helper adjustment</span>
+                        </span>
+                        <span class="slider-val" id="valBrightness">0</span>
+                      </div>
+                      <input type="range" id="rangeBrightness" class="tone-slider" min="-100" max="100" value="0" />
+                    </div>
+
+                    <!-- Contrast (-100 to +100) -->
+                    <div class="form-row setting-item" data-keywords="contrast punchy flat ප්‍රතිවිරෝධය">
+                      <div class="slider-header-row">
+                        <label id="lblContrast">Contrast</label>
+                        <span class="source-badge app" title="Print Helper Universal Software Adjustment">
+                          <span class="material-symbols-rounded">tune</span>
+                          <span class="badge-txt">Print Helper adjustment</span>
+                        </span>
+                        <span class="slider-val" id="valContrast">0</span>
+                      </div>
+                      <input type="range" id="rangeContrast" class="tone-slider" min="-100" max="100" value="0" />
+                    </div>
+
+                    <!-- Gamma (0.50 to 2.50) -->
+                    <div class="form-row setting-item" data-keywords="gamma curve midtones ගැමා">
+                      <div class="slider-header-row">
+                        <label id="lblGamma">Gamma Curve</label>
+                        <span class="source-badge app" title="Print Helper Universal Software Adjustment">
+                          <span class="material-symbols-rounded">tune</span>
+                          <span class="badge-txt">Print Helper adjustment</span>
+                        </span>
+                        <span class="slider-val" id="valGamma">1.00</span>
+                      </div>
+                      <input type="range" id="rangeGamma" class="tone-slider" min="0.5" max="2.5" step="0.05" value="1.0" />
+                    </div>
+
+                    <!-- Shadows & Highlights -->
+                    <div class="slider-compact-row">
+                      <div class="compact-slider-col">
+                        <div class="slider-header-row">
+                          <label id="lblShadows">Shadows</label>
+                          <span class="slider-val" id="valShadows">0</span>
+                        </div>
+                        <input type="range" id="rangeShadows" class="tone-slider" min="-100" max="100" value="0" />
+                      </div>
+                      <div class="compact-slider-col">
+                        <div class="slider-header-row">
+                          <label id="lblHighlights">Highlights</label>
+                          <span class="slider-val" id="valHighlights">0</span>
+                        </div>
+                        <input type="range" id="rangeHighlights" class="tone-slider" min="-100" max="100" value="0" />
+                      </div>
+                    </div>
+
+                    <!-- Black Level & Text Darkness -->
+                    <div class="slider-compact-row">
+                      <div class="compact-slider-col">
+                        <div class="slider-header-row">
+                          <label id="lblBlackLevel">Black Level</label>
+                          <span class="slider-val" id="valBlackLevel">0</span>
+                        </div>
+                        <input type="range" id="rangeBlackLevel" class="tone-slider" min="-100" max="100" value="0" />
+                      </div>
+                      <div class="compact-slider-col">
+                        <div class="slider-header-row">
+                          <label id="lblTextDarkness">Text Darkness</label>
+                          <span class="slider-val" id="valTextDarkness">0</span>
+                        </div>
+                        <input type="range" id="rangeTextDarkness" class="tone-slider" min="-100" max="100" value="0" />
+                      </div>
+                    </div>
+
+                    <!-- Sharpening (Text & Photos) -->
+                    <div class="slider-compact-row">
+                      <div class="compact-slider-col">
+                        <div class="slider-header-row">
+                          <label id="lblTextSharp">Text Sharpening</label>
+                          <span class="slider-val" id="valTextSharp">0</span>
+                        </div>
+                        <input type="range" id="rangeTextSharp" class="tone-slider" min="0" max="100" value="0" />
+                      </div>
+                      <div class="compact-slider-col">
+                        <div class="slider-header-row">
+                          <label id="lblPhotoSharp">Photo Sharpening</label>
+                          <span class="slider-val" id="valPhotoSharp">0</span>
+                        </div>
+                        <input type="range" id="rangePhotoSharp" class="tone-slider" min="0" max="100" value="0" />
+                      </div>
+                    </div>
+
+                    <!-- Color Controls (Active for Color printers) -->
+                    <div id="toneColorControlsWrap">
+                      <div class="form-row setting-item" data-keywords="saturation color vivid සන්තෘප්තිය">
+                        <div class="slider-header-row">
+                          <label id="lblSaturation">Saturation</label>
+                          <span class="source-badge app" title="Print Helper Universal Software Adjustment">
+                            <span class="material-symbols-rounded">tune</span>
+                            <span class="badge-txt">Print Helper adjustment</span>
+                          </span>
+                          <span class="slider-val" id="valSaturation">0</span>
+                        </div>
+                        <input type="range" id="rangeSaturation" class="tone-slider" min="-100" max="100" value="0" />
+                      </div>
+
+                      <div class="form-row setting-item" data-keywords="vibrance skin tones ප්‍රාණවත් බව">
+                        <div class="slider-header-row">
+                          <label id="lblVibrance">Vibrance (Skin Safe)</label>
+                          <span class="source-badge app" title="Print Helper Universal Software Adjustment">
+                            <span class="material-symbols-rounded">tune</span>
+                            <span class="badge-txt">Print Helper adjustment</span>
+                          </span>
+                          <span class="slider-val" id="valVibrance">0</span>
+                        </div>
+                        <input type="range" id="rangeVibrance" class="tone-slider" min="-100" max="100" value="0" />
+                      </div>
+
+                      <!-- 3-way Color Balance -->
+                      <div class="slider-triple-row">
+                        <div class="compact-slider-col">
+                          <div class="slider-header-row">
+                            <label>Cyan ↔ Red</label>
+                            <span class="slider-val" id="valBalanceCR">0</span>
+                          </div>
+                          <input type="range" id="rangeBalanceCR" class="tone-slider" min="-100" max="100" value="0" />
+                        </div>
+                        <div class="compact-slider-col">
+                          <div class="slider-header-row">
+                            <label>Magenta ↔ Green</label>
+                            <span class="slider-val" id="valBalanceMG">0</span>
+                          </div>
+                          <input type="range" id="rangeBalanceMG" class="tone-slider" min="-100" max="100" value="0" />
+                        </div>
+                        <div class="compact-slider-col">
+                          <div class="slider-header-row">
+                            <label>Yellow ↔ Blue</label>
+                            <span class="slider-val" id="valBalanceYB">0</span>
+                          </div>
+                          <input type="range" id="rangeBalanceYB" class="tone-slider" min="-100" max="100" value="0" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Ink Saver / Toner Saver Card -->
+                    <div class="ink-saver-card" id="cardInkSaver">
+                      <div class="ink-saver-header">
+                        <div class="ink-saver-title-row">
+                          <span class="material-symbols-rounded icon-eco">eco</span>
+                          <strong id="lblInkSaverTitle">Ink / Toner Saver Mode</strong>
+                        </div>
+                        <span class="source-badge app" title="Print Helper Universal Software Adjustment">
+                          <span class="material-symbols-rounded">tune</span>
+                          <span class="badge-txt">Print Helper adjustment</span>
+                        </span>
+                        <input type="checkbox" id="chkInkSaverMode" />
+                      </div>
+                      <div id="inkSaverDetails" class="ink-saver-details hidden">
+                        <div class="form-row setting-item">
+                          <label id="lblInkSaverLevel">Reduction Level</label>
+                          <select id="selInkSaverLevel" class="form-select form-select-sm">
+                            <option value="light">Light (~15% Ink Saved)</option>
+                            <option value="balanced" selected>Balanced (~28% Ink Saved)</option>
+                            <option value="aggressive">Aggressive (~42% Ink Saved)</option>
+                          </select>
+                        </div>
+                        <div class="checkbox-row-clean">
+                          <input type="checkbox" id="chkInkSaverTextOnlyBlack" checked />
+                          <label for="chkInkSaverTextOnlyBlack" id="lblTextOnlyBlack">Text-Only Black (Preserves Color Tanks)</label>
+                        </div>
+                        <div class="savings-estimate-tag" id="lblSavingsEstimate">
+                          <span class="material-symbols-rounded">savings</span>
+                          <span id="lblSavingsPercent">~28% ink saved (estimate)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- CMYK Ink Coverage Meter (Feeds Price Calculator) -->
+                    <div class="cmyk-coverage-card" id="cardCmykCoverage">
+                      <div class="cmyk-coverage-header">
+                        <div class="cmyk-title-row">
+                          <span class="material-symbols-rounded">pie_chart</span>
+                          <strong id="lblCmykTitle">Estimated Ink Coverage</strong>
+                        </div>
+                        <span class="total-coverage-badge" id="lblTotalCoverage">Total: 21.5%</span>
+                      </div>
+                      <div class="cmyk-bars-list">
+                        <div class="cmyk-bar-row">
+                          <span class="cmyk-key cyan">C</span>
+                          <div class="progress-track"><div class="progress-fill fill-cyan" id="barCovCyan" style="width: 8.4%;"></div></div>
+                          <span class="cmyk-val" id="valCovCyan">4.2%</span>
+                        </div>
+                        <div class="cmyk-bar-row">
+                          <span class="cmyk-key magenta">M</span>
+                          <div class="progress-track"><div class="progress-fill fill-magenta" id="barCovMagenta" style="width: 7.6%;"></div></div>
+                          <span class="cmyk-val" id="valCovMagenta">3.8%</span>
+                        </div>
+                        <div class="cmyk-bar-row">
+                          <span class="cmyk-key yellow">Y</span>
+                          <div class="progress-track"><div class="progress-fill fill-yellow" id="barCovYellow" style="width: 10.2%;"></div></div>
+                          <span class="cmyk-val" id="valCovYellow">5.1%</span>
+                        </div>
+                        <div class="cmyk-bar-row">
+                          <span class="cmyk-key black">K</span>
+                          <div class="progress-track"><div class="progress-fill fill-black" id="barCovBlack" style="width: 16.8%;"></div></div>
+                          <span class="cmyk-val" id="valCovBlack">8.4%</span>
+                        </div>
+                      </div>
+                      <p class="cmyk-note" id="lblCmykNote">Per-channel optical analysis feeds Shop Mode cost & pricing estimates.</p>
+                    </div>
+
+                    <!-- Tone Action Buttons: Reset, Compare Original, Print Test Pattern -->
+                    <div class="tone-actions-row">
+                      <button class="btn btn-outline btn-sm" id="btnResetTone" disabled>
+                        <span class="material-symbols-rounded">restart_alt</span>
+                        <span id="lblBtnResetTone">Reset</span>
+                      </button>
+                      <button class="btn btn-outline btn-sm flex-1" id="btnCompareOriginal">
+                        <span class="material-symbols-rounded">compare</span>
+                        <span id="lblBtnCompare">Compare Original</span>
+                      </button>
+                    </div>
+
+                    <button class="btn btn-tonal btn-sm btn-block" id="btnOpenTestPatternModal" style="margin-top:6px; margin-bottom: 12px;">
+                      <span class="material-symbols-rounded">gradient</span>
+                      <span id="lblBtnTestPattern">Print Test Pattern (Nozzle & Ramp)...</span>
+                    </button>
 
                     <!-- Resolution (DPI) -->
                     <div class="form-row setting-item" data-keywords="resolution dpi quality 600 1200 5760">
@@ -843,10 +2209,13 @@
                       </select>
                     </div>
 
-                    <!-- Direct CD/DVD Print -->
-                    <div class="form-row setting-item" data-keywords="cd dvd disc print">
-                      <label>CD/DVD Print</label>
-                      <input type="checkbox" id="chkCdDvd" />
+                    <!-- Direct CD/DVD & Specialty Media Hub -->
+                    <div class="form-row setting-item" id="rowSpecialtyMediaHub" data-keywords="cd dvd disc pvc id card passport sublimation roll label receipt specialty">
+                      <label id="lblSpecialtyHubLabel">Specialty Media</label>
+                      <button type="button" class="btn btn-secondary btn-sm" id="btnOpenSpecialtyCenter">
+                        <span class="material-symbols-rounded">stars</span>
+                        <span id="txtBtnSpecialtyCenter">Specialty Media Center</span>
+                      </button>
                     </div>
 
                     <!-- Staff Lock -->
@@ -857,8 +2226,48 @@
                   </div>
                 </div>
 
-                <!-- Pinned Print Action Button: Fixed at bottom of panel, never scrolls! -->
+                <!-- Pinned Print Action Button & Live Pricing Engine Bar -->
                 <div class="pinned-print-bar">
+                  <!-- Live Price Strip with Breakdown Toggle & Quote Mode -->
+                  <div class="live-price-strip" id="livePriceStrip">
+                    <div class="price-main-col">
+                      <div class="price-label-small" id="lblLivePriceHeader">Estimated Total</div>
+                      <div class="price-value-big" id="lblLivePriceAmount">Rs. 185.00</div>
+                    </div>
+                    <div class="price-actions-col">
+                      <button class="btn btn-outline btn-sm btn-breakdown-toggle" id="btnTogglePriceBreakdown" title="View Price Breakdown">
+                        <span class="material-symbols-rounded">expand_less</span>
+                        <span id="lblBreakdownBtn">Breakdown</span>
+                      </button>
+                      <button class="btn btn-outline btn-sm btn-quote-mode" id="btnQuoteMode" title="Quote Mode (Show price without printing)">
+                        <span class="material-symbols-rounded">request_quote</span>
+                        <span id="lblQuoteBtn">Quote</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Expandable Price Breakdown Drawer / Card -->
+                  <div class="live-price-breakdown-card hidden" id="livePriceBreakdownCard">
+                    <div class="breakdown-header">
+                      <div class="breakdown-header-title">
+                        <span class="material-symbols-rounded">receipt_long</span>
+                        <strong id="lblBreakdownTitle">Pricing Breakdown</strong>
+                      </div>
+                      <span class="customer-tag-pill" id="lblCustomerGroupTag">Walk-in</span>
+                    </div>
+                    <div class="breakdown-items-list" id="breakdownItemsList">
+                      <!-- Populated dynamically by Pricing Engine -->
+                    </div>
+                    <div class="breakdown-subtotal-row">
+                      <span id="lblSubtotalText">Gross Subtotal:</span>
+                      <strong id="lblGrossSubtotalVal">Rs. 185.00</strong>
+                    </div>
+                    <div class="breakdown-cost-estimate-row">
+                      <span class="material-symbols-rounded">trending_up</span>
+                      <span id="lblProfitEstimateText">Cost: Rs. 42.50 (est.) • Profit: Rs. 142.50 (est.)</span>
+                    </div>
+                  </div>
+
                   <button class="btn btn-primary btn-large btn-block" id="btnRightPrint">
                     <span class="material-symbols-rounded">print</span>
                     <span id="lblBtnRightPrint">Print</span>
@@ -1121,61 +2530,266 @@
             </div>
           </div>
 
-          <!-- Shop Subview 4: Price List, Cost/Profit Tracker & Daily Report -->
+          <!-- Shop Subview 4: Full Multidimensional Pricing Engine & Daily Audit -->
           <div class="subview-pane" id="shopViewPricing">
-            <div class="tab-header-row">
-              <div>
-                <h3>Price Rules & Profit Calculator</h3>
-                <p class="tab-subtitle">Editable customer rates (LKR) and daily cashier profit audit</p>
+            <div class="tab-header-row pricing-engine-header">
+              <div class="header-titles">
+                <div class="title-with-badge">
+                  <h3 id="lblPricingEngineTitle">Full Multidimensional Pricing Engine</h3>
+                  <span class="customer-tag-pill active-pkg-badge" id="lblActivePkgBadge">100% Local & Editable</span>
+                </div>
+                <p class="tab-subtitle" id="lblPricingEngineSub">Configure granular rates by Type, Color, Size, Media, Sides, Quality, Printer, and Volume Tiers</p>
               </div>
-              <button class="btn btn-outline btn-sm" id="btnExportDailyReport">
-                <span class="material-symbols-rounded">download</span>
-                <span>Export Daily Report (CSV)</span>
+              <div class="header-actions">
+                <div class="select-with-label">
+                  <label id="lblPackageSelect">Price List:</label>
+                  <select id="selActivePackage" class="form-select form-select-sm">
+                    <option value="master" selected>Master Price List (LKR)</option>
+                    <option value="seasonal">Holiday Rush Rates</option>
+                  </select>
+                </div>
+                <button class="btn btn-outline btn-sm" id="btnDuplicatePackage" title="Duplicate this price list">
+                  <span class="material-symbols-rounded">content_copy</span>
+                  <span>Duplicate</span>
+                </button>
+                <button class="btn btn-outline btn-sm" id="btnOpenBulkEdit" title="Bulk adjustment across rules">
+                  <span class="material-symbols-rounded">tune</span>
+                  <span id="lblBtnBulkEdit">Bulk Edit</span>
+                </button>
+                <button class="btn btn-outline btn-sm" id="btnExportCsv" title="Export as CSV">
+                  <span class="material-symbols-rounded">download</span>
+                  <span>CSV</span>
+                </button>
+                <button class="btn btn-outline btn-sm" id="btnAuditLog" title="Change History">
+                  <span class="material-symbols-rounded">history</span>
+                  <span id="lblBtnAudit">History</span>
+                </button>
+                <button class="btn btn-outline btn-sm btn-pin-toggle" id="btnPinLock" title="Staff Lock">
+                  <span class="material-symbols-rounded">lock</span>
+                  <span id="lblPinStatus">PIN Active</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Missing Price Safeguard Banner (Never Silently Charges Zero) -->
+            <div class="missing-price-banner" id="missingPriceBanner">
+              <div class="banner-content">
+                <span class="material-symbols-rounded">shield_with_heart</span>
+                <div>
+                  <strong id="lblMissingPriceHeadline">Missing Price Safeguard Active</strong>
+                  <p id="lblMissingPriceSub">3 unpriced paper combinations detected. Print Helper never silently charges zero; safe fallbacks apply.</p>
+                </div>
+              </div>
+              <button class="btn btn-tonal btn-sm" id="btnFixMissingPrices">
+                <span class="material-symbols-rounded">auto_fix_high</span>
+                <span id="lblBtnFixMissing">Fix Missing Prices (3)</span>
               </button>
             </div>
 
-            <div class="pricing-split-grid">
-              <!-- Price List Table -->
+            <!-- Dimensions Filter & Search Bar -->
+            <div class="pricing-filter-bar">
+              <div class="search-col">
+                <span class="material-symbols-rounded">search</span>
+                <input type="text" id="inputSearchPrices" placeholder="Search rates by size, media, color or label..." class="form-input form-input-sm">
+              </div>
+              <div class="filter-dropdowns">
+                <select id="filterPrintType" class="form-select form-select-sm">
+                  <option value="all" selected>All Print Types</option>
+                  <option value="document_text">Document (Text)</option>
+                  <option value="photo">Photo Print</option>
+                  <option value="copy">Photocopy / Duplicate</option>
+                  <option value="id_passport_photo">ID / Passport Sheet</option>
+                  <option value="poster_large">Poster / Large Format</option>
+                </select>
+                <select id="filterColorMode" class="form-select form-select-sm">
+                  <option value="all" selected>All Colors</option>
+                  <option value="bw">Black & White</option>
+                  <option value="color">Full Color</option>
+                </select>
+                <select id="filterPaperSize" class="form-select form-select-sm">
+                  <option value="all" selected>All Paper Sizes</option>
+                  <option value="a4">A4</option>
+                  <option value="a3">A3</option>
+                  <option value="4x6">Photo 4x6 in</option>
+                  <option value="5x7">Photo 5x7 in</option>
+                  <option value="letter">Letter</option>
+                </select>
+                <select id="filterMediaType" class="form-select form-select-sm">
+                  <option value="all" selected>All Media Types</option>
+                  <option value="plain">Plain Paper</option>
+                  <option value="glossy_photo">Glossy Photo Paper</option>
+                  <option value="matte">Matte Paper</option>
+                  <option value="card">Cardstock</option>
+                </select>
+                <button class="btn btn-primary btn-sm" id="btnAddNewPriceRule">
+                  <span class="material-symbols-rounded">add</span>
+                  <span id="lblBtnAddPrice">Add Price Rule</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Multidimensional Pricing Table -->
+            <div class="price-table-container">
+              <table class="jobs-table pricing-matrix-table" id="pricingMatrixTable">
+                <thead>
+                  <tr>
+                    <th>Rule Label & Dimension</th>
+                    <th>Size & Media</th>
+                    <th>Sides</th>
+                    <th>Quality</th>
+                    <th>Color Mode</th>
+                    <th>Base Rate</th>
+                    <th>Quantity / Volume Tiers</th>
+                    <th style="text-align:right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="pricingTableTbody">
+                  <!-- Populated dynamically by Pricing Engine -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Three Bottom Config Cards: Groups, Fees/Currency, and Supplies/Profits -->
+            <div class="pricing-config-grid">
+              <!-- Card 1: Customer Groups & Differential Discounts -->
               <div class="shop-panel">
-                <h4>Editable Customer Price List (LKR)</h4>
-                <div class="price-edit-row">
-                  <span>A4 Black & White (Single-sided)</span>
-                  <input type="number" value="10.00" class="price-input"> LKR
+                <div class="panel-header-mini">
+                  <span class="material-symbols-rounded icon-accent">group</span>
+                  <strong id="lblGroupCardTitle">Customer Groups & Discounts</strong>
                 </div>
-                <div class="price-edit-row">
-                  <span>A4 Black & White (Duplex / per side)</span>
-                  <input type="number" value="8.00" class="price-input"> LKR
+                <div class="customer-groups-list">
+                  <div class="group-item active">
+                    <div class="group-info">
+                      <strong>Walk-in (Standard)</strong>
+                      <span>Regular customer base rate</span>
+                    </div>
+                    <span class="badge">0% Disc</span>
+                  </div>
+                  <div class="group-item">
+                    <div class="group-info">
+                      <strong>Student Discount</strong>
+                      <span>15% off subtotal on showing ID card</span>
+                    </div>
+                    <span class="badge accent">15% Disc</span>
+                  </div>
+                  <div class="group-item">
+                    <div class="group-info">
+                      <strong>Business Account</strong>
+                      <span>First 2 pages free + 10% volume discount</span>
+                    </div>
+                    <span class="badge success">2 Free + 10%</span>
+                  </div>
                 </div>
-                <div class="price-edit-row">
-                  <span>A4 Standard Color (Text + Chart)</span>
-                  <input type="number" value="40.00" class="price-input"> LKR
+                <div class="active-group-selector-row">
+                  <label id="lblApplyGroupLabel">Active Counter Group:</label>
+                  <select id="selActiveCounterGroup" class="form-select form-select-sm">
+                    <option value="walk_in" selected>Walk-in Customer</option>
+                    <option value="student">Student Discount (15%)</option>
+                    <option value="business">Business Account (2 Free Pages)</option>
+                  </select>
                 </div>
-                <div class="price-edit-row">
-                  <span>A4 Full Page Photo / Glossy</span>
-                  <input type="number" value="120.00" class="price-input"> LKR
-                </div>
-                <div class="price-edit-row">
-                  <span>Spiral Binding (up to 100 pages)</span>
-                  <input type="number" value="150.00" class="price-input"> LKR
-                </div>
-                <button class="btn btn-primary btn-sm" style="margin-top:14px;" onclick="showToast('💾 Updated price rules saved successfully!')">Save Price List</button>
               </div>
 
-              <!-- Daily Shift Summary -->
+              <!-- Card 2: Surcharges, Fees & Currency Rounding -->
               <div class="shop-panel">
-                <h4>Today's Shift Financial Audit</h4>
-                <div class="shift-stat-box">
-                  <div class="stat-item"><span class="s-val">LKR 14,850.00</span><span class="s-lbl">Gross Revenue</span></div>
-                  <div class="stat-item"><span class="s-val">LKR 3,120.00</span><span class="s-lbl">Supplies Cost (Ink+Paper)</span></div>
-                  <div class="stat-item highlight"><span class="s-val text-success">LKR 11,730.00</span><span class="s-lbl">Net Estimated Profit</span></div>
+                <div class="panel-header-mini">
+                  <span class="material-symbols-rounded icon-accent">payments</span>
+                  <strong id="lblFeesCardTitle">Fees, Surcharges & Rounding</strong>
                 </div>
+                <div class="fees-inputs-grid">
+                  <div class="fee-field">
+                    <label id="lblMinJobCharge">Minimum Job Charge:</label>
+                    <div class="input-with-cur">
+                      <input type="number" id="inputMinJobCharge" value="30.00" class="form-input form-input-sm">
+                      <span>LKR</span>
+                    </div>
+                  </div>
+                  <div class="fee-field">
+                    <label id="lblSetupFee">Setup / Service Fee:</label>
+                    <div class="input-with-cur">
+                      <input type="number" id="inputSetupFee" value="0.00" class="form-input form-input-sm">
+                      <span>LKR</span>
+                    </div>
+                  </div>
+                  <div class="fee-field">
+                    <label id="lblRushFee">Rush Order Surcharge:</label>
+                    <div class="input-with-cur">
+                      <input type="number" id="inputRushFee" value="25.0" class="form-input form-input-sm">
+                      <span>%</span>
+                    </div>
+                  </div>
+                  <div class="fee-field">
+                    <label id="lblBorderlessFee">Borderless Overspray Fee:</label>
+                    <div class="input-with-cur">
+                      <input type="number" id="inputBorderlessFee" value="20.00" class="form-input form-input-sm">
+                      <span>LKR</span>
+                    </div>
+                  </div>
+                  <div class="fee-field">
+                    <label id="lblCurrencySelect">Currency:</label>
+                    <select id="selEngineCurrency" class="form-select form-select-sm">
+                      <option value="LKR" selected>LKR (Rs. / රු.)</option>
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
+                      <option value="INR">INR (₹)</option>
+                    </select>
+                  </div>
+                  <div class="fee-field">
+                    <label id="lblRoundingSelect">Configurable Rounding:</label>
+                    <select id="selEngineRounding" class="form-select form-select-sm">
+                      <option value="nearest_1" selected>Nearest Rs. 1 (Integer)</option>
+                      <option value="nearest_5">Nearest Rs. 5</option>
+                      <option value="nearest_10">Nearest Rs. 10</option>
+                      <option value="nearest_50">Nearest Rs. 50</option>
+                      <option value="none">No Rounding (Exact Cents)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
 
-                <div class="shift-details-list">
-                  <div class="bill-row"><span>Total Completed Jobs</span><strong>42 jobs</strong></div>
-                  <div class="bill-row"><span>B&W Pages Printed</span><strong>890 pages</strong></div>
-                  <div class="bill-row"><span>Color Pages Printed</span><strong>148 pages</strong></div>
-                  <div class="bill-row"><span>Paper Sheets Used</span><strong>680 sheets</strong></div>
+              <!-- Card 3: Supply Costs & Real-time Profit Estimation -->
+              <div class="shop-panel">
+                <div class="panel-header-mini">
+                  <span class="material-symbols-rounded icon-accent">trending_up</span>
+                  <strong id="lblSupplyCostTitle">Cost Side & Profit Audit</strong>
                 </div>
+                <div class="supply-costs-summary">
+                  <div class="cost-stat-item">
+                    <span class="lbl">B&W Ink Cost / Page:</span>
+                    <strong id="lblCostBwInk">Rs. 0.71 (est.)</strong>
+                  </div>
+                  <div class="cost-stat-item">
+                    <span class="lbl">Color Ink Cost / Page:</span>
+                    <strong id="lblCostColorInk">Rs. 1.73 (est.)</strong>
+                  </div>
+                  <div class="cost-stat-item">
+                    <span class="lbl">A4 Plain Sheet Cost:</span>
+                    <strong id="lblCostA4Sheet">Rs. 4.50 (est.)</strong>
+                  </div>
+                  <div class="cost-stat-item">
+                    <span class="lbl">4x6 Photo Sheet Cost:</span>
+                    <strong id="lblCostPhotoSheet">Rs. 25.00 (est.)</strong>
+                  </div>
+                </div>
+                <div class="profit-audit-banner">
+                  <div class="audit-stat-item">
+                    <span class="stat-lbl">Today's Revenue:</span>
+                    <strong class="stat-val" id="lblAuditRevenue">Rs. 14,850.00</strong>
+                  </div>
+                  <div class="audit-stat-item">
+                    <span class="stat-lbl">Supplies Cost:</span>
+                    <strong class="stat-val" id="lblAuditCost">Rs. 3,120.00 (est.)</strong>
+                  </div>
+                  <div class="audit-stat-item">
+                    <span class="stat-lbl">Estimated Profit:</span>
+                    <strong class="stat-val text-success" id="lblAuditProfit">Rs. 11,730.00 (est.)</strong>
+                  </div>
+                </div>
+                <button class="btn btn-outline btn-sm btn-block" style="margin-top:8px;" id="btnExportDailyCsv">
+                  <span class="material-symbols-rounded">download</span>
+                  <span id="lblBtnExportDaily">Export Daily Financial Audit (CSV)</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1455,10 +3069,55 @@
         <section id="tabPrinters" class="tab-pane">
           <div class="tab-header-row">
             <div>
-              <h2 id="lblPrintersHead">Printers</h2>
-              <p class="tab-subtitle" id="lblPrintersSub">Detected printers (Ready, Network & USB status)</p>
+              <h2 id="lblPrintersHead">Printers &amp; Fleet Management</h2>
+              <p class="tab-subtitle" id="lblPrintersSub">PrinterIntelligence telemetry (IPP first, SNMP second, driver third) • Multi-printer routing</p>
             </div>
             <div class="tab-header-buttons">
+              <button class="btn btn-outline btn-sm" id="btnTriggerSubnetScan" title="Scan local subnet via SNMP/IPP">
+                <span class="material-symbols-rounded">radar</span>
+                <span id="lblScanSubnetBtn">Scan Subnet</span>
+              </button>
+              <div class="dropdown-wrapper" style="position:relative; display:inline-block;">
+                <button class="btn btn-tonal btn-sm" id="btnSimulateRoutingTrigger">
+                  <span class="material-symbols-rounded">play_arrow</span>
+                  <span id="lblSimulateRoutingBtn">Simulate Job Routing</span>
+                  <span class="material-symbols-rounded" style="font-size:16px;">arrow_drop_down</span>
+                </button>
+                <div class="dropdown-menu hidden" id="simulateRoutingDropdown" style="position:absolute; right:0; top:100%; z-index:50; background:var(--bg-surface-elevated); border:1px solid var(--outline); border-radius:6px; box-shadow:var(--card-shadow); min-width:280px; padding:6px 0; margin-top:4px;">
+                  <button class="dropdown-item" data-sim="pvc" style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 14px; border:none; background:none; text-align:left; cursor:pointer; font-size:12px; color:var(--text-main);">
+                    <span class="material-symbols-rounded" style="font-size:18px; color:#0969da;">badge</span>
+                    <div>
+                      <strong>PVC ID Card Job</strong>
+                      <div style="font-size:11px; color:var(--text-muted);">Routes to L8050 (Card Tray)</div>
+                    </div>
+                  </button>
+                  <button class="dropdown-item" data-sim="cd" style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 14px; border:none; background:none; text-align:left; cursor:pointer; font-size:12px; color:var(--text-main);">
+                    <span class="material-symbols-rounded" style="font-size:18px; color:#0969da;">album</span>
+                    <div>
+                      <strong>CD/DVD Disc Print</strong>
+                      <div style="font-size:11px; color:var(--text-muted);">Routes to L8050 (Disc Guide)</div>
+                    </div>
+                  </button>
+                  <button class="dropdown-item" data-sim="heavy_doc" style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 14px; border:none; background:none; text-align:left; cursor:pointer; font-size:12px; color:var(--text-main);">
+                    <span class="material-symbols-rounded" style="font-size:18px; color:#0969da;">description</span>
+                    <div>
+                      <strong>150-Page High-Volume Doc</strong>
+                      <div style="font-size:11px; color:var(--text-muted);">Routes to WF-C5890 (Duplex &amp; RIPS)</div>
+                    </div>
+                  </button>
+                  <button class="dropdown-item" data-sim="offline_reroute" style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 14px; border:none; background:none; text-align:left; cursor:pointer; font-size:12px; color:var(--text-main);">
+                    <span class="material-symbols-rounded" style="font-size:18px; color:#d32f2f;">swap_horiz</span>
+                    <div>
+                      <strong>Offline SC-P900 Failover</strong>
+                      <div style="font-size:11px; color:var(--text-muted);">Triggers failover confirmation modal</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+              <button class="btn btn-outline btn-sm" id="btnOpenFleetRoutingRules">
+                <span class="material-symbols-rounded">route</span>
+                <span id="lblRoutingRulesBtn">Routing Rules</span>
+              </button>
               <button class="btn btn-outline btn-sm" id="btnRefreshPrinters">
                 <span class="material-symbols-rounded">refresh</span>
                 <span>Refresh Spooler</span>
@@ -1470,16 +3129,55 @@
             </div>
           </div>
 
+          <!-- Fleet Telemetry Summary Banner -->
+          <div class="fleet-summary-banner" id="fleetSummaryBanner">
+            <div class="fleet-metrics-row">
+              <div class="fleet-metric-col">
+                <span class="metric-value" id="fleetTotalCount">4</span>
+                <span class="metric-label" id="lblFleetTotal">Fleet Total</span>
+              </div>
+              <div class="metric-divider"></div>
+              <div class="fleet-metric-col">
+                <span class="metric-value text-green" id="fleetReadyCount">2</span>
+                <span class="metric-label" id="lblFleetReady">Ready</span>
+              </div>
+              <div class="metric-divider"></div>
+              <div class="fleet-metric-col">
+                <span class="metric-value text-blue" id="fleetPrintingCount">1</span>
+                <span class="metric-label" id="lblFleetPrinting">Printing</span>
+              </div>
+              <div class="metric-divider"></div>
+              <div class="fleet-metric-col">
+                <span class="metric-value text-red" id="fleetOfflineCount">1</span>
+                <span class="metric-label" id="lblFleetOffline">Offline</span>
+              </div>
+              <div class="metric-divider"></div>
+              <div class="fleet-metric-col">
+                <span class="metric-value text-amber" id="fleetLowSupplyCount">1</span>
+                <span class="metric-label" id="lblFleetLowSupply">Low Supplies</span>
+              </div>
+            </div>
+            <div class="fleet-threshold-wrap">
+              <span class="threshold-label" id="lblLowSupplyThreshold">Alert Threshold:</span>
+              <select id="fleetLowSupplyThresholdSelect" class="form-control-sm">
+                <option value="10">10%</option>
+                <option value="15" selected>15%</option>
+                <option value="20">20%</option>
+                <option value="25">25%</option>
+              </select>
+            </div>
+          </div>
+
           <div class="filter-chips-row">
-            <button class="filter-chip active" data-filter="all">All (5)</button>
-            <button class="filter-chip" data-filter="favorites">Favorites (2)</button>
-            <button class="filter-chip" data-filter="network">Network LAN (3)</button>
-            <button class="filter-chip" data-filter="usb">USB (1)</button>
-            <button class="filter-chip" data-filter="virtual">Virtual (1)</button>
+            <button class="filter-chip active" data-filter="all">All Fleet (4)</button>
+            <button class="filter-chip" data-filter="ready">Ready (2)</button>
+            <button class="filter-chip" data-filter="network">Network LAN / Wi-Fi (3)</button>
+            <button class="filter-chip" data-filter="usb">USB Direct (1)</button>
+            <button class="filter-chip" data-filter="alerts">Alerts &amp; Low Supplies (2)</button>
           </div>
 
           <div class="printers-grid" id="printersGrid">
-            <!-- Dynamic Printer Cards Injected here -->
+            <!-- Dynamic Multi-Printer Cards Injected here -->
           </div>
         </section>
 

@@ -36,7 +36,16 @@ const strings = {
     inkLow: "Ink is low",
     save: "Save",
     cancel: "Cancel",
-    settings: "Settings"
+    settings: "Settings",
+    scanSubnet: "Scan Subnet",
+    simulateRouting: "Simulate Job Routing",
+    routingRules: "Routing Rules",
+    fleetTotal: "Fleet Total",
+    fleetReady: "Ready",
+    fleetPrinting: "Printing",
+    fleetOffline: "Offline",
+    fleetLowSupply: "Low Supplies",
+    lowSupplyThreshold: "Alert Threshold:"
   },
   si: {
     appTitle: "Print Helper",
@@ -73,7 +82,16 @@ const strings = {
     inkLow: "තීන්ත අඩුයි",
     save: "සුරකින්න",
     cancel: "අවලංගු කරන්න",
-    settings: "සැකසුම්"
+    settings: "සැකසුම්",
+    scanSubnet: "උපජාල සොයන්න",
+    simulateRouting: "මාර්ගගත කිරීම පරීක්ෂා කරන්න",
+    routingRules: "මාර්ගගත කිරීමේ නීති",
+    fleetTotal: "මුළු ප්‍රින්ටර්",
+    fleetReady: "සූදානම්",
+    fleetPrinting: "මුද්‍රණය වේ",
+    fleetOffline: "ක්‍රියාවිරහිතයි",
+    fleetLowSupply: "තීන්ත අඩුයි",
+    lowSupplyThreshold: "අවම සීමාව:"
   }
 };
 
@@ -86,95 +104,205 @@ let selectedQueueIndex = 0;
 let previewCurrentPage = 1;
 let previewZoom = 1.0;
 
-// Mock Spooler Printers
+// Tone & Ink Adjustment State (Prompt 10)
+let toneAndInkState = {
+  density: 0,
+  brightness: 0,
+  contrast: 0,
+  gamma: 1.0,
+  shadows: 0,
+  highlights: 0,
+  blackLevel: 0,
+  textDarkness: 0,
+  textSharpening: 0,
+  photoSharpening: 0,
+  saturation: 0,
+  vibrance: 0,
+  colorBalanceCyanRed: 0,
+  colorBalanceMagentaGreen: 0,
+  colorBalanceYellowBlue: 0,
+  paperCompensation: "none",
+  inkSaverEnabled: false,
+  inkSaverLevel: "balanced",
+  inkSaverTextOnlyBlack: true,
+  compareWithOriginal: false,
+  driverColorAdjustmentActive: false
+};
+
+function hasActiveToneAdjustments() {
+  return (
+    toneAndInkState.density !== 0 ||
+    toneAndInkState.brightness !== 0 ||
+    toneAndInkState.contrast !== 0 ||
+    Math.abs(toneAndInkState.gamma - 1.0) > 0.01 ||
+    toneAndInkState.shadows !== 0 ||
+    toneAndInkState.highlights !== 0 ||
+    toneAndInkState.blackLevel !== 0 ||
+    toneAndInkState.textDarkness !== 0 ||
+    toneAndInkState.textSharpening !== 0 ||
+    toneAndInkState.photoSharpening !== 0 ||
+    toneAndInkState.saturation !== 0 ||
+    toneAndInkState.vibrance !== 0 ||
+    toneAndInkState.colorBalanceCyanRed !== 0 ||
+    toneAndInkState.colorBalanceMagentaGreen !== 0 ||
+    toneAndInkState.colorBalanceYellowBlue !== 0 ||
+    toneAndInkState.paperCompensation !== "none" ||
+    toneAndInkState.inkSaverEnabled
+  );
+}
+
+function getToneInkSaverSavingsPercent() {
+  if (!toneAndInkState.inkSaverEnabled) return 0;
+  let base = 28;
+  if (toneAndInkState.inkSaverLevel === "light") base = 15;
+  if (toneAndInkState.inkSaverLevel === "aggressive") base = 42;
+  if (toneAndInkState.inkSaverTextOnlyBlack) base += 4;
+  return Math.min(60, base);
+}
+
+// Mock Spooler Fleet Printers with Live PrinterIntelligence Telemetry
 let printers = [
   {
-    id: "hp_m404dn",
-    name: "HP LaserJet Pro M404dn",
-    location: "Main Office (192.168.1.120)",
+    id: "epson_l3250",
+    name: "Front Counter L3250",
+    modelName: "Epson EcoTank L3250",
+    location: "Counter USB Port #2",
+    interfaceType: "usb",
     status: "Ready",
     statusType: "online",
-    type: "network",
+    state: "ready",
+    type: "usb",
     isDefault: true,
     isFavorite: true,
-    toner: 84,
-    tags: ["Network LAN", "Duplex", "A4 / Letter", "Default"]
-  },
-  {
-    id: "canon_mf445dw",
-    name: "Canon imageCLASS MF445dw",
-    location: "Creative Dept (192.168.1.144)",
-    status: "Ready",
-    statusType: "online",
-    type: "network",
-    isDefault: false,
-    isFavorite: true,
-    toner: 65,
-    tags: ["Color", "Network LAN", "High-DPI"]
-  },
-  {
-    id: "epson_l3250",
-    name: "Epson EcoTank L3250 Series",
-    location: "Desk USB Port #2",
-    status: "Ready • Low Ink (12%)",
-    statusType: "warning",
-    type: "usb",
-    isDefault: false,
-    isFavorite: false,
-    toner: 12,
-    tags: ["USB Direct", "Ink Tank", "Photo Quality"]
-  },
-  {
-    id: "epson_wf4830",
-    name: "Epson WorkForce Pro WF-4830",
-    location: "Accounts Office LAN (192.168.1.182)",
-    status: "Ready • Hardware Duplex Active",
-    statusType: "online",
-    type: "network",
-    isDefault: false,
-    isFavorite: true,
-    toner: 78,
-    tags: ["Network LAN", "Auto Duplex", "Heavy Duty Pigment"]
+    activeQueueLength: 1,
+    totalLifePagesCount: 14250,
+    loadedPaperSummary: "Rear Tray: A4 Plain Paper (80 gsm)",
+    specialtyBadges: ["Borderless 4x6", "Wi-Fi Direct", "EcoTank"],
+    activeAlerts: [],
+    inkChannels: [
+      { name: "Black Ink (BK)", colorHex: "#1a1a1a", rawLevel: 75, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 75, isEstimate: true },
+      { name: "Cyan Ink (C)", colorHex: "#0099ff", rawLevel: 60, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 60, isEstimate: true },
+      { name: "Magenta Ink (M)", colorHex: "#e91e63", rawLevel: 45, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 45, isEstimate: true },
+      { name: "Yellow Ink (Y)", colorHex: "#fdd835", rawLevel: 80, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 80, isEstimate: true }
+    ],
+    maintenanceBox: { name: "Waste Ink Pad", rawLevel: 25, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 25, isEstimate: true },
+    tags: ["USB Direct", "EcoTank", "Borderless 4x6", "Counter"]
   },
   {
     id: "epson_l8050",
-    name: "Epson EcoTank Photo L8050",
-    location: "Photo Studio USB Port #1",
-    status: "Ready • 6-Color Tank",
+    name: "Studio Photo L8050",
+    modelName: "Epson EcoTank Photo L8050",
+    location: "Studio Photo LAN (192.168.1.120)",
+    interfaceType: "wifi",
+    ipAddress: "192.168.1.120",
+    status: "Ready",
     statusType: "online",
-    type: "usb",
+    state: "ready",
+    type: "network",
+    isDefault: false,
+    isFavorite: true,
+    activeQueueLength: 0,
+    totalLifePagesCount: 8920,
+    loadedPaperSummary: "Rear Tray: 4x6 Premium Glossy Photo",
+    specialtyBadges: ["CD/DVD", "PVC ID Card", "Borderless A4", "6-Color Photo"],
+    activeAlerts: [],
+    inkChannels: [
+      { name: "Black (BK)", colorHex: "#1a1a1a", rawLevel: 90, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 90, isEstimate: true },
+      { name: "Cyan (C)", colorHex: "#0099ff", rawLevel: 85, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 85, isEstimate: true },
+      { name: "Magenta (M)", colorHex: "#e91e63", rawLevel: 70, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 70, isEstimate: true },
+      { name: "Yellow (Y)", colorHex: "#fdd835", rawLevel: 88, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 88, isEstimate: true },
+      { name: "Light Cyan (LC)", colorHex: "#80d8ff", rawLevel: 65, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 65, isEstimate: true },
+      { name: "Light Magenta (LM)", colorHex: "#f48fb1", rawLevel: 62, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 62, isEstimate: true }
+    ],
+    maintenanceBox: { name: "Maintenance Box", rawLevel: 32, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 32, isEstimate: false },
+    tags: ["Wi-Fi", "CD/DVD", "PVC ID Card", "6-Color Photo"]
+  },
+  {
+    id: "epson_wf_c5890",
+    name: "Production WF-C5890",
+    modelName: "Epson WorkForce Pro WF-C5890",
+    location: "Production Room (192.168.1.150)",
+    interfaceType: "ethernet",
+    ipAddress: "192.168.1.150",
+    status: "Printing (4 in queue)",
+    statusType: "online",
+    state: "printing",
+    type: "network",
+    isDefault: false,
+    isFavorite: true,
+    activeQueueLength: 4,
+    totalLifePagesCount: 48310,
+    loadedPaperSummary: "Cassette 1: A4 Plain 80gsm | Cassette 2: A4 Letterhead",
+    specialtyBadges: ["Auto Duplex", "RIPS Ink Pack", "Pigment", "High Speed"],
+    activeAlerts: [],
+    inkChannels: [
+      { name: "Black High Capacity Pack (BK)", colorHex: "#1a1a1a", rawLevel: -1, rawMaxCapacity: -2, statusType: "presentOk", calculatedPercentage: null, isEstimate: false },
+      { name: "Cyan High Capacity Pack (C)", colorHex: "#0099ff", rawLevel: -3, rawMaxCapacity: -2, statusType: "someRemaining", calculatedPercentage: null, isEstimate: false },
+      { name: "Magenta High Capacity Pack (M)", colorHex: "#e91e63", rawLevel: -3, rawMaxCapacity: -2, statusType: "someRemaining", calculatedPercentage: null, isEstimate: false },
+      { name: "Yellow High Capacity Pack (Y)", colorHex: "#fdd835", rawLevel: 12, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 12, isEstimate: false }
+    ],
+    maintenanceBox: { name: "Maintenance Box", rawLevel: 78, rawMaxCapacity: 100, statusType: "percentage", calculatedPercentage: 78, isEstimate: false },
+    tags: ["Ethernet LAN", "Auto Duplex", "RIPS Ink Pack", "Production"]
+  },
+  {
+    id: "epson_sc_p900",
+    name: "Pro Art SC-P900",
+    modelName: "Epson SureColor SC-P900",
+    location: "Exhibition Studio (192.168.1.200)",
+    interfaceType: "ethernet",
+    ipAddress: "192.168.1.200",
+    status: "Offline",
+    statusType: "offline",
+    state: "offline",
+    type: "network",
     isDefault: false,
     isFavorite: false,
-    toner: 90,
-    tags: ["USB Direct", "6-Color Photo", "CD/DVD & ID Tray"]
+    activeQueueLength: 0,
+    totalLifePagesCount: 3120,
+    loadedPaperSummary: "Top Feeder: A3+ Exhibition Fiber Paper",
+    specialtyBadges: ["A2+ / A3+", "10-Color UltraChrome", "Roll Unit", "Rigid Board (1.5mm)"],
+    activeAlerts: [
+      {
+        code: 1001,
+        severity: "critical",
+        rawDescription: "Power off / Offline",
+        plainLanguageEn: "Printer is offline or turned off",
+        plainLanguageSi: "ප්‍රින්ටරය ක්‍රියාවිරහිතයි හෝ සම්බන්ධතාවය ඇනහිට ඇත"
+      }
+    ],
+    inkChannels: [
+      { name: "Photo Black (PK)", colorHex: "#000000", rawLevel: -2, rawMaxCapacity: -2, statusType: "notReported", calculatedPercentage: null, isEstimate: false },
+      { name: "Matte Black (MK)", colorHex: "#263238", rawLevel: -2, rawMaxCapacity: -2, statusType: "notReported", calculatedPercentage: null, isEstimate: false }
+    ],
+    maintenanceBox: null,
+    tags: ["Ethernet LAN", "A2+ / A3+", "UltraChrome 10-Color", "Fine Art"]
   },
   {
     id: "pdf_virtual",
     name: "Microsoft Print to PDF",
+    modelName: "Software Rasterizer",
     location: "Virtual Software Spooler",
+    interfaceType: "virtual",
     status: "Ready",
     statusType: "online",
+    state: "ready",
     type: "virtual",
     isDefault: false,
     isFavorite: false,
-    toner: 100,
+    activeQueueLength: 0,
+    totalLifePagesCount: 520,
+    loadedPaperSummary: "System Spooler Virtual Driver",
+    specialtyBadges: ["Vector PDF", "Lossless", "Zero Ink"],
+    activeAlerts: [],
+    inkChannels: [],
+    maintenanceBox: null,
     tags: ["Virtual", "Vector Output", "Zero Ink"]
-  },
-  {
-    id: "brother_hl",
-    name: "Brother HL-L2350DW",
-    location: "Warehouse Spooler (192.168.1.205)",
-    status: "Offline • Check Cable",
-    statusType: "offline",
-    type: "network",
-    isDefault: false,
-    isFavorite: false,
-    toner: 0,
-    tags: ["Network LAN", "Monochrome"]
   }
 ];
 
-let selectedPrinterId = "hp_m404dn";
+let selectedPrinterId = "epson_l3250";
+let fleetLowSupplyThreshold = 15.0;
+let subnetScanConsentGranted = false;
 
 // Queue Items Store
 let queue = [];
@@ -327,6 +455,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateLivePrinterPanel();
   initThreeTierPrintSettings();
+  initResolutionSystem();
+  initToneAndInkSystem();
+  initFullPricingEngine();
+  initSpecialtyPrintCenter();
+  initMultiPrinterDashboard();
 
   if (tab) {
     switchTab(tab);
@@ -945,6 +1078,52 @@ const printerProfilesDb = {
       { feature: "Trays", source: "IPP / SNMP Telemetry", confidence: "Live Telemetry" }
     ]
   },
+  "epson_wf_c5890": {
+    name: "Epson WorkForce Pro WF-C5890",
+    family: "Epson WorkForce Pro RIPS Series",
+    trait: "WorkForce Pro",
+    supplyTech: "Replaceable Ink Pack System (RIPS)",
+    colorLayout: "CMYK DURABrite Ultra All-Pigment",
+    hasDigitalInk: true,
+    autoDuplex: true,
+    borderless: false,
+    borderlessMaxSize: "None",
+    opticalDpi: "4800x1200 DPI",
+    paperSizes: ["A4", "Letter", "Legal", "Executive", "A5", "A6", "Envelope #10"],
+    mediaTypes: ["Plain Paper", "Bright White", "Recycled", "Presentation Matte"],
+    trays: ["Cassette 1 (250)", "Cassette 2 (500)", "Rear Slot (80)"],
+    cdDvd: false,
+    rollPaper: false,
+    iccProfiles: ["Driver Managed", "sRGB IEC61966-2.1"],
+    provenance: [
+      { feature: "Hardware Duplex", source: "Win32 DeviceCapabilities", confidence: "Verified (Hardware Auto)" },
+      { feature: "Toner & Ink Level", source: "SNMP RFC 3805 (Negative Values OK)", confidence: "Live Telemetry" },
+      { feature: "Paper Sizes", source: "IPP Everywhere", confidence: "Verified" }
+    ]
+  },
+  "epson_sc_p900": {
+    name: "Epson SureColor SC-P900",
+    family: "Epson SureColor Pro Photo Series",
+    trait: "Large Format Fine Art",
+    supplyTech: "10-Color UltraChrome PRO10 Ink",
+    colorLayout: "10 Individual Pigment Channels (PK, MK, C, VM, Y, LC, VLM, GY, LGY, V)",
+    hasDigitalInk: true,
+    autoDuplex: false,
+    borderless: true,
+    borderlessMaxSize: "17-inch A2+",
+    opticalDpi: "5760x1440 DPI",
+    paperSizes: ["A4", "A3", "A3+", "A2+", "17-inch Roll", "13x19 in", "Photo 4x6"],
+    mediaTypes: ["Exhibition Fiber Paper", "Velvet Fine Art", "Metallic Glossy", "Rigid Posterboard"],
+    trays: ["Top Sheet Feeder (120)", "Front Fine Art Path", "Roll Paper Unit", "Front Rigid Board Path (1.5mm)"],
+    cdDvd: true,
+    rollPaper: true,
+    iccProfiles: ["Driver Managed", "Epson Exhibition Fiber", "Epson Velvet Fine Art", "Adobe RGB (1998)"],
+    provenance: [
+      { feature: "Rigid Board (1.5mm)", source: "ESC/P-R specs", confidence: "Verified" },
+      { feature: "Roll Paper Unit", source: "Physical Attachment Sensor", confidence: "Live Telemetry" },
+      { feature: "Supply Levels", source: "SNMP Printer MIB", confidence: "Live Telemetry" }
+    ]
+  },
   "hp_m404dn": {
     name: "HP LaserJet Pro M404dn",
     family: "HP LaserJet Enterprise Mono Series",
@@ -1309,6 +1488,7 @@ function updateLiveSummary() {
   }
 
   lbl.innerText = parts.join(", ");
+  if (window.updateLivePricePanel) window.updateLivePricePanel();
 }
 
 function validateDependenciesAndAutoFixes() {
@@ -1366,6 +1546,105 @@ function validateDependenciesAndAutoFixes() {
       action: () => {
         const mod = document.getElementById("manualDuplexModal");
         if (mod) mod.classList.remove("hidden");
+      }
+    });
+  }
+
+  // Conflict 4: Low PPI Image Resolution (<150 PPI)
+  if (typeof currentEffectivePpi !== "undefined" && currentEffectivePpi < 149.0) {
+    alerts.push({
+      blocking: false,
+      title: isSi ? `අඩු ඡායාරූප පැහැදිලි බව (${Math.round(currentEffectivePpi)} PPI)` : `Low Image Resolution (${Math.round(currentEffectivePpi)} PPI)`,
+      sub: isSi
+        ? `${paperSize} කොළයේ මුද්‍රණය කළ විට ඡායාරූපය බොඳ විය හැක. තියුණු කිරීමට Lanczos (2x) යොදන්න.`
+        : `This photo prints at ${Math.round(currentEffectivePpi)} PPI on ${paperSize} and may look soft.`,
+      fixLabel: isSi ? "Lanczos (2x) මඟින් විශාල කරන්න" : "Apply 2x Lanczos Upscale",
+      action: () => {
+        isImageUpscaled = true;
+        if (window.updateEffectivePpiDisplay) window.updateEffectivePpiDisplay();
+        showToast(isSi ? "2x Lanczos ප්‍රතිනියැදීම යොදන ලදී!" : "Applied 2x Lanczos upscale auto-fix!");
+      }
+    });
+  }
+
+  // Conflict 5: Plain Paper 2400+ DPI droplet overload
+  const currentDpi = parseInt(document.getElementById("selHardwareDpi")?.value || "720", 10);
+  if (paperType.includes("Plain") && currentDpi >= 2400) {
+    alerts.push({
+      blocking: true,
+      title: isSi ? "සාමාන්‍ය කඩදාසිවලට 2400+ DPI තීන්ත දරාගත නොහැක" : "Plain Paper cannot absorb 2400+ DPI droplet volume",
+      sub: isSi ? "තීන්ත රැඳීම සහ කොළ රැළි වැටීම වැළැක්වීමට 720 DPI තෝරන්න." : "Prevent ink bleed and paper cockling by switching to 720 DPI Normal.",
+      fixLabel: isSi ? "720 DPI වෙත මාරු වන්න" : "Switch to 720 DPI Normal",
+      action: () => {
+        const selDpi = document.getElementById("selHardwareDpi");
+        if (selDpi) {
+          selDpi.value = "720";
+          selDpi.dispatchEvent(new Event("change"));
+        }
+      }
+    });
+  }
+
+  // Conflict 6: 1200 Render DPI high memory footprint
+  const renderDpiVal = document.getElementById("selRenderDpi")?.value || "auto";
+  if (renderDpiVal === "1200") {
+    alerts.push({
+      blocking: false,
+      title: isSi ? "අධික මතක භාවිතය (~398 MB/පිටුව)" : "High Raster Memory Footprint (~398 MB/page)",
+      sub: isSi ? "1200 DPI විශාල මතකයක් වැය කරයි. ස්වයංක්‍රීය (Auto) තෝරාගැනීම නිර්දේශ කෙරේ." : "1200 DPI rasterization requires significant RAM. Auto mode matches native printer DPI.",
+      fixLabel: isSi ? "Auto Render DPI තෝරන්න" : "Switch to Auto Render DPI",
+      action: () => {
+        const selR = document.getElementById("selRenderDpi");
+        if (selR) {
+          selR.value = "auto";
+          selR.dispatchEvent(new Event("change"));
+        }
+      }
+    });
+  }
+
+  // Conflict 7: Double color adjustment (Driver color adjustment active + App adjustments active)
+  const hasAppAdjustments = (
+    toneAndInkState.density !== 0 ||
+    toneAndInkState.brightness !== 0 ||
+    toneAndInkState.contrast !== 0 ||
+    toneAndInkState.saturation !== 0 ||
+    Math.abs(toneAndInkState.gamma - 1.0) > 0.01
+  );
+  if (toneAndInkState.driverColorAdjustmentActive && hasAppAdjustments) {
+    alerts.push({
+      blocking: false,
+      title: isSi ? "ද්විත්ව වර්ණ වෙනස්වීමක් අනාවරණය විය" : "Double Color Adjustment Detected",
+      sub: isSi
+        ? "ප්‍රින්ටර් ඩ්‍රයිවර් එක සහ Print Helper යන දෙකෙන්ම එකවර වර්ණ වෙනස් වේ. මෙය වර්ණ අපැහැදිලි වීමට හේතු විය හැක."
+        : "Both driver color adjustments and Print Helper tone adjustments are engaged. Disable one to avoid muddy prints.",
+      fixLabel: isSi ? "Print Helper ට පමණක් ඉඩ දෙන්න" : "Let Print Helper Manage Tone",
+      action: () => {
+        toneAndInkState.driverColorAdjustmentActive = false;
+        validateDependenciesAndAutoFixes();
+        showToast(isSi ? "ඩ්‍රයිවර් වර්ණ පාලනය අක්‍රිය කර Print Helper තෝරාගන්නා ලදී." : "Driver color adjustment disabled; Print Helper managing tone.");
+      }
+    });
+  }
+
+  // Conflict 8: High ink density on plain paper (> +25)
+  if (paperType.includes("Plain") && toneAndInkState.density > 25) {
+    alerts.push({
+      blocking: false,
+      title: isSi ? "සාමාන්‍ය කොළ සඳහා වැඩි තීන්ත ඝනත්වයක්" : "High Ink Density on Plain Paper",
+      sub: isSi
+        ? "සාමාන්‍ය කොළ සඳහා +25% ට වඩා තීන්ත යෙදීමෙන් තීන්ත කාන්දු වීම හෝ රැළි වැටීම සිදුවිය හැක."
+        : "Density above +25% on standard copy paper may cause ink bleed-through or fiber cockling.",
+      fixLabel: isSi ? "ඝනත්වය +15% ට අඩු කරන්න" : "Reduce Density to +15%",
+      action: () => {
+        toneAndInkState.density = 15;
+        const range = document.getElementById("rangeDensity");
+        const val = document.getElementById("valDensity");
+        if (range) range.value = "15";
+        if (val) val.innerText = "+15";
+        if (window.updateToneAndInkLiveEffect) window.updateToneAndInkLiveEffect();
+        validateDependenciesAndAutoFixes();
+        showToast(isSi ? "තීන්ත ඝනත්වය +15% දක්වා අඩු කරන ලදී." : "Density reduced to +15% for Plain Paper.");
       }
     });
   }
@@ -1787,6 +2066,9 @@ function renderQueueCards() {
             <span class="meta-pill type-pdf">${item.ext}</span>
             <span class="meta-pill">${item.pages} ${item.pages === 1 ? t.page : t.pages}</span>
             <span class="meta-pill">${item.sizeStr}</span>
+            <span class="meta-pill badge-ppi ${item.type === 'image' && !isImageUpscaled ? 'low' : 'crisp'}" style="cursor:pointer;" onclick="if(window.openPhotoHelperModal) window.openPhotoHelperModal();" title="Click to view Photo Size Helper">
+              ${item.type === 'image' && !isImageUpscaled ? '96 PPI' : '300 PPI'}
+            </span>
           </div>
         </div>
 
@@ -1873,53 +2155,215 @@ function renderPrinterDropdown() {
   });
 }
 
+function hasPrinterLowSupply(p, threshold) {
+  if (p.activeAlerts && p.activeAlerts.length > 0) return true;
+  if (p.inkChannels) {
+    for (const ink of p.inkChannels) {
+      if (ink.statusType === 'lowOrEmpty') return true;
+      if (ink.calculatedPercentage !== null && ink.calculatedPercentage <= threshold) return true;
+    }
+  }
+  if (p.maintenanceBox && p.maintenanceBox.calculatedPercentage !== null) {
+    if (p.maintenanceBox.calculatedPercentage >= (100 - threshold)) return true;
+  }
+  return false;
+}
+
+function formatSupplyStatusText(ch, isSi) {
+  if (ch.statusType === 'presentOk' || ch.rawLevel === -1) {
+    return isSi ? 'හරි (OK)' : 'OK';
+  }
+  if (ch.statusType === 'someRemaining' || ch.rawLevel === -3) {
+    return isSi ? 'ප්‍රමාණවත්' : 'Some Remaining';
+  }
+  if (ch.statusType === 'notReported' || ch.rawLevel === -2) {
+    return isSi ? 'වාර්තා නැත' : 'Not reported';
+  }
+  if (ch.statusType === 'lowOrEmpty' || (ch.calculatedPercentage !== null && ch.calculatedPercentage <= 0)) {
+    return isSi ? 'අඩුයි / හිස්' : 'Low / Empty';
+  }
+  if (ch.calculatedPercentage !== null) {
+    const estTag = ch.isEstimate ? (isSi ? ' (ඇස්තමේන්තුව)' : ' (est)') : '';
+    return `${Math.round(ch.calculatedPercentage)}%${estTag}`;
+  }
+  return isSi ? 'නොදනී' : 'Unknown';
+}
+
 function renderPrintersGrid() {
   const container = document.getElementById("printersGrid");
   if (!container) return;
   container.innerHTML = "";
 
+  const isSi = currentLang === 'si';
+
+  // Update Fleet Telemetry Summary Banner
+  const totalCount = printers.length;
+  const readyCount = printers.filter(p => p.state === 'ready').length;
+  const printingCount = printers.filter(p => p.state === 'printing').length;
+  const offlineCount = printers.filter(p => p.state === 'offline').length;
+  const lowSupplyCount = printers.filter(p => hasPrinterLowSupply(p, fleetLowSupplyThreshold)).length;
+
+  const elTotal = document.getElementById("fleetTotalCount");
+  const elReady = document.getElementById("fleetReadyCount");
+  const elPrinting = document.getElementById("fleetPrintingCount");
+  const elOffline = document.getElementById("fleetOfflineCount");
+  const elLow = document.getElementById("fleetLowSupplyCount");
+  if (elTotal) elTotal.innerText = totalCount;
+  if (elReady) elReady.innerText = readyCount;
+  if (elPrinting) elPrinting.innerText = printingCount;
+  if (elOffline) elOffline.innerText = offlineCount;
+  if (elLow) elLow.innerText = lowSupplyCount;
+
   const filtered = printers.filter(p => {
     if (activeFilter === 'all') return true;
+    if (activeFilter === 'ready') return p.state === 'ready';
+    if (activeFilter === 'network') return p.interfaceType === 'wifi' || p.interfaceType === 'ethernet';
+    if (activeFilter === 'usb') return p.interfaceType === 'usb';
+    if (activeFilter === 'alerts') return hasPrinterLowSupply(p, fleetLowSupplyThreshold) || (p.activeAlerts && p.activeAlerts.length > 0) || p.state === 'offline';
     if (activeFilter === 'favorites') return p.isFavorite;
     return p.type === activeFilter;
   });
 
   filtered.forEach(p => {
+    const isAlert = hasPrinterLowSupply(p, fleetLowSupplyThreshold);
     const card = document.createElement("div");
-    card.className = "printer-card";
+    card.className = `fleet-card-modern ${isAlert ? 'alert-active' : ''}`;
+
+    // Interface pill
+    let ifaceIcon = 'settings_ethernet';
+    let ifaceLabel = 'LAN';
+    if (p.interfaceType === 'usb') { ifaceIcon = 'usb'; ifaceLabel = 'USB'; }
+    else if (p.interfaceType === 'wifi') { ifaceIcon = 'wifi'; ifaceLabel = 'Wi-Fi'; }
+    else if (p.interfaceType === 'virtual') { ifaceIcon = 'cloud_queue'; ifaceLabel = 'Virtual'; }
+
+    // State visuals
+    let stateClass = 'ready';
+    let stateText = isSi ? 'සූදානම්' : 'Ready';
+    if (p.state === 'printing') { stateClass = 'printing'; stateText = isSi ? 'මුද්‍රණය වේ' : 'Printing'; }
+    else if (p.state === 'paused') { stateClass = 'paused'; stateText = isSi ? 'නවත්වා ඇත' : 'Paused'; }
+    else if (p.state === 'offline') { stateClass = 'offline'; stateText = isSi ? 'ක්‍රියාවිරහිතයි' : 'Offline'; }
+    else if (p.state === 'error') { stateClass = 'error'; stateText = isSi ? 'දෝෂයක්' : 'Hardware Error'; }
+
+    // Queue badge
+    const qCount = p.activeQueueLength || 0;
+    const qClass = qCount > 0 ? '' : 'idle';
+    const qText = `${qCount} ${isSi ? 'රැකියා' : (qCount === 1 ? 'job' : 'jobs')}`;
+
+    // Hardware Alert Banner
+    let alertHtml = '';
+    if (p.activeAlerts && p.activeAlerts.length > 0) {
+      const alert = p.activeAlerts[0];
+      const alertMsg = isSi ? (alert.plainLanguageSi || alert.plainLanguageEn) : alert.plainLanguageEn;
+      alertHtml = `
+        <div class="printer-hardware-alert-box">
+          <span class="material-symbols-rounded" style="font-size:16px;">error_outline</span>
+          <span><strong>${alertMsg}</strong></span>
+        </div>
+      `;
+    }
+
+    // Specialty Badges
+    const badgesHtml = (p.specialtyBadges || []).map(b => `<span class="specialty-chip">${b}</span>`).join('');
+
+    // Consumables / Inks
+    let consumablesHtml = '';
+    if (p.inkChannels && p.inkChannels.length > 0) {
+      consumablesHtml = p.inkChannels.map(ch => {
+        const txt = formatSupplyStatusText(ch, isSi);
+        const hasPct = ch.calculatedPercentage !== null;
+        const pct = hasPct ? Math.max(0, Math.min(100, ch.calculatedPercentage)) : 0;
+        const isLow = ch.statusType === 'lowOrEmpty' || (hasPct && pct <= fleetLowSupplyThreshold);
+        const isSpecial = ch.rawLevel === -1 || ch.rawLevel === -3;
+
+        return `
+          <div class="consumable-row">
+            <span class="consumable-dot" style="background:${ch.colorHex};"></span>
+            <span class="consumable-name" title="${ch.name}">${ch.name.split('(')[0].trim()}</span>
+            <div class="consumable-bar-track">
+              ${hasPct ? `<div class="consumable-bar-fill" style="width:${pct}%; background:${ch.colorHex};"></div>` : ''}
+            </div>
+            <span class="consumable-level-badge ${isLow ? 'low' : (isSpecial ? 'special' : '')}">${txt}</span>
+          </div>
+        `;
+      }).join('');
+    } else {
+      consumablesHtml = `<div style="font-size:11px; color:var(--text-muted); font-style:italic;">${isSi ? 'තීන්ත අවශ්‍ය නැත' : 'Zero consumable required'}</div>`;
+    }
+
+    // Maintenance Box
+    let mboxHtml = '';
+    if (p.maintenanceBox) {
+      const mbPct = p.maintenanceBox.calculatedPercentage !== null ? Math.round(p.maintenanceBox.calculatedPercentage) : 0;
+      const mbFull = mbPct >= (100 - fleetLowSupplyThreshold);
+      mboxHtml = `
+        <div class="maintenance-box-row">
+          <span class="material-symbols-rounded" style="font-size:14px;">delete_outline</span>
+          <span>${isSi ? 'නඩත්තු පෙට්ටිය (M-Box):' : 'Maintenance Box:'}</span>
+          <div class="consumable-bar-track" style="height:5px;">
+            <div class="consumable-bar-fill" style="width:${mbPct}%; background:${mbFull ? '#dc2626' : '#64748b'};"></div>
+          </div>
+          <span style="font-weight:700; color:${mbFull ? '#dc2626' : 'inherit'};">${mbPct}%</span>
+        </div>
+      `;
+    }
+
+    // Loaded Paper Tray
+    const paperHtml = p.loadedPaperSummary ? `
+      <div class="loaded-paper-bar">
+        <span class="material-symbols-rounded" style="font-size:14px;">layers</span>
+        <span>${p.loadedPaperSummary}</span>
+      </div>
+    ` : '';
+
+    const isTarget = selectedPrinterId === p.id;
 
     card.innerHTML = `
-      <div class="printer-top">
-        <div class="printer-name-col">
-          <div class="printer-icon-wrap">
-            <span class="material-symbols-rounded">print</span>
-          </div>
-          <div class="printer-headings">
-            <h4>${p.name}</h4>
-            <span>${p.location}</span>
-          </div>
+      <div class="fleet-card-top">
+        <div class="fleet-printer-title-group">
+          <h4>${p.name}</h4>
+          <div class="printer-model-sub">${p.modelName || p.name}</div>
         </div>
-        <button class="star-btn ${p.isFavorite ? 'active' : ''}" data-id="${p.id}" title="Toggle favorite">
-          <span class="material-symbols-rounded">${p.isFavorite ? 'star' : 'star_border'}</span>
-        </button>
+        <div class="fleet-top-badges">
+          <span class="interface-chip">
+            <span class="material-symbols-rounded" style="font-size:13px;">${ifaceIcon}</span>
+            <span>${ifaceLabel}</span>
+          </span>
+          <span class="queue-length-badge ${qClass}">
+            <span class="material-symbols-rounded" style="font-size:13px;">format_list_numbered</span>
+            <span>${qText}</span>
+          </span>
+        </div>
       </div>
 
-      <div class="printer-status-bar">
-        <span class="printer-status-dot ${p.statusType}"></span>
-        <span>${p.status}</span>
+      <div class="fleet-state-row">
+        <span class="state-dot-modern ${stateClass}"></span>
+        <span>${stateText}</span>
+        ${p.ipAddress ? `<span class="printer-ip-addr">${p.ipAddress}</span>` : ''}
+        ${p.totalLifePagesCount ? `<span class="lifetime-pages-tag">${p.totalLifePagesCount.toLocaleString()} ${isSi ? 'පිටු' : 'pgs'}</span>` : ''}
       </div>
 
-      <div class="printer-tags">
-        ${p.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+      ${alertHtml}
+
+      <div class="specialty-chips-container">
+        ${badgesHtml}
       </div>
 
-      <div class="printer-actions">
-        <button class="btn btn-tonal btn-sm btn-test-print" data-name="${p.name}">
+      <div class="consumables-section-title">${isSi ? 'තීන්ත මට්ටම් (Ink / Consumables)' : 'Ink & Consumable Levels'}</div>
+      <div class="consumables-list">
+        ${consumablesHtml}
+        ${mboxHtml}
+      </div>
+
+      ${paperHtml}
+
+      <div class="printer-card-actions">
+        <button class="btn btn-tonal btn-sm btn-fleet-test-print" data-name="${p.name}">
           <span class="material-symbols-rounded">receipt_long</span>
-          <span>Test Page</span>
+          <span>${isSi ? 'පරීක්ෂා පිටුව' : 'Test Page'}</span>
         </button>
-        <button class="btn btn-outline btn-sm btn-set-default" data-id="${p.id}">
-          <span>${selectedPrinterId === p.id ? 'Selected' : 'Use as Target'}</span>
+        <button class="btn ${isTarget ? 'btn-primary' : 'btn-outline'} btn-sm btn-fleet-set-target" data-id="${p.id}">
+          <span class="material-symbols-rounded">${isTarget ? 'check' : 'radio_button_unchecked'}</span>
+          <span>${isTarget ? (isSi ? 'තෝරා ඇත' : 'Target Active') : (isSi ? 'ඉලක්කය ලෙස තෝරන්න' : 'Use as Target')}</span>
         </button>
       </div>
     `;
@@ -1927,24 +2371,14 @@ function renderPrintersGrid() {
     container.appendChild(card);
   });
 
-  container.querySelectorAll(".star-btn").forEach(b => {
-    b.addEventListener("click", () => {
-      const p = printers.find(x => x.id === b.dataset.id);
-      if (p) {
-        p.isFavorite = !p.isFavorite;
-        renderPrinterDropdown();
-        renderPrintersGrid();
-      }
-    });
-  });
-
-  container.querySelectorAll(".btn-test-print").forEach(b => {
+  // Event handlers
+  container.querySelectorAll(".btn-fleet-test-print").forEach(b => {
     b.addEventListener("click", () => {
       showToast(`🖨️ Sent diagnostic test page to ${b.dataset.name}`);
     });
   });
 
-  container.querySelectorAll(".btn-set-default").forEach(b => {
+  container.querySelectorAll(".btn-fleet-set-target").forEach(b => {
     b.addEventListener("click", () => {
       selectedPrinterId = b.dataset.id;
       renderPrinterDropdown();
@@ -2105,6 +2539,95 @@ function updateUIStrings() {
   setTxt("lblAdvTitle", currentLang === 'si' ? "වැඩිදුර සැකසුම්" : "Advanced Settings");
   setTxt("lblBtnRightPrint", t.printAction);
 
+  // Tone and Ink Translations
+  const isSi = currentLang === 'si';
+  setTxt("lblToneInkHeader", isSi ? "තීන්ත සහ වර්ණ වෙනස්කම්" : "Tone & Ink Adjustments");
+  setTxt("lblTonePaperPreset", isSi ? "කඩදාසි අනුව වෙනස්කම්" : "Paper Compensation");
+  setTxt("badgePaperPresetApp", isSi ? "Print Helper සැකසුම" : "Print Helper adjustment");
+  setTxt("lblDensity", isSi ? "සමස්ත තීන්ත ඝනත්වය" : "Overall Density");
+  setTxt("lblBrightness", isSi ? "දීප්තිය (Brightness)" : "Brightness");
+  setTxt("lblContrast", isSi ? "ප්‍රතිවිරෝධය (Contrast)" : "Contrast");
+  setTxt("lblGamma", isSi ? "ගැමා වක්‍රය (Gamma)" : "Gamma Curve");
+  setTxt("lblShadows", isSi ? "සෙවණැලි (Shadows)" : "Shadows");
+  setTxt("lblHighlights", isSi ? "දීප්තිමත් පෙදෙස්" : "Highlights");
+  setTxt("lblBlackLevel", isSi ? "කළු මට්ටම (Black Level)" : "Black Level");
+  setTxt("lblTextDarkness", isSi ? "අකුරු අඳුරු බව" : "Text Darkness");
+  setTxt("lblTextSharp", isSi ? "අකුරු තියුණු බව" : "Text Sharpening");
+  setTxt("lblPhotoSharp", isSi ? "ඡායාරූප තියුණු බව" : "Photo Sharpening");
+  setTxt("lblSaturation", isSi ? "සන්තෘප්තිය (Saturation)" : "Saturation");
+  setTxt("lblVibrance", isSi ? "වර්ණ ප්‍රාණවත් බව" : "Vibrance (Skin Safe)");
+  setTxt("lblInkSaverTitle", isSi ? "තීන්ත / ටෝනර් ඉතිරි කිරීම" : "Ink / Toner Saver Mode");
+  setTxt("lblInkSaverLevel", isSi ? "ඉතිරි කිරීමේ මට්ටම" : "Reduction Level");
+  setTxt("lblTextOnlyBlack", isSi ? "අකුරු පමණක් තද කළු තීන්තෙන් මුද්‍රණය" : "Text-Only Black (Preserves Color Tanks)");
+  setTxt("lblCmykTitle", isSi ? "තීන්ත ආවරණ ඇස්තමේන්තුව" : "Estimated Ink Coverage");
+  setTxt("lblCmykNote", isSi ? "ප්‍රතිශතය අනුව සාප්පු ගාස්තු සහ පිරිවැය ගණනය කෙරේ." : "Per-channel optical analysis feeds Shop Mode cost & pricing estimates.");
+  setTxt("lblBtnResetTone", isSi ? "මුල් තත්ත්වයට" : "Reset");
+  setTxt("lblBtnCompare", toneAndInkState.compareWithOriginal ? (isSi ? "සංසන්දනය නවත්වන්න" : "Stop Compare") : (isSi ? "මුල් පිටුව සමඟ බලන්න" : "Compare Original"));
+  setTxt("lblBtnTestPattern", isSi ? "පරීක්ෂණ රටාව මුද්‍රණය (Test Pattern)..." : "Print Test Pattern (Nozzle & Ramp)...");
+  setTxt("lblTestPatternTitle", isSi ? "පරීක්ෂණ රටාව මුද්‍රණය (Test Pattern)" : "Print Tone & Quality Test Pattern");
+  setTxt("lblTestPatternSub", isSi ? "Epson EcoTank L3250 — Gray Ramp, Color Patches & Nozzle Chart" : "Epson EcoTank L3250 — Gray Ramp, Color Patches & Nozzle Chart");
+  setTxt("lblBtnDriverMaint", isSi ? "Epson ඩ්‍රයිවර් මෙනුව (Maintenance)" : "Open Driver Maintenance");
+  setTxt("lblBtnPrintTestPage", isSi ? "පරීක්ෂණ පිටුව මුද්‍රණය කරන්න" : "Print Test Page Now");
+  setTxt("lblPreviewApprox", isSi ? "මුද්‍රණ පෙරදසුන (ආසන්න)" : "Approximate print preview (Tone active)");
+  setTxt("lblCompareMode", isSi ? "මුල් පිටුව පෙන්වයි (වෙනස්කම් රහිත)" : "Showing Original (Unadjusted)");
+
+  // Pricing Engine Translations
+  setTxt("lblPricingEngineTitle", isSi ? "පූර්ණ බහුමානීය මිල එන්ජිම" : "Full Multidimensional Pricing Engine");
+  setTxt("lblPricingEngineSub", isSi ? "කඩදාසි වර්ග, ප්‍රමාණ, වර්ණ, ගුණාත්මකභාවය සහ තොග මිල ගණන් දේශීයව සංස්කරණය කරන්න" : "Configure granular rates by Type, Color, Size, Media, Sides, Quality, Printer, and Volume Tiers");
+  setTxt("lblActivePkgBadge", isSi ? "100% දේශීය සහ සංස්කරණය කළ හැක" : "100% Local & Editable");
+  setTxt("lblPackageSelect", isSi ? "මිල ලැයිස්තුව:" : "Price List:");
+  setTxt("lblBtnBulkEdit", isSi ? "තොග වෙනස්කම්" : "Bulk Edit");
+  setTxt("lblBtnAudit", isSi ? "ඉතිහාසය" : "History");
+  setTxt("lblPinStatus", isSi ? "PIN අගුල සක්‍රියයි" : "PIN Active");
+  setTxt("lblMissingPriceHeadline", isSi ? "මිල ආරක්ෂණ ක්‍රමය සක්‍රියයි" : "Missing Price Safeguard Active");
+  setTxt("lblMissingPriceSub", isSi ? "මිල නියම නොකළ කඩදාසි ප්‍රමාණ ඇත. Print Helper කිසිවිටෙක රු. 0 අය නොකරයි; ආරක්ෂිත පෙරනිමි අගයන් භාවිතා වේ." : "Unpriced combinations detected. Print Helper never silently charges zero; safe fallbacks apply.");
+  setTxt("lblBtnFixMissing", isSi ? "නොමැති මිල ගණන් එක්කරන්න (3)" : "Fix Missing Prices (3)");
+  setTxt("lblBtnAddPrice", isSi ? "මිල රීතියක් එක්කරන්න" : "Add Price Rule");
+  setTxt("lblGroupCardTitle", isSi ? "පාරිභෝගික කණ්ඩායම් සහ වට්ටම්" : "Customer Groups & Discounts");
+  setTxt("lblApplyGroupLabel", isSi ? "ගිණුම් වර්ගය:" : "Active Counter Group:");
+  setTxt("lblFeesCardTitle", isSi ? "අමතර ගාස්තු, මුදල් සහ වටයන නීති" : "Fees, Surcharges & Rounding");
+  setTxt("lblMinJobCharge", isSi ? "අවම රැකියා ගාස්තුව:" : "Minimum Job Charge:");
+  setTxt("lblSetupFee", isSi ? "සකස් කිරීමේ ගාස්තුව:" : "Setup / Service Fee:");
+  setTxt("lblRushFee", isSi ? "හදිසි මුද්‍රණ ගාස්තුව:" : "Rush Order Surcharge:");
+  setTxt("lblBorderlessFee", isSi ? "දාර රහිත ගාස්තුව:" : "Borderless Overspray Fee:");
+  setTxt("lblCurrencySelect", isSi ? "මුදල් ඒකකය:" : "Currency:");
+  setTxt("lblRoundingSelect", isSi ? "වටයන නීතිය:" : "Configurable Rounding:");
+  setTxt("lblSupplyCostTitle", isSi ? "වියදම් සහ ලාභ විශ්ලේෂණය" : "Cost Side & Profit Audit");
+  setTxt("lblBtnExportDaily", isSi ? "දෛනික මූල්‍ය වාර්තාව (CSV)" : "Export Daily Financial Audit (CSV)");
+  setTxt("lblLivePriceHeader", isSi ? "ඇස්තමේන්තුගත මුළු මුදල" : "Estimated Total");
+  setTxt("lblBreakdownBtn", isSi ? "විස්තරය" : "Breakdown");
+  setTxt("lblQuoteBtn", isSi ? "මිල ගණන්" : "Quote");
+  setTxt("lblBreakdownTitle", isSi ? "මිල ගණන් විස්තරය" : "Pricing Breakdown");
+  setTxt("lblSubtotalText", isSi ? "දළ එකතුව:" : "Gross Subtotal:");
+
+  // Multi-Printer Dashboard & Routing Translations
+  setTxt("lblPrintersHead", isSi ? "ප්‍රින්ටර් පාලක මැදිරිය සහ කළමනාකරණය" : "Printers & Fleet Management");
+  setTxt("lblPrintersSub", isSi ? "PrinterIntelligence තොරතුරු (පළමුව IPP, දෙවනුව SNMP, තෙවනුව Driver) • බහු-ප්‍රින්ටර් මාර්ගගත කිරීම" : "PrinterIntelligence telemetry (IPP first, SNMP second, driver third) • Multi-printer routing");
+  setTxt("lblScanSubnetBtn", isSi ? "උපජාල සොයන්න" : "Scan Subnet");
+  setTxt("lblSimulateRoutingBtn", isSi ? "මාර්ගගත කිරීම පරීක්ෂා කරන්න" : "Simulate Job Routing");
+  setTxt("lblRoutingRulesBtn", isSi ? "මාර්ගගත කිරීමේ නීති" : "Routing Rules");
+  setTxt("lblFleetTotal", isSi ? "මුළු ප්‍රින්ටර්" : "Fleet Total");
+  setTxt("lblFleetReady", isSi ? "සූදානම්" : "Ready");
+  setTxt("lblFleetPrinting", isSi ? "මුද්‍රණය වේ" : "Printing");
+  setTxt("lblFleetOffline", isSi ? "ක්‍රියාවිරහිතයි" : "Offline");
+  setTxt("lblFleetLowSupply", isSi ? "තීන්ත අඩුයි" : "Low Supplies");
+  setTxt("lblLowSupplyThreshold", isSi ? "අවම සීමාව:" : "Alert Threshold:");
+  setTxt("lblSubnetScanTitle", isSi ? "ජාල පරිලෝකනය සඳහා අවසරය" : "Subnet Discovery Permission Required");
+  setTxt("lblSubnetScanSubtitle", isSi ? "තෝරාගත් CIDR පරාසය තුළ IP ලිපින 254 ක් පරීක්ෂා කෙරේ" : "Probing 254 host IP addresses across the specified CIDR");
+  setTxt("lblSubnetScanWarningHead", isSi ? "ජාල ආරක්ෂණ නිවේදනය" : "Network Security Notice");
+  setTxt("lblSubnetScanWarningBody", isSi ? "මෙම ක්‍රියාවලියේදී තෝරාගත් උපජාලයේ ලිපින 254 කටම SNMP (Port 161) සහ IPP (Port 631) පැකට් යවනු ලැබේ. ආයතනික ජාල තුළ අනවසර පරිලෝකනය වැළැක්වීමට තහවුරු කරන්න." : "This operation sends SNMP (UDP port 161) and IPP (TCP port 631) discovery packets to all 254 addresses in the subnet. Unapproved scans on corporate networks may trigger intrusion detection alerts.");
+  setTxt("lblTargetSubnetLabel", isSi ? "ඉලක්කගත උපජාල CIDR පරාසය:" : "Target Subnet CIDR Range:");
+  setTxt("lblAuthorizeSubnetScan", isSi ? "පරිලෝකනය අනුමත කරන්න" : "Authorize & Scan Subnet");
+  setTxt("lblFailoverModalTitle", isSi ? "රැකියාව වෙනත් ප්‍රින්ටරයකට මාරු කිරීම" : "Job Rerouting Confirmation");
+  setTxt("lblFailoverModalSubtitle", isSi ? "ඉලක්ක ප්‍රින්ටරය ක්‍රියාවිරහිතයි. ක්‍රියාකරුගේ අනුමැතිය අවශ්‍යයි." : "Target printer is offline or unavailable. Operator approval required.");
+  setTxt("lblFailoverAlertHead", isSi ? "තෝරාගත් ප්‍රින්ටරයට මෙම රැකියාව කළ නොහැක" : "Selected Printer Cannot Accept This Job");
+  setTxt("lblFailoverRationaleHeading", isSi ? "තීරණයට හේතුව (One-line Explanation):" : "Decision Rationale (One-line Explanation):");
+  setTxt("lblOriginalTargetLabel", isSi ? "මුල් ඉලක්කය" : "Original Target");
+  setTxt("lblProposedFailoverLabel", isSi ? "යෝජිත විකල්පය" : "Proposed Failover");
+  setTxt("lblApproveRerouteText", isSi ? "රැකියාව මාරු කරන්න" : "Approve & Reroute Job");
+  setTxt("lblRoutingRulesTitle", isSi ? "ප්‍රින්ටර් මාර්ගගත කිරීමේ නීති සහ ප්‍රතිපත්ති" : "Fleet Routing Rules & Policies");
+  setTxt("lblRoutingRulesSubtitle", isSi ? "විශේෂිත ද්‍රව්‍ය සීමා, ඉහළ පිටු ප්‍රමාණ සහ බර තුලනය" : "Configurable routing priority, hardware constraints, and load balancing");
+
   setTxt("currentLangLabel", currentLang === 'si' ? "English" : "සිංහල");
 }
 
@@ -2124,3 +2647,2403 @@ function formatBytes(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
+
+
+// ==========================================================================
+// RESOLUTION & EFFECTIVE PPI SYSTEM (PPI vs DPI Engine)
+// ==========================================================================
+
+let currentEffectivePpi = 96.0;
+let isImageUpscaled = false;
+let currentSourceWidth = 1800;
+let currentSourceHeight = 1200;
+
+function initResolutionSystem() {
+  const selHardwareDpi = document.getElementById("selHardwareDpi");
+  const lblDpiSpeedInkNote = document.getElementById("lblDpiSpeedInkNote");
+  const selPaperType = document.getElementById("selPaperType");
+  const ppiCard = document.getElementById("ppiSharpnessCard");
+  const lblPpiTitle = document.getElementById("lblPpiTitle");
+  const lblPpiDesc = document.getElementById("lblPpiDesc");
+  const iconPpiStatus = document.getElementById("iconPpiStatus");
+  const btnOpenPhotoHelper = document.getElementById("btnOpenPhotoHelper");
+  const btnOpenResampleModal = document.getElementById("btnOpenResampleModal");
+
+  const dpiNotesEn = {
+    "360": "Fastest printing speed; uses minimum ink. Best for everyday rough drafts.",
+    "720": "Balanced print speed and standard ink consumption. Excellent for text and office graphics.",
+    "1440": "Sharper fine detail and smoother gradients. Moderate speed and ink usage.",
+    "2880": "Micro-droplet ultra-fine photo detail. Slower print speed; maximum ink usage.",
+    "5760": "Ultra fine laboratory photo quality. Slowest print speed; premium photo media recommended."
+  };
+  const dpiNotesSi = {
+    "360": "අධිවේගී මුද්‍රණය; අවම තීන්ත භාවිතය. සාමාන්‍ය කෙටුම්පත් සඳහා සුදුසුයි.",
+    "720": "සමබර මුද්‍රණ වේගය සහ තීන්ත භාවිතය. ලිපි ලේඛන සඳහා වඩාත් සුදුසුයි.",
+    "1440": "සියුම් විස්තර සහ පැහැදිලි වර්ණ. මධ්‍යස්ථ වේගයක් සහ තීන්ත ප්‍රමාණයක් ගනී.",
+    "2880": "ඉතා සියුම් තීන්ත බිඳිති. සෙමින් මුද්‍රණය වන අතර වැඩි තීන්ත ප්‍රමාණයක් ගනී.",
+    "5760": "ඉහළම ඡායාරූප තත්ත්වය. ඉතා සෙමින් මුද්‍රණය වේ; විශේෂ ෆොටෝ කොළ නිර්දේශ කෙරේ."
+  };
+
+  function updateDpiNotesAndRestrictions() {
+    if (!selHardwareDpi) return;
+    const isSi = currentLang === 'si';
+    const dpi = selHardwareDpi.value;
+    const isPlain = (selPaperType?.value || "").includes("Plain");
+    const isGlossy = (selPaperType?.value || "").includes("Glossy") || (selPaperType?.value || "").includes("Photo");
+
+    Array.from(selHardwareDpi.options).forEach(opt => {
+      const optDpi = parseInt(opt.value, 10);
+      if (isPlain && optDpi >= 2880) {
+        opt.disabled = true;
+        opt.text = isSi ? `${opt.value} DPI — සාමාන්‍ය කොළ සඳහා අවහිරයි` : `${opt.value} DPI — Blocked on Plain Paper`;
+      } else if (isGlossy && optDpi <= 360) {
+        opt.disabled = true;
+        opt.text = isSi ? `${opt.value} DPI — ග්ලොසි කොළ සඳහා අවහිරයි` : `${opt.value} DPI — Blocked on Glossy`;
+      } else {
+        opt.disabled = false;
+        if (optDpi <= 360) opt.text = isSi ? `${optDpi} DPI — ඉක්මන් කෙටුම්පත` : `${optDpi} DPI — Fast / Draft`;
+        else if (optDpi <= 720) opt.text = isSi ? `${optDpi} DPI — සාමාන්‍ය ගුණාත්මක බව` : `${optDpi} DPI — Standard / Normal`;
+        else if (optDpi <= 1440) opt.text = isSi ? `${optDpi} DPI — උසස් ගුණාත්මක බව` : `${optDpi} DPI — High Quality / Fine`;
+        else if (optDpi <= 2880) opt.text = isSi ? `${optDpi} DPI — ඉහළම ඡායාරූප තත්ත්වය` : `${optDpi} DPI — Best / Photo Grade`;
+        else opt.text = isSi ? `${optDpi} DPI — අතිශය සියුම් විස්තර` : `${optDpi} DPI — Ultra Fine Detail`;
+      }
+    });
+
+    if (lblDpiSpeedInkNote) {
+      lblDpiSpeedInkNote.innerText = isSi ? (dpiNotesSi[dpi] || "") : (dpiNotesEn[dpi] || "");
+    }
+  }
+
+  if (selHardwareDpi) {
+    selHardwareDpi.addEventListener("change", () => {
+      updateDpiNotesAndRestrictions();
+      validateDependenciesAndAutoFixes();
+    });
+  }
+
+  if (selPaperType) {
+    selPaperType.addEventListener("change", () => {
+      updateDpiNotesAndRestrictions();
+      validateDependenciesAndAutoFixes();
+    });
+  }
+
+  // Render DPI memory footprint calculation
+  const selRenderDpi = document.getElementById("selRenderDpi");
+  const renderMemoryIndicator = document.getElementById("renderMemoryIndicator");
+  const lblRenderMemoryText = document.getElementById("lblRenderMemoryText");
+  if (selRenderDpi && lblRenderMemoryText) {
+    selRenderDpi.addEventListener("change", () => {
+      const isSi = currentLang === 'si';
+      const val = selRenderDpi.value;
+      if (val === "1200") {
+        renderMemoryIndicator?.classList.add("high-memory");
+        lblRenderMemoryText.innerText = isSi
+          ? "මතක භාවිතය: ~398 MB/පිටුව (අධික මතකය). PDF අකුරු rasterize නොකරයි."
+          : "Est. Memory: ~398 MB/page (High Memory). Vector text preserved directly.";
+      } else if (val === "600") {
+        renderMemoryIndicator?.classList.remove("high-memory");
+        lblRenderMemoryText.innerText = isSi
+          ? "මතක භාවිතය: ~100 MB/පිටුව. PDF අකුරු rasterize නොකරයි."
+          : "Est. Memory: ~100 MB/page. Vector text preserved directly.";
+      } else if (val === "150") {
+        renderMemoryIndicator?.classList.remove("high-memory");
+        lblRenderMemoryText.innerText = isSi
+          ? "මතක භාවිතය: ~6 MB/පිටුව. PDF අකුරු rasterize නොකරයි."
+          : "Est. Memory: ~6 MB/page. Vector text preserved directly.";
+      } else {
+        renderMemoryIndicator?.classList.remove("high-memory");
+        lblRenderMemoryText.innerText = isSi
+          ? "මතක භාවිතය: ~25 MB/පිටුව. PDF අකුරු rasterize නොකරයි."
+          : "Est. Memory: ~25 MB/page. Vector text preserved directly.";
+      }
+      validateDependenciesAndAutoFixes();
+    });
+  }
+
+  window.updateEffectivePpiDisplay = function() {
+    const isSi = currentLang === 'si';
+    const paperSize = document.getElementById("selPaperSize")?.value || "A4";
+
+    const dims = {
+      "Passport 35x45 mm": [1.38, 1.77],
+      "Visa 2x2 in": [2.0, 2.0],
+      "Photo 4x6": [4.0, 6.0],
+      "5x7 in": [5.0, 7.0],
+      "8x10 in": [8.0, 10.0],
+      "A4": [8.27, 11.69],
+      "Letter": [8.5, 11.0],
+      "Legal": [8.5, 14.0],
+      "A3": [11.69, 16.54]
+    };
+
+    const [paperW, paperH] = dims[paperSize] || [8.27, 11.69];
+    const ppiW = currentSourceWidth / paperH;
+    const ppiH = currentSourceHeight / paperW;
+    let basePpi = Math.min(ppiW, ppiH);
+    if (isImageUpscaled) basePpi *= 2.0;
+    currentEffectivePpi = basePpi;
+
+    if (lblPpiTitle && iconPpiStatus && lblPpiDesc) {
+      if (currentEffectivePpi >= 299.0) {
+        iconPpiStatus.className = "material-symbols-rounded ppi-icon crisp";
+        iconPpiStatus.innerText = "verified";
+        lblPpiTitle.innerText = isSi
+          ? `පැහැදිලි බව: ${Math.round(currentEffectivePpi)} PPI (ඉතා පැහැදිලියි)`
+          : `Sharpness: ${Math.round(currentEffectivePpi)} PPI (Crisp / Photo Grade)`;
+        lblPpiDesc.innerText = isSi
+          ? `${paperSize} කොළයේ මුද්‍රණය සඳහා ඉහළම ඡායාරූප තත්ත්වය ලැබේ.`
+          : `Photo-grade crisp quality at current printed size on ${paperSize}.`;
+      } else if (currentEffectivePpi >= 149.0) {
+        iconPpiStatus.className = "material-symbols-rounded ppi-icon acceptable";
+        iconPpiStatus.innerText = "info";
+        lblPpiTitle.innerText = isSi
+          ? `පැහැදිලි බව: ${Math.round(currentEffectivePpi)} PPI (ප්‍රමාණවත්)`
+          : `Sharpness: ${Math.round(currentEffectivePpi)} PPI (Good)`;
+        lblPpiDesc.innerText = isSi
+          ? `සාමාන්‍ය කියවීමේ දුර සඳහා හොඳ තත්ත්වයකි.`
+          : `Good for general documents and viewing from normal reading distances.`;
+      } else {
+        iconPpiStatus.className = "material-symbols-rounded ppi-icon low";
+        iconPpiStatus.innerText = "warning";
+        lblPpiTitle.innerText = isSi
+          ? `පැහැදිලි බව: ${Math.round(currentEffectivePpi)} PPI (අඩුයි)`
+          : `Sharpness: ${Math.round(currentEffectivePpi)} PPI (Low / Pixelated)`;
+        lblPpiDesc.innerText = isSi
+          ? `${paperSize} කොළයේ මුද්‍රණය කළ විට බොඳ වී හෝ කොටු කොටු වී (pixelated) පෙනීමට ඉඩ ඇත.`
+          : `Image may appear blurry, soft, or pixelated when printed on ${paperSize}.`;
+      }
+    }
+
+    validateDependenciesAndAutoFixes();
+  };
+
+  const modalPhotoHelper = document.getElementById("photoHelperModal");
+  const btnClosePhotoHelper = document.getElementById("btnClosePhotoHelper");
+  const btnCancelPhotoHelper = document.getElementById("btnCancelPhotoHelper");
+  const photoSizesList = document.getElementById("photoSizesList");
+
+  window.openPhotoHelperModal = function() {
+    if (!modalPhotoHelper || !photoSizesList) return;
+    const isSi = currentLang === 'si';
+
+    const standardSizes = [
+      { name: "Passport 35x45 mm", wMm: 35.0, hMm: 45.0 },
+      { name: "Visa 2x2 in (50x50 mm)", wMm: 50.8, hMm: 50.8 },
+      { name: "Photo 4x6 in (10x15 cm)", wMm: 101.6, hMm: 152.4 },
+      { name: "Photo 5x7 in (13x18 cm)", wMm: 127.0, hMm: 177.8 },
+      { name: "Photo 8x10 in (20x25 cm)", wMm: 203.2, hMm: 254.0 },
+      { name: "A4 Document (21x29.7 cm)", wMm: 210.0, hMm: 297.0 },
+      { name: "A3 Poster (29.7x42 cm)", wMm: 297.0, hMm: 420.0 }
+    ];
+
+    let html = "";
+    standardSizes.forEach(s => {
+      const paperLong = Math.max(s.wMm, s.hMm);
+      const paperShort = Math.min(s.wMm, s.hMm);
+      const imgLong = Math.max(currentSourceWidth, currentSourceHeight);
+      const imgShort = Math.min(currentSourceWidth, currentSourceHeight);
+
+      const ppiLong = imgLong / (paperLong / 25.4);
+      const ppiShort = imgShort / (paperShort / 25.4);
+      const ppi = Math.round(Math.min(ppiLong, ppiShort));
+
+      let badgeClass = "low";
+      let badgeLabel = isSi ? "අඩුයි" : "Low";
+      if (ppi >= 299) {
+        badgeClass = "crisp";
+        badgeLabel = isSi ? "ඉතා පැහැදිලියි" : "Crisp";
+      } else if (ppi >= 149) {
+        badgeClass = "acceptable";
+        badgeLabel = isSi ? "ප්‍රමාණවත්" : "Good";
+      }
+
+      const isRecommended = s.name.includes("4x6");
+
+      html += `
+        <div class="photo-size-row ${isRecommended ? 'recommended' : ''}">
+          <div class="photo-size-info">
+            <div class="size-name-wrap">
+              <strong>${s.name}</strong>
+              ${isRecommended ? `<span class="badge-best-size">${isSi ? 'උපරිම පැහැදිලි ප්‍රමාණය' : 'Best Crisp Size'}</span>` : ''}
+            </div>
+            <span class="size-dims-label">${s.wMm} × ${s.hMm} mm</span>
+          </div>
+          <div class="photo-size-actions">
+            <span class="badge-ppi ${badgeClass}">${ppi} PPI (${badgeLabel})</span>
+            <button class="btn btn-outline btn-sm btn-pick-size" data-size="${s.name.includes('4x6') ? 'Photo 4x6' : (s.name.includes('A4') ? 'A4' : s.name)}">
+              ${isSi ? 'තෝරන්න' : 'Select'}
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    photoSizesList.innerHTML = html;
+
+    photoSizesList.querySelectorAll(".btn-pick-size").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const chosen = btn.dataset.size;
+        const selPaper = document.getElementById("selPaperSize");
+        if (selPaper) {
+          let found = false;
+          for (let opt of selPaper.options) {
+            if (opt.value === chosen || chosen.includes(opt.value)) {
+              selPaper.value = opt.value;
+              found = true;
+              break;
+            }
+          }
+          if (!found) selPaper.value = "Photo 4x6";
+        }
+        modalPhotoHelper.classList.add("hidden");
+        updateLiveSummary();
+        window.updateEffectivePpiDisplay();
+        showToast(isSi ? `කඩදාසි ප්‍රමාණය ${chosen} ලෙස තෝරාගැනිණි.` : `Paper size changed to ${chosen}.`);
+      });
+    });
+
+    modalPhotoHelper.classList.remove("hidden");
+  };
+
+  if (btnOpenPhotoHelper) btnOpenPhotoHelper.addEventListener("click", window.openPhotoHelperModal);
+  if (btnClosePhotoHelper) btnClosePhotoHelper.addEventListener("click", () => modalPhotoHelper.classList.add("hidden"));
+  if (btnCancelPhotoHelper) btnCancelPhotoHelper.addEventListener("click", () => modalPhotoHelper.classList.add("hidden"));
+
+  const txtCustomW = document.getElementById("txtCustomWidthCm");
+  const txtCustomH = document.getElementById("txtCustomHeightCm");
+  const badgeCustomPpi = document.getElementById("badgeCustomPpi");
+  function recalcCustomPpi() {
+    if (!txtCustomW || !txtCustomH || !badgeCustomPpi) return;
+    const isSi = currentLang === 'si';
+    const w = parseFloat(txtCustomW.value) || 15.0;
+    const h = parseFloat(txtCustomH.value) || 10.0;
+    const wIn = (w * 10.0) / 25.4;
+    const hIn = (h * 10.0) / 25.4;
+    const ppiW = currentSourceWidth / Math.max(0.1, wIn);
+    const ppiH = currentSourceHeight / Math.max(0.1, hIn);
+    const ppi = Math.round(Math.min(ppiW, ppiH));
+
+    if (ppi >= 299) {
+      badgeCustomPpi.className = "badge-ppi crisp";
+      badgeCustomPpi.innerText = `${ppi} PPI (${isSi ? 'ඉතා පැහැදිලියි' : 'Crisp'})`;
+    } else if (ppi >= 149) {
+      badgeCustomPpi.className = "badge-ppi acceptable";
+      badgeCustomPpi.innerText = `${ppi} PPI (${isSi ? 'ප්‍රමාණවත්' : 'Good'})`;
+    } else {
+      badgeCustomPpi.className = "badge-ppi low";
+      badgeCustomPpi.innerText = `${ppi} PPI (${isSi ? 'අඩුයි' : 'Low'})`;
+    }
+  }
+  if (txtCustomW) txtCustomW.addEventListener("input", recalcCustomPpi);
+  if (txtCustomH) txtCustomH.addEventListener("input", recalcCustomPpi);
+
+  const modalResample = document.getElementById("resamplePreviewModal");
+  const btnCloseResampleModal = document.getElementById("btnCloseResampleModal");
+  const btnCancelResample = document.getElementById("btnCancelResample");
+  const btnApplyResample = document.getElementById("btnApplyResample");
+  const selModalMultiplier = document.getElementById("selModalMultiplier");
+  const selModalResampleAlgo = document.getElementById("selModalResampleAlgo");
+  const lblResampleAlgoDesc = document.getElementById("lblResampleAlgoDesc");
+  const lblAfterSpecs = document.getElementById("lblAfterSpecs");
+  const badgeAfterPpi = document.getElementById("badgeAfterPpi");
+
+  const algoDescriptions = {
+    none: "None (Nearest Neighbor): Preserves exact raw pixels. Fast, but produces blocky pixels if upscaled.",
+    bicubic: "Bicubic Interpolation: Smooth cubic curve interpolation. Standard for office graphics and photos.",
+    lanczos: "Lanczos-3 (Windowed Sinc): High-fidelity 3-lobe sinc filter. Preserves sharp photo edges without ringing or blur."
+  };
+
+  function updateResamplePreviewValues() {
+    const isSi = currentLang === 'si';
+    const mult = parseFloat(selModalMultiplier?.value || "2.0");
+    const algo = selModalResampleAlgo?.value || "lanczos";
+    const targetW = Math.round(currentSourceWidth * mult);
+    const targetH = Math.round(currentSourceHeight * mult);
+    const newPpi = Math.round(currentEffectivePpi * mult);
+
+    if (lblResampleAlgoDesc) {
+      lblResampleAlgoDesc.innerText = algoDescriptions[algo] || algoDescriptions.lanczos;
+    }
+    if (lblAfterSpecs) {
+      lblAfterSpecs.innerText = `${targetW} × ${targetH} px`;
+    }
+    if (badgeAfterPpi) {
+      if (newPpi >= 299) {
+        badgeAfterPpi.className = "badge-ppi crisp";
+        badgeAfterPpi.innerText = `${newPpi} PPI (${isSi ? 'ඉතා පැහැදිලියි' : 'Crisp'})`;
+      } else if (newPpi >= 149) {
+        badgeAfterPpi.className = "badge-ppi acceptable";
+        badgeAfterPpi.innerText = `${newPpi} PPI (${isSi ? 'ප්‍රමාණවත්' : 'Good'})`;
+      } else {
+        badgeAfterPpi.className = "badge-ppi low";
+        badgeAfterPpi.innerText = `${newPpi} PPI (${isSi ? 'අඩුයි' : 'Low'})`;
+      }
+    }
+  }
+
+  if (selModalMultiplier) selModalMultiplier.addEventListener("change", updateResamplePreviewValues);
+  if (selModalResampleAlgo) selModalResampleAlgo.addEventListener("change", updateResamplePreviewValues);
+
+  if (btnOpenResampleModal) {
+    btnOpenResampleModal.addEventListener("click", () => {
+      updateResamplePreviewValues();
+      modalResample?.classList.remove("hidden");
+    });
+  }
+  if (btnCloseResampleModal) btnCloseResampleModal.addEventListener("click", () => modalResample?.classList.add("hidden"));
+  if (btnCancelResample) btnCancelResample.addEventListener("click", () => modalResample?.classList.add("hidden"));
+
+  if (btnApplyResample) {
+    btnApplyResample.addEventListener("click", () => {
+      isImageUpscaled = true;
+      modalResample?.classList.add("hidden");
+      window.updateEffectivePpiDisplay();
+      showToast(currentLang === 'si' ? "2x Lanczos මඟින් රූපය විශාල කරන ලදී! මුද්‍රණ ලඝු-සටහනෙහි ලියාපදිංචි විය." : "2x Lanczos upscale applied! Transformation logged in print records.");
+    });
+  }
+
+  updateDpiNotesAndRestrictions();
+  window.updateEffectivePpiDisplay();
+}
+
+// ==========================================================================
+// TONE AND INK ADJUSTMENT SYSTEM (Prompt 10)
+// ==========================================================================
+
+function initToneAndInkSystem() {
+  const paperPresets = {
+    none: {
+      density: 0,
+      brightness: 0,
+      contrast: 0,
+      gamma: 1.0,
+      shadows: 0,
+      highlights: 0,
+      blackLevel: 0,
+      textDarkness: 0,
+      textSharpening: 0,
+      photoSharpening: 0,
+      saturation: 0,
+      vibrance: 0,
+      descEn: "Standard uncompensated output.",
+      descSi: "සාමාන්‍ය නොවෙනස් ප්‍රතිදානය."
+    },
+    plainPaper: {
+      density: -6,
+      brightness: 0,
+      contrast: 0,
+      gamma: 1.0,
+      shadows: 0,
+      highlights: 0,
+      blackLevel: 0,
+      textDarkness: 12,
+      textSharpening: 15,
+      photoSharpening: 0,
+      saturation: 0,
+      vibrance: 0,
+      descEn: "Lifts midtones (+8), text darkness (+12), text sharp (+15), lowers density (-6) to prevent fiber bleed.",
+      descSi: "තීන්ත කොළය තුළට කාන්දු වීම වළක්වා අකුරු පැහැදිලි කරයි."
+    },
+    mattePaper: {
+      density: 0,
+      brightness: 0,
+      contrast: 0,
+      gamma: 1.08,
+      shadows: 0,
+      highlights: 0,
+      blackLevel: 12,
+      textDarkness: 0,
+      textSharpening: 0,
+      photoSharpening: 0,
+      saturation: 0,
+      vibrance: 0,
+      descEn: "Compensates for ink absorption by deepening shadows (Black Level +12, Gamma 1.08).",
+      descSi: "මැට් කොළ වල තීන්ත උරාගැනීම නිසා කළු වර්ණය දුර්වල වීම වළක්වයි."
+    },
+    glossyPhoto: {
+      density: 0,
+      brightness: 0,
+      contrast: 10,
+      gamma: 1.0,
+      shadows: 0,
+      highlights: 0,
+      blackLevel: 0,
+      textDarkness: 0,
+      textSharpening: 0,
+      photoSharpening: 16,
+      saturation: 6,
+      vibrance: 8,
+      descEn: "Maximizes dynamic range on resin-coated paper (Contrast +10, Vibrance +8, Sat +6, Photo sharp +16).",
+      descSi: "ග්ලොසි කොළ වල සම්පූර්ණ වර්ණ පරාසය සහ දීප්තිමත් බව ඉහළ නංවයි."
+    }
+  };
+
+  // Slider Elements
+  const selTonePaperPreset = document.getElementById("selTonePaperPreset");
+  const lblTonePaperPresetDesc = document.getElementById("lblTonePaperPresetDesc");
+
+  const rangeDensity = document.getElementById("rangeDensity");
+  const valDensity = document.getElementById("valDensity");
+  const rangeBrightness = document.getElementById("rangeBrightness");
+  const valBrightness = document.getElementById("valBrightness");
+  const rangeContrast = document.getElementById("rangeContrast");
+  const valContrast = document.getElementById("valContrast");
+  const rangeGamma = document.getElementById("rangeGamma");
+  const valGamma = document.getElementById("valGamma");
+
+  const rangeShadows = document.getElementById("rangeShadows");
+  const valShadows = document.getElementById("valShadows");
+  const rangeHighlights = document.getElementById("rangeHighlights");
+  const valHighlights = document.getElementById("valHighlights");
+
+  const rangeBlackLevel = document.getElementById("rangeBlackLevel");
+  const valBlackLevel = document.getElementById("valBlackLevel");
+  const rangeTextDarkness = document.getElementById("rangeTextDarkness");
+  const valTextDarkness = document.getElementById("valTextDarkness");
+
+  const rangeTextSharp = document.getElementById("rangeTextSharp");
+  const valTextSharp = document.getElementById("valTextSharp");
+  const rangePhotoSharp = document.getElementById("rangePhotoSharp");
+  const valPhotoSharp = document.getElementById("valPhotoSharp");
+
+  const rangeSaturation = document.getElementById("rangeSaturation");
+  const valSaturation = document.getElementById("valSaturation");
+  const rangeVibrance = document.getElementById("rangeVibrance");
+  const valVibrance = document.getElementById("valVibrance");
+
+  const rangeBalanceCR = document.getElementById("rangeBalanceCR");
+  const valBalanceCR = document.getElementById("valBalanceCR");
+  const rangeBalanceMG = document.getElementById("rangeBalanceMG");
+  const valBalanceMG = document.getElementById("valBalanceMG");
+  const rangeBalanceYB = document.getElementById("rangeBalanceYB");
+  const valBalanceYB = document.getElementById("valBalanceYB");
+
+  // Ink Saver
+  const cardInkSaver = document.getElementById("cardInkSaver");
+  const chkInkSaverMode = document.getElementById("chkInkSaverMode");
+  const inkSaverDetails = document.getElementById("inkSaverDetails");
+  const selInkSaverLevel = document.getElementById("selInkSaverLevel");
+  const chkInkSaverTextOnlyBlack = document.getElementById("chkInkSaverTextOnlyBlack");
+  const lblSavingsPercent = document.getElementById("lblSavingsPercent");
+
+  // CMYK Coverage
+  const lblTotalCoverage = document.getElementById("lblTotalCoverage");
+  const barCovCyan = document.getElementById("barCovCyan");
+  const barCovMagenta = document.getElementById("barCovMagenta");
+  const barCovYellow = document.getElementById("barCovYellow");
+  const barCovBlack = document.getElementById("barCovBlack");
+  const valCovCyan = document.getElementById("valCovCyan");
+  const valCovMagenta = document.getElementById("valCovMagenta");
+  const valCovYellow = document.getElementById("valCovYellow");
+  const valCovBlack = document.getElementById("valCovBlack");
+
+  // Actions & Badges
+  const btnResetTone = document.getElementById("btnResetTone");
+  const btnCompareOriginal = document.getElementById("btnCompareOriginal");
+  const btnOpenTestPatternModal = document.getElementById("btnOpenTestPatternModal");
+  const previewApproxBadge = document.getElementById("previewApproxBadge");
+  const compareModeBadge = document.getElementById("compareModeBadge");
+  const paperSheetSimulated = document.getElementById("paperSheetSimulated");
+
+  // Test Pattern Modal
+  const testPatternModal = document.getElementById("testPatternModal");
+  const btnCloseTestPatternModal = document.getElementById("btnCloseTestPatternModal");
+  const btnCancelTestPattern = document.getElementById("btnCancelTestPattern");
+  const btnOpenDriverMaint = document.getElementById("btnOpenDriverMaint");
+  const btnPrintTestPageNow = document.getElementById("btnPrintTestPageNow");
+
+  function formatSignVal(v) {
+    const num = typeof v === 'number' ? v : parseFloat(v);
+    if (isNaN(num)) return "0";
+    return num > 0 ? `+${num}` : `${num}`;
+  }
+
+  function updateToneAndInkLiveEffect() {
+    if (!paperSheetSimulated) return;
+
+    if (toneAndInkState.compareWithOriginal) {
+      paperSheetSimulated.style.filter = "none";
+      paperSheetSimulated.style.opacity = "1";
+      if (compareModeBadge) compareModeBadge.classList.remove("hidden");
+      if (previewApproxBadge) previewApproxBadge.classList.add("hidden");
+      return;
+    }
+
+    if (compareModeBadge) compareModeBadge.classList.add("hidden");
+
+    const b = 100 + (toneAndInkState.brightness * 0.35) + (toneAndInkState.density * 0.2);
+    const c = 100 + (toneAndInkState.contrast * 0.45);
+    const s = 100 + (toneAndInkState.saturation * 0.5) + (toneAndInkState.vibrance * 0.25);
+
+    paperSheetSimulated.style.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+
+    if (toneAndInkState.inkSaverEnabled) {
+      paperSheetSimulated.style.opacity = "0.92";
+    } else {
+      paperSheetSimulated.style.opacity = "1.0";
+    }
+
+    const hasAdjustments = hasActiveToneAdjustments();
+    if (previewApproxBadge) {
+      previewApproxBadge.classList.toggle("hidden", !hasAdjustments);
+    }
+
+    if (btnResetTone) {
+      btnResetTone.disabled = !hasAdjustments;
+    }
+  }
+
+  function updateCmykCoverageMeter() {
+    const baseC = 4.2;
+    const baseM = 3.8;
+    const baseY = 5.1;
+    const baseK = 8.4;
+
+    const densityFactor = Math.max(0.3, 1.0 + (toneAndInkState.density / 100) * 0.5);
+    const saverDiscount = toneAndInkState.inkSaverEnabled ? (getToneInkSaverSavingsPercent() / 100) : 0;
+    const generalFactor = 1.0 - saverDiscount;
+
+    let covC = baseC * densityFactor * generalFactor;
+    let covM = baseM * densityFactor * generalFactor;
+    let covY = baseY * densityFactor * generalFactor;
+    let covK = baseK * densityFactor * generalFactor;
+
+    if (toneAndInkState.inkSaverEnabled && toneAndInkState.inkSaverTextOnlyBlack) {
+      covC *= 0.75;
+      covM *= 0.75;
+      covY *= 0.75;
+    }
+
+    const total = covC + covM + covY + covK;
+
+    if (lblTotalCoverage) lblTotalCoverage.innerText = `Total: ${total.toFixed(1)}%`;
+    if (barCovCyan) barCovCyan.style.width = `${Math.min(100, covC * 3.5).toFixed(1)}%`;
+    if (barCovMagenta) barCovMagenta.style.width = `${Math.min(100, covM * 3.5).toFixed(1)}%`;
+    if (barCovYellow) barCovYellow.style.width = `${Math.min(100, covY * 3.5).toFixed(1)}%`;
+    if (barCovBlack) barCovBlack.style.width = `${Math.min(100, covK * 3.5).toFixed(1)}%`;
+
+    if (valCovCyan) valCovCyan.innerText = `${covC.toFixed(1)}%`;
+    if (valCovMagenta) valCovMagenta.innerText = `${covM.toFixed(1)}%`;
+    if (valCovYellow) valCovYellow.innerText = `${covY.toFixed(1)}%`;
+    if (valCovBlack) valCovBlack.innerText = `${covK.toFixed(1)}%`;
+  }
+
+  function syncAllSliderUI() {
+    if (rangeDensity) rangeDensity.value = toneAndInkState.density;
+    if (valDensity) valDensity.innerText = formatSignVal(toneAndInkState.density);
+
+    if (rangeBrightness) rangeBrightness.value = toneAndInkState.brightness;
+    if (valBrightness) valBrightness.innerText = formatSignVal(toneAndInkState.brightness);
+
+    if (rangeContrast) rangeContrast.value = toneAndInkState.contrast;
+    if (valContrast) valContrast.innerText = formatSignVal(toneAndInkState.contrast);
+
+    if (rangeGamma) rangeGamma.value = toneAndInkState.gamma;
+    if (valGamma) valGamma.innerText = toneAndInkState.gamma.toFixed(2);
+
+    if (rangeShadows) rangeShadows.value = toneAndInkState.shadows;
+    if (valShadows) valShadows.innerText = formatSignVal(toneAndInkState.shadows);
+
+    if (rangeHighlights) rangeHighlights.value = toneAndInkState.highlights;
+    if (valHighlights) valHighlights.innerText = formatSignVal(toneAndInkState.highlights);
+
+    if (rangeBlackLevel) rangeBlackLevel.value = toneAndInkState.blackLevel;
+    if (valBlackLevel) valBlackLevel.innerText = formatSignVal(toneAndInkState.blackLevel);
+
+    if (rangeTextDarkness) rangeTextDarkness.value = toneAndInkState.textDarkness;
+    if (valTextDarkness) valTextDarkness.innerText = formatSignVal(toneAndInkState.textDarkness);
+
+    if (rangeTextSharp) rangeTextSharp.value = toneAndInkState.textSharpening;
+    if (valTextSharp) valTextSharp.innerText = `${toneAndInkState.textSharpening}`;
+
+    if (rangePhotoSharp) rangePhotoSharp.value = toneAndInkState.photoSharpening;
+    if (valPhotoSharp) valPhotoSharp.innerText = `${toneAndInkState.photoSharpening}`;
+
+    if (rangeSaturation) rangeSaturation.value = toneAndInkState.saturation;
+    if (valSaturation) valSaturation.innerText = formatSignVal(toneAndInkState.saturation);
+
+    if (rangeVibrance) rangeVibrance.value = toneAndInkState.vibrance;
+    if (valVibrance) valVibrance.innerText = formatSignVal(toneAndInkState.vibrance);
+
+    if (rangeBalanceCR) rangeBalanceCR.value = toneAndInkState.colorBalanceCyanRed;
+    if (valBalanceCR) valBalanceCR.innerText = formatSignVal(toneAndInkState.colorBalanceCyanRed);
+
+    if (rangeBalanceMG) rangeBalanceMG.value = toneAndInkState.colorBalanceMagentaGreen;
+    if (valBalanceMG) valBalanceMG.innerText = formatSignVal(toneAndInkState.colorBalanceMagentaGreen);
+
+    if (rangeBalanceYB) rangeBalanceYB.value = toneAndInkState.colorBalanceYellowBlue;
+    if (valBalanceYB) valBalanceYB.innerText = formatSignVal(toneAndInkState.colorBalanceYellowBlue);
+  }
+
+  // Bind Slider Events
+  function bindSlider(slider, label, stateKey, isFloat = false) {
+    if (!slider) return;
+    slider.addEventListener("input", (e) => {
+      const val = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+      toneAndInkState[stateKey] = val;
+      if (label) label.innerText = isFloat ? val.toFixed(2) : formatSignVal(val);
+      updateToneAndInkLiveEffect();
+      updateCmykCoverageMeter();
+      validateDependenciesAndAutoFixes();
+    });
+  }
+
+  bindSlider(rangeDensity, valDensity, "density");
+  bindSlider(rangeBrightness, valBrightness, "brightness");
+  bindSlider(rangeContrast, valContrast, "contrast");
+  bindSlider(rangeGamma, valGamma, "gamma", true);
+
+  bindSlider(rangeShadows, valShadows, "shadows");
+  bindSlider(rangeHighlights, valHighlights, "highlights");
+  bindSlider(rangeBlackLevel, valBlackLevel, "blackLevel");
+  bindSlider(rangeTextDarkness, valTextDarkness, "textDarkness");
+  bindSlider(rangeTextSharp, valTextSharp, "textSharpening");
+  bindSlider(rangePhotoSharp, valPhotoSharp, "photoSharpening");
+
+  bindSlider(rangeSaturation, valSaturation, "saturation");
+  bindSlider(rangeVibrance, valVibrance, "vibrance");
+  bindSlider(rangeBalanceCR, valBalanceCR, "colorBalanceCyanRed");
+  bindSlider(rangeBalanceMG, valBalanceMG, "colorBalanceMagentaGreen");
+  bindSlider(rangeBalanceYB, valBalanceYB, "colorBalanceYellowBlue");
+
+  // Paper Preset Dropdown
+  if (selTonePaperPreset) {
+    selTonePaperPreset.addEventListener("change", (e) => {
+      const pKey = e.target.value;
+      toneAndInkState.paperCompensation = pKey;
+      const p = paperPresets[pKey] || paperPresets.none;
+      const isSi = currentLang === 'si';
+
+      toneAndInkState.density = p.density;
+      toneAndInkState.brightness = p.brightness;
+      toneAndInkState.contrast = p.contrast;
+      toneAndInkState.gamma = p.gamma;
+      toneAndInkState.shadows = p.shadows;
+      toneAndInkState.highlights = p.highlights;
+      toneAndInkState.blackLevel = p.blackLevel;
+      toneAndInkState.textDarkness = p.textDarkness;
+      toneAndInkState.textSharpening = p.textSharpening;
+      toneAndInkState.photoSharpening = p.photoSharpening;
+      toneAndInkState.saturation = p.saturation;
+      toneAndInkState.vibrance = p.vibrance;
+
+      syncAllSliderUI();
+      if (lblTonePaperPresetDesc) {
+        lblTonePaperPresetDesc.innerText = isSi ? p.descSi : p.descEn;
+      }
+
+      updateToneAndInkLiveEffect();
+      updateCmykCoverageMeter();
+      validateDependenciesAndAutoFixes();
+    });
+  }
+
+  // Ink Saver
+  function updateInkSaverSavingsDisplay() {
+    const pct = getToneInkSaverSavingsPercent();
+    const isSi = currentLang === 'si';
+    if (lblSavingsPercent) {
+      lblSavingsPercent.innerText = isSi
+        ? `~${pct}% තීන්ත ඉතිරියක් (ඇස්තමේන්තුව)`
+        : `~${pct}% ink saved (estimate)`;
+    }
+  }
+
+  if (chkInkSaverMode) {
+    chkInkSaverMode.addEventListener("change", (e) => {
+      toneAndInkState.inkSaverEnabled = e.target.checked;
+      if (cardInkSaver) cardInkSaver.classList.toggle("active", e.target.checked);
+      if (inkSaverDetails) inkSaverDetails.classList.toggle("hidden", !e.target.checked);
+      updateInkSaverSavingsDisplay();
+      updateToneAndInkLiveEffect();
+      updateCmykCoverageMeter();
+    });
+  }
+
+  if (selInkSaverLevel) {
+    selInkSaverLevel.addEventListener("change", (e) => {
+      toneAndInkState.inkSaverLevel = e.target.value;
+      updateInkSaverSavingsDisplay();
+      updateCmykCoverageMeter();
+    });
+  }
+
+  if (chkInkSaverTextOnlyBlack) {
+    chkInkSaverTextOnlyBlack.addEventListener("change", (e) => {
+      toneAndInkState.inkSaverTextOnlyBlack = e.target.checked;
+      updateInkSaverSavingsDisplay();
+      updateCmykCoverageMeter();
+    });
+  }
+
+  // Reset Button
+  if (btnResetTone) {
+    btnResetTone.addEventListener("click", () => {
+      toneAndInkState = {
+        density: 0,
+        brightness: 0,
+        contrast: 0,
+        gamma: 1.0,
+        shadows: 0,
+        highlights: 0,
+        blackLevel: 0,
+        textDarkness: 0,
+        textSharpening: 0,
+        photoSharpening: 0,
+        saturation: 0,
+        vibrance: 0,
+        colorBalanceCyanRed: 0,
+        colorBalanceMagentaGreen: 0,
+        colorBalanceYellowBlue: 0,
+        paperCompensation: "none",
+        inkSaverEnabled: false,
+        inkSaverLevel: "balanced",
+        inkSaverTextOnlyBlack: true,
+        compareWithOriginal: false,
+        driverColorAdjustmentActive: false
+      };
+
+      if (selTonePaperPreset) selTonePaperPreset.value = "none";
+      if (lblTonePaperPresetDesc) {
+        lblTonePaperPresetDesc.innerText = currentLang === 'si' ? paperPresets.none.descSi : paperPresets.none.descEn;
+      }
+      if (chkInkSaverMode) chkInkSaverMode.checked = false;
+      if (cardInkSaver) cardInkSaver.classList.remove("active");
+      if (inkSaverDetails) inkSaverDetails.classList.add("hidden");
+
+      syncAllSliderUI();
+      updateToneAndInkLiveEffect();
+      updateCmykCoverageMeter();
+      validateDependenciesAndAutoFixes();
+
+      showToast(currentLang === 'si' ? "තීන්ත සහ වර්ණ වෙනස්කම් මුල් තත්ත්වයට පත් කරන ලදී." : "Tone and ink adjustments reset to default.");
+    });
+  }
+
+  // Compare Original Button
+  if (btnCompareOriginal) {
+    btnCompareOriginal.addEventListener("click", () => {
+      toneAndInkState.compareWithOriginal = !toneAndInkState.compareWithOriginal;
+      const isSi = currentLang === 'si';
+      const lblBtnCompare = document.getElementById("lblBtnCompare");
+
+      if (lblBtnCompare) {
+        lblBtnCompare.innerText = toneAndInkState.compareWithOriginal
+          ? (isSi ? "සංසන්දනය නවත්වන්න" : "Stop Compare")
+          : (isSi ? "මුල් පිටුව සමඟ බලන්න" : "Compare Original");
+      }
+      btnCompareOriginal.classList.toggle("btn-primary", toneAndInkState.compareWithOriginal);
+      updateToneAndInkLiveEffect();
+    });
+  }
+
+  // Test Pattern Modal Dialog
+  if (btnOpenTestPatternModal) {
+    btnOpenTestPatternModal.addEventListener("click", () => {
+      testPatternModal?.classList.remove("hidden");
+    });
+  }
+
+  if (btnCloseTestPatternModal) {
+    btnCloseTestPatternModal.addEventListener("click", () => testPatternModal?.classList.add("hidden"));
+  }
+  if (btnCancelTestPattern) {
+    btnCancelTestPattern.addEventListener("click", () => testPatternModal?.classList.add("hidden"));
+  }
+
+  if (btnOpenDriverMaint) {
+    btnOpenDriverMaint.addEventListener("click", () => {
+      testPatternModal?.classList.add("hidden");
+      showToast(currentLang === 'si' ? "Epson Printing Preferences (Maintenance) විවෘත වේ..." : "Opening Epson Printing Preferences (Maintenance Tab)...");
+    });
+  }
+
+  if (btnPrintTestPageNow) {
+    btnPrintTestPageNow.addEventListener("click", () => {
+      testPatternModal?.classList.add("hidden");
+      showToast(currentLang === 'si'
+        ? "පරීක්ෂණ පිටුව සාමාන්‍ය Windows Spooler හරහා ප්‍රින්ටරයට යවන ලදී (100% Vector)."
+        : "Diagnostic Test Pattern sent to printer spooler (Vector Gray Ramp & Nozzle Chart).");
+    });
+  }
+
+  window.updateToneAndInkLiveEffect = updateToneAndInkLiveEffect;
+  window.updateCmykCoverageMeter = updateCmykCoverageMeter;
+
+  syncAllSliderUI();
+  updateToneAndInkLiveEffect();
+  updateCmykCoverageMeter();
+}
+
+// ==========================================================================
+// FULL MULTIDIMENSIONAL PRICING ENGINE & LIVE QUOTE (Prompt 11)
+// ==========================================================================
+
+const defaultPricingEntries = [
+  {
+    id: "rule_a4_bw_single",
+    labelEn: "A4 Document B&W Single (Plain)",
+    labelSi: "A4 ලේඛන කළු සුදු එක් පැත්තක්",
+    printType: "document_text",
+    color: "bw",
+    paperSize: "A4",
+    media: "plain",
+    duplex: false,
+    quality: "normal",
+    printer: "any",
+    basePrice: 15.0,
+    tiers: [
+      { min: 1, max: 10, price: 15.0 },
+      { min: 11, max: 50, price: 12.0 },
+      { min: 51, max: 200, price: 10.0 },
+      { min: 201, max: null, price: 8.0 }
+    ]
+  },
+  {
+    id: "rule_a4_bw_duplex",
+    labelEn: "A4 Document B&W Duplex (Per Page)",
+    labelSi: "A4 ලේඛන කළු සුදු දෙපැත්තම (පිටුවකට)",
+    printType: "document_text",
+    color: "bw",
+    paperSize: "A4",
+    media: "plain",
+    duplex: true,
+    quality: "normal",
+    printer: "any",
+    basePrice: 10.0,
+    tiers: [
+      { min: 1, max: 10, price: 10.0 },
+      { min: 11, max: 50, price: 8.5 },
+      { min: 51, max: 200, price: 7.0 },
+      { min: 201, max: null, price: 6.0 }
+    ]
+  },
+  {
+    id: "rule_a4_color_single",
+    labelEn: "A4 Document Color Single (Plain)",
+    labelSi: "A4 ලේඛන වර්ණ එක් පැත්තක්",
+    printType: "document_text",
+    color: "color",
+    paperSize: "A4",
+    media: "plain",
+    duplex: false,
+    quality: "normal",
+    printer: "any",
+    basePrice: 40.0,
+    tiers: [
+      { min: 1, max: 10, price: 40.0 },
+      { min: 11, max: 50, price: 35.0 },
+      { min: 51, max: null, price: 30.0 }
+    ]
+  },
+  {
+    id: "rule_a4_color_duplex",
+    labelEn: "A4 Document Color Duplex (Per Page)",
+    labelSi: "A4 ලේඛන වර්ණ දෙපැත්තම (පිටුවකට)",
+    printType: "document_text",
+    color: "color",
+    paperSize: "A4",
+    media: "plain",
+    duplex: true,
+    quality: "normal",
+    printer: "any",
+    basePrice: 35.0,
+    tiers: [
+      { min: 1, max: 10, price: 35.0 },
+      { min: 11, max: 50, price: 30.0 },
+      { min: 51, max: null, price: 25.0 }
+    ]
+  },
+  {
+    id: "rule_photo_4x6_glossy",
+    labelEn: "Photo 4x6 in (Glossy Resin)",
+    labelSi: "4x6 ඡායාරූප මුද්‍රණය (Glossy)",
+    printType: "photo",
+    color: "color",
+    paperSize: "4x6",
+    media: "glossy_photo",
+    duplex: false,
+    quality: "high",
+    printer: "any",
+    basePrice: 80.0,
+    tiers: [
+      { min: 1, max: 5, price: 80.0 },
+      { min: 6, max: 20, price: 70.0 },
+      { min: 21, max: null, price: 60.0 }
+    ]
+  },
+  {
+    id: "rule_photo_5x7_glossy",
+    labelEn: "Photo 5x7 in (Glossy Resin)",
+    labelSi: "5x7 ඡායාරූප මුද්‍රණය (Glossy)",
+    printType: "photo",
+    color: "color",
+    paperSize: "5x7",
+    media: "glossy_photo",
+    duplex: false,
+    quality: "high",
+    printer: "any",
+    basePrice: 140.0,
+    tiers: []
+  },
+  {
+    id: "rule_a4_photo_glossy",
+    labelEn: "A4 Full Page Photo (Glossy Resin)",
+    labelSi: "A4 සම්පූර්ණ පිටු ඡායාරූප (Glossy)",
+    printType: "photo",
+    color: "color",
+    paperSize: "A4",
+    media: "glossy_photo",
+    duplex: false,
+    quality: "high",
+    printer: "any",
+    basePrice: 180.0,
+    tiers: []
+  },
+  {
+    id: "rule_id_passport_sheet",
+    labelEn: "ID / Passport Photo Sheet (8 photos)",
+    labelSi: "හැඳුනුම්පත් / පාස්පෝට් ඡායාරූප පත්‍රිකාව",
+    printType: "id_passport_photo",
+    color: "color",
+    paperSize: "4x6",
+    media: "glossy_photo",
+    duplex: false,
+    quality: "best",
+    printer: "any",
+    basePrice: 250.0,
+    tiers: []
+  },
+  {
+    id: "rule_a3_bw_single",
+    labelEn: "A3 Document B&W Single",
+    labelSi: "A3 ලේඛන කළු සුදු එක් පැත්තක්",
+    printType: "document_text",
+    color: "bw",
+    paperSize: "A3",
+    media: "plain",
+    duplex: false,
+    quality: "normal",
+    printer: "any",
+    basePrice: 35.0,
+    tiers: []
+  },
+  {
+    id: "rule_a3_color_single",
+    labelEn: "A3 Document Color Single",
+    labelSi: "A3 ලේඛන වර්ණ එක් පැත්තක්",
+    printType: "document_text",
+    color: "color",
+    paperSize: "A3",
+    media: "plain",
+    duplex: false,
+    quality: "normal",
+    printer: "any",
+    basePrice: 90.0,
+    tiers: []
+  },
+  {
+    id: "rule_photocopy_bw",
+    labelEn: "Photocopy B&W (A4 Walk-in)",
+    labelSi: "ෆොටෝ කොපි කළු සුදු (A4)",
+    printType: "copy",
+    color: "bw",
+    paperSize: "A4",
+    media: "plain",
+    duplex: false,
+    quality: "draft",
+    printer: "any",
+    basePrice: 10.0,
+    tiers: [
+      { min: 1, max: 10, price: 10.0 },
+      { min: 11, max: 50, price: 8.0 },
+      { min: 51, max: null, price: 6.0 }
+    ]
+  }
+];
+
+let shopPricingEngine = {
+  activePackageId: "master",
+  activeCustomerGroup: "walk_in",
+  entries: [...defaultPricingEntries],
+  currency: "LKR",
+  rounding: "nearest_1",
+  minimumJobCharge: 30.0,
+  setupFee: 0.0,
+  rushFeePercent: 25.0,
+  borderlessSurcharge: 20.0,
+  isPinLocked: true,
+  masterPin: "1234",
+  customerGroups: {
+    walk_in: { nameEn: "Walk-in Customer", nameSi: "සාමාන්‍ය පාරිභෝගිකයා", discountPct: 0, freePages: 0 },
+    student: { nameEn: "Student Discount (15%)", nameSi: "ශිෂ්‍ය වට්ටම (15%)", discountPct: 15, freePages: 0 },
+    business: { nameEn: "Business Account (2 Free Pages)", nameSi: "ව්‍යාපාරික ගිණුම (නොමිලේ පිටු 2)", discountPct: 10, freePages: 2 }
+  },
+  supplyCosts: {
+    blackInkCostPerPage: 0.71,
+    colorInkCostPerPage: 1.73,
+    a4PlainSheetCost: 4.50,
+    photoSheetCost: 25.00
+  },
+  auditLog: [
+    { timestamp: "2026-10-27 00:45", user: "Shop Owner", ruleId: "rule_a4_bw_single", field: "tiers[11-50]", oldVal: "Rs. 13.00", newVal: "Rs. 12.00", reason: "Volume tier alignment" },
+    { timestamp: "2026-10-26 18:20", user: "Shop Owner", ruleId: "rule_photo_4x6_glossy", field: "basePrice", oldVal: "Rs. 75.00", newVal: "Rs. 80.00", reason: "Resin photo paper hike" }
+  ]
+};
+
+function formatEnginePrice(amount) {
+  const cur = shopPricingEngine.currency;
+  const rounding = shopPricingEngine.rounding;
+  const isSi = currentLang === 'si';
+  const sym = cur === 'LKR' ? (isSi ? 'රු.' : 'Rs.') : (cur === 'USD' ? '$' : (cur === 'EUR' ? '€' : (cur === 'GBP' ? '£' : '₹')));
+
+  let rounded = amount;
+  if (rounding === 'nearest_1') rounded = Math.round(amount);
+  else if (rounding === 'nearest_5') rounded = Math.round(amount / 5.0) * 5.0;
+  else if (rounding === 'nearest_10') rounded = Math.round(amount / 10.0) * 10.0;
+  else if (rounding === 'nearest_50') rounded = Math.round(amount / 50.0) * 50.0;
+
+  if (rounding === 'none') {
+    return `${sym} ${rounded.toFixed(2)}`;
+  }
+  return `${sym} ${Math.round(rounded)}.00`;
+}
+
+function matchPriceRule(printType, color, size, media, duplex) {
+  let best = null;
+  let bestScore = -1;
+
+  for (const r of shopPricingEngine.entries) {
+    let score = 0;
+    if (r.printType === printType) score += 100;
+    else if (r.printType !== 'any') continue;
+
+    if (r.color === color) score += 80;
+    else if (r.color !== 'any') continue;
+
+    if (r.paperSize.toLowerCase().includes(size.toLowerCase())) score += 60;
+    else if (r.paperSize !== 'any') continue;
+
+    if (r.media === media) score += 50;
+    else if (r.media !== 'any') continue;
+
+    if (r.duplex === duplex) score += 40;
+    else if (r.duplex !== null && r.duplex !== undefined) continue;
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = r;
+    }
+  }
+  return best;
+}
+
+function calculateCurrentQueueQuote() {
+  const isSi = currentLang === 'si';
+  const group = shopPricingEngine.customerGroups[shopPricingEngine.activeCustomerGroup] || shopPricingEngine.customerGroups.walk_in;
+
+  let totalImpressions = 0;
+  let totalGross = 0;
+  let totalCost = 0;
+  let lineSegments = [];
+
+  const items = queue.length > 0 ? queue : [
+    {
+      name: "Annual_Report_2026.pdf",
+      pageCount: 20,
+      copies: 1,
+      paperSize: "A4",
+      paperType: "Plain Paper",
+      isColor: true,
+      sides: "single",
+      isBorderless: false
+    }
+  ];
+
+  let remainingFreePages = group.freePages;
+  let freePagesDeducted = 0;
+
+  items.forEach(file => {
+    const pageCount = file.pageCount || 1;
+    const copies = file.copies || parseInt(document.getElementById("lblCopiesValue")?.innerText || "1", 10);
+    const paperSize = file.paperSize || document.getElementById("selPaperSize")?.value || "A4";
+    const paperType = file.paperType || document.getElementById("selPaperType")?.value || "Plain Paper";
+    const isColor = (file.isColor !== undefined) ? file.isColor : document.getElementById("btnColorColor")?.classList.contains("active");
+    const sides = file.sides || document.getElementById("selSides")?.value || "single";
+    const isDuplex = sides !== "single";
+    const isBorderless = file.isBorderless || document.getElementById("chkBorderless")?.checked || false;
+
+    const mediaKey = paperType.includes("Glossy") || paperType.includes("Photo") ? "glossy_photo" : (paperType.includes("Matte") ? "matte" : "plain");
+    const isPhoto = mediaKey === "glossy_photo" || paperSize.includes("4x6") || paperSize.includes("5x7");
+
+    let bwPages = 0;
+    let colorPages = 0;
+    let photoPages = 0;
+
+    if (isPhoto) {
+      photoPages = pageCount;
+    } else if (isColor) {
+      if (pageCount > 3) {
+        colorPages = Math.max(1, Math.round(pageCount * 0.15));
+        bwPages = pageCount - colorPages;
+      } else {
+        colorPages = pageCount;
+      }
+    } else {
+      bwPages = pageCount;
+    }
+
+    const fileImpressions = pageCount * copies;
+    totalImpressions += fileImpressions;
+
+    // Segment 1: B&W pages
+    if (bwPages > 0) {
+      const segImpr = bwPages * copies;
+      const rule = matchPriceRule("document_text", "bw", paperSize, mediaKey, isDuplex);
+      let unitRate = rule ? rule.basePrice : 15.0;
+      if (rule && rule.tiers && rule.tiers.length > 0) {
+        for (const t of rule.tiers) {
+          if (segImpr >= t.min && (t.max === null || segImpr <= t.max)) {
+            unitRate = t.price;
+            break;
+          }
+        }
+      }
+      const segSubtotal = segImpr * unitRate;
+      totalGross += segSubtotal;
+      lineSegments.push({
+        fileName: file.name,
+        desc: isSi ? `B&W පෙළ (${bwPages}p × ${copies})` : `B&W Text (${bwPages}p × ${copies})`,
+        rate: unitRate,
+        subtotal: segSubtotal
+      });
+      totalCost += (segImpr * shopPricingEngine.supplyCosts.blackInkCostPerPage) + (segImpr * shopPricingEngine.supplyCosts.a4PlainSheetCost);
+    }
+
+    // Segment 2: Color pages
+    if (colorPages > 0) {
+      const segImpr = colorPages * copies;
+      const rule = matchPriceRule("document_text", "color", paperSize, mediaKey, isDuplex);
+      let unitRate = rule ? rule.basePrice : 40.0;
+      if (rule && rule.tiers && rule.tiers.length > 0) {
+        for (const t of rule.tiers) {
+          if (segImpr >= t.min && (t.max === null || segImpr <= t.max)) {
+            unitRate = t.price;
+            break;
+          }
+        }
+      }
+      const segSubtotal = segImpr * unitRate;
+      totalGross += segSubtotal;
+      lineSegments.push({
+        fileName: file.name,
+        desc: isSi ? `වර්ණ පිටු (${colorPages}p × ${copies})` : `Color Pages (${colorPages}p × ${copies})`,
+        rate: unitRate,
+        subtotal: segSubtotal
+      });
+      totalCost += (segImpr * shopPricingEngine.supplyCosts.colorInkCostPerPage) + (segImpr * shopPricingEngine.supplyCosts.a4PlainSheetCost);
+    }
+
+    // Segment 3: Photo pages
+    if (photoPages > 0) {
+      const segImpr = photoPages * copies;
+      const rule = matchPriceRule("photo", "color", paperSize, mediaKey, false);
+      let unitRate = rule ? rule.basePrice : 80.0;
+      if (rule && rule.tiers && rule.tiers.length > 0) {
+        for (const t of rule.tiers) {
+          if (segImpr >= t.min && (t.max === null || segImpr <= t.max)) {
+            unitRate = t.price;
+            break;
+          }
+        }
+      }
+      const segSubtotal = segImpr * unitRate;
+      totalGross += segSubtotal;
+      lineSegments.push({
+        fileName: file.name,
+        desc: isSi ? `ඡායාරූප (${photoPages}p × ${copies})` : `Photo Print (${photoPages}p × ${copies})`,
+        rate: unitRate,
+        subtotal: segSubtotal
+      });
+      totalCost += (segImpr * shopPricingEngine.supplyCosts.colorInkCostPerPage * 1.5) + (segImpr * shopPricingEngine.supplyCosts.photoSheetCost);
+    }
+
+    if (isBorderless) {
+      const bFee = shopPricingEngine.borderlessSurcharge * fileImpressions;
+      totalGross += bFee;
+      lineSegments.push({
+        fileName: file.name,
+        desc: isSi ? "දාර රහිත ගාස්තුව" : "Borderless Finishing Surcharge",
+        rate: shopPricingEngine.borderlessSurcharge,
+        subtotal: bFee
+      });
+    }
+  });
+
+  if (remainingFreePages > 0 && lineSegments.length > 0) {
+    const freeRate = lineSegments[0].rate;
+    freePagesDeducted = remainingFreePages * freeRate;
+  }
+
+  const afterFreeGross = Math.max(0, totalGross - freePagesDeducted);
+  const groupDiscount = afterFreeGross * (group.discountPct / 100.0);
+  const discountedSubtotal = Math.max(0, afterFreeGross - groupDiscount);
+
+  let minAdjustment = 0;
+  if (discountedSubtotal < shopPricingEngine.minimumJobCharge && totalImpressions > 0) {
+    minAdjustment = shopPricingEngine.minimumJobCharge - discountedSubtotal;
+  }
+
+  const finalTotal = discountedSubtotal + minAdjustment + shopPricingEngine.setupFee;
+  const netProfit = Math.max(0, finalTotal - totalCost);
+
+  return {
+    totalImpressions,
+    grossSubtotal: totalGross,
+    freePagesDeducted,
+    groupDiscount,
+    minAdjustment,
+    finalTotal,
+    totalCost,
+    netProfit,
+    lineSegments,
+    groupName: isSi ? group.nameSi : group.nameEn
+  };
+}
+
+function updateLivePricePanel() {
+  const quote = calculateCurrentQueueQuote();
+  const lblAmount = document.getElementById("lblLivePriceAmount");
+  const lblSubtotal = document.getElementById("lblGrossSubtotalVal");
+  const lblProfit = document.getElementById("lblProfitEstimateText");
+  const breakdownList = document.getElementById("breakdownItemsList");
+  const groupTag = document.getElementById("lblCustomerGroupTag");
+
+  if (lblAmount) lblAmount.innerText = formatEnginePrice(quote.finalTotal);
+  if (lblSubtotal) lblSubtotal.innerText = formatEnginePrice(quote.grossSubtotal);
+  if (lblProfit) {
+    lblProfit.innerText = `Cost: ${formatEnginePrice(quote.totalCost)} (est.) • Profit: ${formatEnginePrice(quote.netProfit)} (est.)`;
+  }
+  if (groupTag) groupTag.innerText = quote.groupName;
+
+  if (breakdownList) {
+    breakdownList.innerHTML = quote.lineSegments.map(seg => `
+      <div class="breakdown-line">
+        <span class="item-name">${seg.desc}</span>
+        <span class="item-rate">@ ${formatEnginePrice(seg.rate)}</span>
+        <span class="item-total">${formatEnginePrice(seg.subtotal)}</span>
+      </div>
+    `).join("");
+  }
+}
+
+function initFullPricingEngine() {
+  const btnToggleBreakdown = document.getElementById("btnTogglePriceBreakdown");
+  const breakdownCard = document.getElementById("livePriceBreakdownCard");
+  const btnQuoteMode = document.getElementById("btnQuoteMode");
+  const quoteModal = document.getElementById("quoteModal");
+  const btnCloseQuoteModal = document.getElementById("btnCloseQuoteModal");
+  const btnCancelQuote = document.getElementById("btnCancelQuote");
+  const btnQuoteDispatchPrint = document.getElementById("btnQuoteDispatchPrint");
+  const btnPrintQuotePdf = document.getElementById("btnPrintQuotePdf");
+
+  // Toggle Breakdown Card in Print Panel
+  if (btnToggleBreakdown && breakdownCard) {
+    btnToggleBreakdown.addEventListener("click", () => {
+      breakdownCard.classList.toggle("hidden");
+    });
+  }
+
+  // Quote Mode Modal Dialog
+  if (btnQuoteMode && quoteModal) {
+    btnQuoteMode.addEventListener("click", () => {
+      const q = calculateCurrentQueueQuote();
+      const tbody = document.getElementById("quoteItemsTbody");
+      if (tbody) {
+        tbody.innerHTML = q.lineSegments.map(s => `
+          <tr>
+            <td><strong>${s.fileName || "Document"}</strong></td>
+            <td><span class="customer-tag-pill">${s.desc}</span></td>
+            <td>${s.desc}</td>
+            <td>${formatEnginePrice(s.rate)}</td>
+            <td style="text-align:right;"><strong>${formatEnginePrice(s.subtotal)}</strong></td>
+          </tr>
+        `).join("");
+      }
+
+      const grossEl = document.getElementById("lblQuoteGrossSubtotal");
+      const grandEl = document.getElementById("lblQuoteGrandTotal");
+      const discEl = document.getElementById("lblQuoteGroupDiscount");
+      const freeEl = document.getElementById("lblQuoteFreePagesDeduction");
+      const minEl = document.getElementById("lblQuoteMinCharge");
+      const profitEl = document.getElementById("lblQuoteProfitAudit");
+
+      if (grossEl) grossEl.innerText = formatEnginePrice(q.grossSubtotal);
+      if (grandEl) grandEl.innerText = formatEnginePrice(q.finalTotal);
+      if (discEl) discEl.innerText = `- ${formatEnginePrice(q.groupDiscount)}`;
+      if (freeEl) freeEl.innerText = `- ${formatEnginePrice(q.freePagesDeducted)}`;
+      if (minEl) minEl.innerText = formatEnginePrice(q.minAdjustment);
+      if (profitEl) {
+        profitEl.innerHTML = `<span class="material-symbols-rounded">trending_up</span><span>Estimated Supplies Cost: <strong>${formatEnginePrice(q.totalCost)}</strong> • Estimated Net Profit: <strong>${formatEnginePrice(q.netProfit)}</strong> (labeled estimate)</span>`;
+      }
+
+      quoteModal.classList.remove("hidden");
+    });
+  }
+
+  if (btnCloseQuoteModal) btnCloseQuoteModal.addEventListener("click", () => quoteModal?.classList.add("hidden"));
+  if (btnCancelQuote) btnCancelQuote.addEventListener("click", () => quoteModal?.classList.add("hidden"));
+
+  if (btnPrintQuotePdf) {
+    btnPrintQuotePdf.addEventListener("click", () => {
+      quoteModal?.classList.add("hidden");
+      showToast(currentLang === 'si' ? "PDF මිල ගණන් පත්‍රිකාව (Quote Invoice) සාර්ථකව උත්පාදනය කරන ලදී!" : "PDF Quotation Invoice generated with mixed page itemization!");
+    });
+  }
+
+  if (btnQuoteDispatchPrint) {
+    btnQuoteDispatchPrint.addEventListener("click", () => {
+      quoteModal?.classList.add("hidden");
+      const btnPrint = document.getElementById("btnRightPrint");
+      if (btnPrint) btnPrint.click();
+    });
+  }
+
+  // Price Table Renderer in Shop View
+  function renderPricingTable() {
+    const tbody = document.getElementById("pricingTableTbody");
+    if (!tbody) return;
+
+    const searchInput = document.getElementById("inputSearchPrices");
+    const q = (searchInput?.value || "").toLowerCase().trim();
+    const typeFilter = document.getElementById("filterPrintType")?.value || "all";
+    const colorFilter = document.getElementById("filterColorMode")?.value || "all";
+    const sizeFilter = document.getElementById("filterPaperSize")?.value || "all";
+    const isSi = currentLang === 'si';
+
+    const filtered = shopPricingEngine.entries.filter(r => {
+      if (q && !r.labelEn.toLowerCase().includes(q) && !r.labelSi.toLowerCase().includes(q) && !r.paperSize.toLowerCase().includes(q)) {
+        return false;
+      }
+      if (typeFilter !== "all" && r.printType !== typeFilter) return false;
+      if (colorFilter !== "all" && r.color !== colorFilter) return false;
+      if (sizeFilter !== "all" && !r.paperSize.toLowerCase().includes(sizeFilter)) return false;
+      return true;
+    });
+
+    tbody.innerHTML = filtered.map(r => `
+      <tr>
+        <td>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-rounded" style="font-size:15px; color:var(--accent);">
+              ${r.printType === 'photo' ? 'photo_camera' : (r.printType === 'copy' ? 'copy_all' : 'description')}
+            </span>
+            <strong>${isSi ? r.labelSi : r.labelEn}</strong>
+          </div>
+        </td>
+        <td>${r.paperSize} (${r.media})</td>
+        <td>${r.duplex ? 'Duplex (2-Sided)' : 'Single (1-Sided)'}</td>
+        <td><span class="badge" style="font-size:9.5px;">${r.quality}</span></td>
+        <td>
+          <span class="source-badge ${r.color === 'color' ? 'app' : 'driver'}">
+            ${r.color === 'color' ? 'Color' : 'B&W'}
+          </span>
+        </td>
+        <td><strong>${formatEnginePrice(r.basePrice)}</strong></td>
+        <td>
+          ${r.tiers && r.tiers.length > 0
+            ? `<span class="tier-badge" title="${r.tiers.map(t => `${t.min}-${t.max || '+'}: ${formatEnginePrice(t.price)}`).join(', ')}">${r.tiers.length} Tiers (from ${formatEnginePrice(r.tiers[r.tiers.length-1].price)})</span>`
+            : '<span style="color:var(--text-muted); font-size:10px;">Fixed</span>'}
+        </td>
+        <td style="text-align:right;">
+          <button class="btn btn-ghost btn-sm btn-icon-rule" data-copy-id="${r.id}" title="Copy from Row">
+            <span class="material-symbols-rounded" style="font-size:14px;">content_copy</span>
+          </button>
+          <button class="btn btn-ghost btn-sm btn-icon-rule" data-edit-id="${r.id}" title="Edit Rate">
+            <span class="material-symbols-rounded" style="font-size:14px;">edit</span>
+          </button>
+          <button class="btn btn-ghost btn-sm btn-icon-rule text-danger" data-del-id="${r.id}" title="Delete">
+            <span class="material-symbols-rounded" style="font-size:14px;">delete</span>
+          </button>
+        </td>
+      </tr>
+    `).join("");
+
+    // Wire table row action buttons
+    tbody.querySelectorAll("[data-copy-id]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.copyId;
+        const source = shopPricingEngine.entries.find(e => e.id === id);
+        if (source) {
+          const clone = JSON.parse(JSON.stringify(source));
+          clone.id = `rule_${Date.now()}`;
+          clone.labelEn += " (Copy)";
+          clone.labelSi += " (පිටපත)";
+          shopPricingEngine.entries.push(clone);
+          renderPricingTable();
+          showToast(currentLang === 'si' ? "පේළිය පිටපත් කර අලුත් මිල රීතියක් සාදන ලදී!" : "Row duplicated into a new price rule!");
+        }
+      });
+    });
+
+    tbody.querySelectorAll("[data-del-id]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.delId;
+        shopPricingEngine.entries = shopPricingEngine.entries.filter(e => e.id !== id);
+        renderPricingTable();
+        showToast(currentLang === 'si' ? "මිල රීතිය ඉවත් කරන ලදී." : "Price rule deleted.");
+      });
+    });
+  }
+
+  // Filter input listeners
+  ["inputSearchPrices", "filterPrintType", "filterColorMode", "filterPaperSize", "filterMediaType"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", renderPricingTable);
+      el.addEventListener("change", renderPricingTable);
+    }
+  });
+
+  // Missing prices safeguard tool
+  const btnFixMissing = document.getElementById("btnFixMissingPrices");
+  const missingBanner = document.getElementById("missingPriceBanner");
+  if (btnFixMissing) {
+    btnFixMissing.addEventListener("click", () => {
+      shopPricingEngine.entries.push(
+        {
+          id: `rule_a3_photo_${Date.now()}`,
+          labelEn: "A3 Glossy Photo Print",
+          labelSi: "A3 ග්ලොසි ඡායාරූප මුද්‍රණය",
+          printType: "photo",
+          color: "color",
+          paperSize: "A3",
+          media: "glossy_photo",
+          duplex: false,
+          quality: "high",
+          printer: "any",
+          basePrice: 280.0,
+          tiers: []
+        },
+        {
+          id: `rule_4x6_bw_${Date.now()}`,
+          labelEn: "Photo 4x6 in B&W Monochrome",
+          labelSi: "4x6 කළු සුදු ඡායාරූප මුද්‍රණය",
+          printType: "photo",
+          color: "bw",
+          paperSize: "4x6",
+          media: "glossy_photo",
+          duplex: false,
+          quality: "high",
+          printer: "any",
+          basePrice: 50.0,
+          tiers: []
+        }
+      );
+      if (missingBanner) missingBanner.classList.add("hidden");
+      renderPricingTable();
+      showToast(currentLang === 'si' ? "නොමැති සියලු මිල රීති ආරක්ෂිතව එකතු කරන ලදී!" : "Missing price combinations fixed! Safe rates assigned.");
+    });
+  }
+
+  // Bulk Edit Modal
+  const btnOpenBulkEdit = document.getElementById("btnOpenBulkEdit");
+  const bulkModal = document.getElementById("bulkEditModal");
+  const btnCloseBulkModal = document.getElementById("btnCloseBulkEditModal");
+  const btnCancelBulk = document.getElementById("btnCancelBulkEdit");
+  const btnApplyBulk = document.getElementById("btnApplyBulkEdit");
+
+  if (btnOpenBulkEdit) btnOpenBulkEdit.addEventListener("click", () => bulkModal?.classList.remove("hidden"));
+  if (btnCloseBulkModal) btnCloseBulkModal.addEventListener("click", () => bulkModal?.classList.add("hidden"));
+  if (btnCancelBulk) btnCancelBulk.addEventListener("click", () => bulkModal?.classList.add("hidden"));
+
+  if (btnApplyBulk) {
+    btnApplyBulk.addEventListener("click", () => {
+      const scope = document.getElementById("selBulkScope")?.value || "all";
+      const op = document.getElementById("selBulkOperation")?.value || "pct_increase";
+      const val = parseFloat(document.getElementById("inputBulkValue")?.value || "10");
+
+      shopPricingEngine.entries.forEach(r => {
+        if (scope === "a4_only" && !r.paperSize.includes("A4")) return;
+        if (scope === "a3_only" && !r.paperSize.includes("A3")) return;
+        if (scope === "color_only" && r.color !== "color") return;
+        if (scope === "photo_only" && r.printType !== "photo") return;
+
+        if (op === "pct_increase") r.basePrice *= (1.0 + (val / 100.0));
+        else if (op === "pct_decrease") r.basePrice *= Math.max(0.1, (1.0 - (val / 100.0)));
+        else if (op === "fixed_add") r.basePrice += val;
+        else if (op === "fixed_sub") r.basePrice = Math.max(1.0, r.basePrice - val);
+
+        r.basePrice = Math.round(r.basePrice * 100.0) / 100.0;
+      });
+
+      shopPricingEngine.auditLog.unshift({
+        timestamp: new Date().toISOString().substring(0, 16).replace("T", " "),
+        user: "Shop Owner",
+        ruleId: scope.toUpperCase(),
+        field: "basePrice",
+        oldVal: "Batch",
+        newVal: `${op} (${val})`,
+        reason: "Bulk rate adjustment via wizard"
+      });
+
+      bulkModal?.classList.add("hidden");
+      renderPricingTable();
+      updateLivePricePanel();
+      showToast(currentLang === 'si' ? "තොග මිල වෙනස්කම් සාර්ථකව යොදන ලදී!" : "Bulk price adjustment applied and logged to history!");
+    });
+  }
+
+  // Audit Log Modal
+  const btnAudit = document.getElementById("btnAuditLog");
+  const auditModal = document.getElementById("auditLogModal");
+  const btnCloseAuditModal = document.getElementById("btnCloseAuditLogModal");
+  const btnCloseAudit = document.getElementById("btnCloseAudit");
+
+  if (btnAudit) {
+    btnAudit.addEventListener("click", () => {
+      const tbody = document.getElementById("auditLogTbody");
+      if (tbody) {
+        tbody.innerHTML = shopPricingEngine.auditLog.map(l => `
+          <tr>
+            <td>${l.timestamp}</td>
+            <td><strong>${l.user}</strong></td>
+            <td><code>${l.ruleId}</code></td>
+            <td>${l.field}</td>
+            <td>${l.oldVal}</td>
+            <td><strong>${l.newVal}</strong></td>
+            <td>${l.reason}</td>
+          </tr>
+        `).join("");
+      }
+      auditModal?.classList.remove("hidden");
+    });
+  }
+  if (btnCloseAuditModal) btnCloseAuditModal.addEventListener("click", () => auditModal?.classList.add("hidden"));
+  if (btnCloseAudit) btnCloseAudit.addEventListener("click", () => auditModal?.classList.add("hidden"));
+
+  // PIN Lock Verification
+  const btnPin = document.getElementById("btnPinLock");
+  const pinModal = document.getElementById("pricePinModal");
+  const btnClosePinModal = document.getElementById("btnClosePinModal");
+  const btnCancelPin = document.getElementById("btnCancelPin");
+  const btnVerifyPin = document.getElementById("btnVerifyPin");
+
+  if (btnPin) {
+    btnPin.addEventListener("click", () => {
+      if (shopPricingEngine.isPinLocked) {
+        pinModal?.classList.remove("hidden");
+      } else {
+        shopPricingEngine.isPinLocked = true;
+        document.getElementById("lblPinStatus").innerText = currentLang === 'si' ? "PIN අගුල සක්‍රියයි" : "PIN Active";
+        showToast(currentLang === 'si' ? "මිල සංස්කාරකය අගුලු ලන ලදී (Locked)." : "Price editor locked with PIN protection.");
+      }
+    });
+  }
+  if (btnClosePinModal) btnClosePinModal.addEventListener("click", () => pinModal?.classList.add("hidden"));
+  if (btnCancelPin) btnCancelPin.addEventListener("click", () => pinModal?.classList.add("hidden"));
+
+  if (btnVerifyPin) {
+    btnVerifyPin.addEventListener("click", () => {
+      const pinField = document.getElementById("inputMasterPin");
+      if (pinField?.value === shopPricingEngine.masterPin) {
+        shopPricingEngine.isPinLocked = false;
+        document.getElementById("lblPinStatus").innerText = currentLang === 'si' ? "අගුල ඉවත් විය" : "Unlocked";
+        pinModal?.classList.add("hidden");
+        showToast(currentLang === 'si' ? "PIN නිවැරදියි! මිල සංස්කරණයට ඉඩ ලබා දෙන ලදී." : "Master PIN verified! Price editing unlocked.");
+      } else {
+        showToast(currentLang === 'si' ? "වැරදි PIN අංකයකි! නැවත උත්සාහ කරන්න." : "Invalid PIN code! Try default 1234.");
+      }
+    });
+  }
+
+  // Fees, Rounding & Currency Listeners
+  const selCurr = document.getElementById("selEngineCurrency");
+  if (selCurr) {
+    selCurr.addEventListener("change", (e) => {
+      shopPricingEngine.currency = e.target.value;
+      renderPricingTable();
+      updateLivePricePanel();
+    });
+  }
+
+  const selRound = document.getElementById("selEngineRounding");
+  if (selRound) {
+    selRound.addEventListener("change", (e) => {
+      shopPricingEngine.rounding = e.target.value;
+      renderPricingTable();
+      updateLivePricePanel();
+    });
+  }
+
+  const selGroup = document.getElementById("selActiveCounterGroup");
+  if (selGroup) {
+    selGroup.addEventListener("change", (e) => {
+      shopPricingEngine.activeCustomerGroup = e.target.value;
+      updateLivePricePanel();
+      showToast(currentLang === 'si' ? `පාරිභෝගික ගිණුම මාරු කරන ලදී: ${e.target.value}` : `Switched customer account tier: ${e.target.value}`);
+    });
+  }
+
+  // CSV Export Buttons
+  ["btnExportCsv", "btnExportDailyCsv"].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.addEventListener("click", () => {
+        showToast(currentLang === 'si' ? "මිල ගණන් සහ මූල්‍ය වාර්තාව CSV ලෙස බාගත විය!" : "Exported Price Matrix & Daily Audit to CSV!");
+      });
+    }
+  });
+
+  window.updateLivePricePanel = updateLivePricePanel;
+  renderPricingTable();
+  updateLivePricePanel();
+}
+
+// ============================================================================
+// Specialty Print Media Center (8 Hardware-Native Modules)
+// ============================================================================
+function initSpecialtyPrintCenter() {
+  const modal = document.getElementById("specialtyPrintModal");
+  const btnOpen = document.getElementById("btnOpenSpecialtyCenter");
+  const btnClose = document.getElementById("btnCloseSpecialtyModal");
+  const btnCancel = document.getElementById("btnCancelSpecialty");
+  const btnPrintSpooler = document.getElementById("btnPrintSpecialtySpooler");
+  const tabStrip = document.getElementById("specialtyTabStrip");
+  const activePrinterBadge = document.getElementById("badgeSpecialtyActivePrinter");
+
+  if (!modal || !btnOpen) return;
+
+  // Specialty state
+  const specialtyState = {
+    activeModule: "cdDvd",
+    cd: {
+      profile: "standard12cm",
+      outerDiameterMm: 116.0,
+      innerDiameterMm: 43.0,
+      text: "PRINT HELPER WEDDING ARCHIVE 2026",
+      testPrintDone: false,
+    },
+    pvc: {
+      slots: 2,
+      inkjetConfirmed: false,
+      aftermarketTray: false,
+      offsetX: 0.0,
+      offsetY: 0.0,
+      cardholder: "KASUN PERERA",
+      title: "CHIEF ENGINEER",
+      id: "EMP-00948",
+    },
+    passport: {
+      preset: "35x45",
+      photoWidthMm: 35.0,
+      photoHeightMm: 45.0,
+      paper: "4x6",
+      guides: "dashed",
+    },
+    rigid: {
+      thicknessMm: 0.8,
+    },
+    roll: {
+      widthInches: 24,
+      autoCut: "page",
+      borderless: false,
+    },
+    sublimation: {
+      item: "mug11",
+      widthMm: 200,
+      heightMm: 95,
+      autoMirror: true,
+    },
+    labels: {
+      shape: "diecut",
+      barcode: "LBL-2026-9482",
+      dispense: "cut",
+    },
+    receipt: {
+      width: "80mm",
+      autoCut: true,
+      cashDrawer: false,
+    }
+  };
+
+  // Helper: evaluate supported modules from active printer string
+  function getActivePrinterSupport() {
+    const printerSelect = document.getElementById("selPrinter");
+    const printerName = printerSelect ? printerSelect.value : "EPSON L8050 Series";
+
+    const nameUpper = printerName.toUpperCase();
+    const isL8050 = nameUpper.includes("L8050") || nameUpper.includes("L18050") || nameUpper.includes("ET-18100");
+    const isL8180 = nameUpper.includes("L8180") || nameUpper.includes("ET-8550") || nameUpper.includes("L8160");
+    const isScP = nameUpper.includes("SC-P") || nameUpper.includes("P900") || nameUpper.includes("P700");
+    const isScF = nameUpper.includes("SC-F") || nameUpper.includes("F100") || nameUpper.includes("F500");
+    const isColorWorks = nameUpper.includes("COLORWORKS") || nameUpper.includes("CW-C");
+    const isTm = nameUpper.includes("TM-") || nameUpper.includes("RECEIPT");
+
+    let maxThickness = 0.3;
+    if (isL8180) maxThickness = 1.3;
+    if (isScP) maxThickness = 1.5;
+
+    return {
+      printerName,
+      cdDvd: isL8050 || isL8180 || isScP || nameUpper.includes("L805") || nameUpper.includes("XP-15000"),
+      pvc: isL8050 || (nameUpper.includes("L805") && specialtyState.pvc.aftermarketTray),
+      passport: true, // Universal
+      rigid: maxThickness >= 0.6,
+      roll: isScP || isScF || nameUpper.includes("SC-T") || nameUpper.includes("SL-D"),
+      sublimation: isScF,
+      labels: isColorWorks,
+      receipt: isTm || true, // Also available in Shop Mode
+      maxThicknessLimit: maxThickness,
+    };
+  }
+
+  // Update tabs availability
+  function updateTabsState() {
+    const support = getActivePrinterSupport();
+    if (activePrinterBadge) {
+      activePrinterBadge.textContent = support.printerName;
+    }
+
+    const tabs = tabStrip?.querySelectorAll(".specialty-tab");
+    tabs?.forEach(tab => {
+      const mod = tab.getAttribute("data-mod");
+      const isSupported = support[mod] === true;
+      if (isSupported) {
+        tab.classList.remove("disabled");
+        tab.removeAttribute("title");
+      } else {
+        tab.classList.add("disabled");
+        tab.setAttribute("title", currentLang === 'si' 
+          ? `මෙම ප්‍රින්ටරයේ (${support.printerName}) මෙම හැකියාව නොමැත` 
+          : `Not supported on ${support.printerName}`);
+      }
+    });
+
+    // If active module is disabled, switch to first available
+    if (!support[specialtyState.activeModule]) {
+      const firstValid = ["passport", "cdDvd", "pvc", "rigid", "roll", "sublimation", "labels", "receipt"].find(m => support[m]);
+      if (firstValid) {
+        switchModuleTab(firstValid);
+      }
+    }
+  }
+
+  // Switch Module Tab
+  function switchModuleTab(modName) {
+    specialtyState.activeModule = modName;
+    const tabs = tabStrip?.querySelectorAll(".specialty-tab");
+    tabs?.forEach(t => {
+      t.classList.toggle("active", t.getAttribute("data-mod") === modName);
+    });
+
+    // Hide all panels, show active
+    document.querySelectorAll(".specialty-panel").forEach(p => p.classList.add("hidden"));
+    const activePanel = document.getElementById(`panelSpecialty${modName.charAt(0).toUpperCase() + modName.slice(1)}`);
+    if (activePanel) {
+      activePanel.classList.remove("hidden");
+    }
+
+    renderActivePreview();
+  }
+
+  // Render Interactive Preview Graphic
+  function renderActivePreview() {
+    const container = document.getElementById("specialtyCanvasInner");
+    const badgeDims = document.getElementById("badgePreviewDimensions");
+    const statFooter = document.getElementById("lblSpecialtyPreviewStat");
+    if (!container) return;
+
+    const mod = specialtyState.activeModule;
+
+    if (mod === "cdDvd") {
+      const outerD = specialtyState.cd.outerDiameterMm;
+      const innerD = specialtyState.cd.innerDiameterMm;
+      const rOuter = outerD / 2;
+      const rInner = innerD / 2;
+      const area = Math.PI * (rOuter * rOuter - rInner * rInner);
+
+      if (badgeDims) badgeDims.textContent = `${outerD.toFixed(1)} mm Ring`;
+      if (statFooter) statFooter.textContent = `Printable Area: ${area.toFixed(1)} mm² • Outer: ${outerD}mm • Inner: ${innerD}mm`;
+
+      const scale = 230 / outerD;
+      const innerPx = innerD * scale;
+
+      container.innerHTML = `
+        <div class="cd-disc-wrap">
+          <div class="cd-disc-outer">
+            <div class="cd-disc-art">
+              <div class="cd-curved-text">${specialtyState.cd.text || "PRINT HELPER DISC ARTWORK"}</div>
+              <div class="material-symbols-rounded" style="font-size:36px; color:#00796b; opacity:0.35;">album</div>
+              <div style="font-size:9px; color:#004d40; letter-spacing:1px;">AUDIO & DATA ARCHIVE</div>
+            </div>
+          </div>
+          <div class="cd-center-hub" style="width:${innerPx}px; height:${innerPx}px;">
+            <span>HUB</span>
+          </div>
+        </div>
+      `;
+    } else if (mod === "pvc") {
+      if (badgeDims) badgeDims.textContent = "CR80 (85.60 x 53.98 mm)";
+      if (statFooter) statFooter.textContent = `Offset: (${specialtyState.pvc.offsetX.toFixed(1)}mm, ${specialtyState.pvc.offsetY.toFixed(1)}mm) • 0.76mm Thickness`;
+
+      container.innerHTML = `
+        <div class="pvc-tray-canvas">
+          <div class="pvc-card-slot">
+            <div class="pvc-card-photo-box">
+              <span class="material-symbols-rounded" style="font-size:36px; color:#bdbdbd;">person</span>
+            </div>
+            <div class="pvc-card-info-col">
+              <span class="pvc-card-name">${specialtyState.pvc.cardholder}</span>
+              <span class="pvc-card-title">${specialtyState.pvc.title}</span>
+              <span class="pvc-card-meta">ID: ${specialtyState.pvc.id}</span>
+              <span class="pvc-card-meta">COLOMBO TECH ENTERPRISE</span>
+              <div style="margin-top:4px; font-family:monospace; font-size:8px; color:#757575;">||| | ||||| || |||| |||</div>
+            </div>
+          </div>
+          ${specialtyState.pvc.slots === 2 ? `
+            <div class="pvc-card-slot" style="opacity:0.85;">
+              <div class="pvc-card-photo-box">
+                <span class="material-symbols-rounded" style="font-size:36px; color:#bdbdbd;">person</span>
+              </div>
+              <div class="pvc-card-info-col">
+                <span class="pvc-card-name">NIMALI SILVA</span>
+                <span class="pvc-card-title">SYSTEM ARCHITECT</span>
+                <span class="pvc-card-meta">ID: EMP-00949</span>
+                <span class="pvc-card-meta">COLOMBO TECH ENTERPRISE</span>
+                <div style="margin-top:4px; font-family:monospace; font-size:8px; color:#757575;">||| | ||||| || |||| |||</div>
+              </div>
+            </div>
+          ` : ""}
+        </div>
+      `;
+    } else if (mod === "passport") {
+      const isA4 = specialtyState.passport.paper === "A4";
+      const sheetW = isA4 ? 210 : 101.6;
+      const sheetH = isA4 ? 297 : 152.4;
+      const pW = specialtyState.passport.photoWidthMm;
+      const pH = specialtyState.passport.photoHeightMm;
+      const gap = 2;
+      const margin = 5;
+
+      const cols = Math.floor((sheetW - margin * 2 + gap) / (pW + gap));
+      const rows = Math.floor((sheetH - margin * 2 + gap) / (pH + gap));
+      const totalFit = Math.max(1, cols * rows);
+
+      if (badgeDims) badgeDims.textContent = `${pW}x${pH} mm on ${isA4 ? "A4" : "4x6\""}`;
+      if (statFooter) statFooter.textContent = `Yield: ${totalFit} photos (${cols} cols x ${rows} rows) • Crop Guides: ${specialtyState.passport.guides}`;
+
+      const cells = Array.from({ length: Math.min(totalFit, isA4 ? 24 : 8) }).map(() => `
+        <div class="passport-cell" style="width:40px; height:50px;">
+          <span class="material-symbols-rounded" style="font-size:18px; color:#64b5f6;">person</span>
+        </div>
+      `).join("");
+
+      container.innerHTML = `
+        <div class="passport-sheet-canvas" style="grid-template-columns: repeat(${Math.min(cols, 4)}, 40px);">
+          ${cells}
+        </div>
+      `;
+    } else if (mod === "rigid") {
+      const support = getActivePrinterSupport();
+      const thick = specialtyState.rigid.thicknessMm;
+      const limit = support.maxThicknessLimit;
+      const exceeds = thick > limit;
+
+      if (badgeDims) badgeDims.textContent = `${thick.toFixed(2)} mm Thickness`;
+      if (statFooter) statFooter.textContent = `Hardware Limit: ${limit.toFixed(2)} mm • ${exceeds ? "EXCEEDED" : "SAFE"}`;
+
+      // Update validation alert box
+      const banner = document.getElementById("bannerRigidValidation");
+      const icon = document.getElementById("iconRigidValidation");
+      const title = document.getElementById("titleRigidValidation");
+      const desc = document.getElementById("descRigidValidation");
+
+      if (banner && title && desc) {
+        if (exceeds) {
+          banner.className = "alert-box alert-danger";
+          if (icon) icon.textContent = "error";
+          title.textContent = currentLang === 'si' ? "යාන්ත්‍රික අනතුරක් (Head-Strike Risk)" : "Mechanical Strike Hazard!";
+          desc.textContent = currentLang === 'si'
+            ? `කඩදාසියේ ඝනකම (${thick.toFixed(2)} mm) ප්‍රින්ටරයේ සීමාවට (${limit.toFixed(2)} mm) වඩා වැඩිය. ප්‍රින්ට් නොකරන්න.`
+            : `Selected thickness (${thick.toFixed(2)} mm) exceeds limit (${limit.toFixed(2)} mm) by ${(thick - limit).toFixed(2)} mm. Printing will cause head strike.`;
+        } else {
+          banner.className = "alert-box alert-success";
+          if (icon) icon.textContent = "check_circle";
+          title.textContent = currentLang === 'si' ? "ආරක්ෂිත ඝනකම (Safe Thickness)" : "Safe Media Thickness";
+          desc.textContent = currentLang === 'si'
+            ? `ඝනකම ආරක්ෂිත සීමාවේ පවතී. පසුපස සෘජු මාර්ගය (Rear straight pass) භාවිතා කරන්න.`
+            : `Thickness is within safe limits for straight-through rear manual feeder (up to ${limit.toFixed(2)} mm).`;
+        }
+      }
+
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
+          <div style="width:240px; height:${Math.min(160, Math.max(20, thick * 80))}px; background:#e0e0e0; border:2px solid ${exceeds ? '#d32f2f' : '#388e3c'}; border-radius:4px; display:flex; align-items:center; justify-content:center; font-weight:bold; color:#424242;">
+            ${thick.toFixed(2)} mm Board
+          </div>
+          <div class="diagram-pill">${thick >= 0.5 ? "Rear Straight-Through Slot" : "Standard Friction Feed"}</div>
+        </div>
+      `;
+    } else if (mod === "roll") {
+      if (badgeDims) badgeDims.textContent = `${specialtyState.roll.widthInches}" Roll Width`;
+      if (statFooter) statFooter.textContent = `Auto-cut: ${specialtyState.roll.autoCut} • Borderless: ${specialtyState.roll.borderless}`;
+
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="width:220px; height:280px; background:#fafafa; border:2px solid #009688; border-radius:4px; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.06);">
+            <span class="material-symbols-rounded" style="font-size:48px; color:#009688; opacity:0.5;">panorama_horizontal</span>
+            <span style="font-size:12px; font-weight:bold; margin-top:8px;">CONTINUOUS ROLL</span>
+            <span style="font-size:10px; color:#757575;">Width: ${specialtyState.roll.widthInches}" • Rotary Blade Ready</span>
+          </div>
+        </div>
+      `;
+    } else if (mod === "sublimation") {
+      if (badgeDims) badgeDims.textContent = "Auto-Mirror Locked ON";
+      if (statFooter) statFooter.textContent = `Template: ${specialtyState.sublimation.widthMm} x ${specialtyState.sublimation.heightMm} mm`;
+
+      container.innerHTML = `
+        <div class="sublimation-preview-grid">
+          <div class="sublimation-col">
+            <span style="font-size:11px; font-weight:600;">Original Artwork</span>
+            <div class="sublimation-box">
+              <span class="material-symbols-rounded" style="font-size:32px; color:#00796b;">coffee</span>
+              <span>SRI LANKA</span>
+              <span style="font-size:9px; color:#616161;">2026 EDITION</span>
+            </div>
+          </div>
+          <span class="material-symbols-rounded" style="color:#009688; font-size:28px;">arrow_forward</span>
+          <div class="sublimation-col">
+            <span style="font-size:11px; font-weight:600; color:#009688;">Mirrored Transfer (Face-Down)</span>
+            <div class="sublimation-box mirrored">
+              <span class="material-symbols-rounded" style="font-size:32px; color:#00796b;">coffee</span>
+              <span>SRI LANKA</span>
+              <span style="font-size:9px; color:#616161;">2026 EDITION</span>
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (mod === "labels") {
+      if (badgeDims) badgeDims.textContent = "Die-Cut 4x3\" Label";
+      if (statFooter) statFooter.textContent = `Barcode: ${specialtyState.labels.barcode} • Action: ${specialtyState.labels.dispense}`;
+
+      container.innerHTML = `
+        <div style="width:200px; height:150px; background:#ffffff; border:2px solid #009688; border-radius:6px; padding:12px; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 2px 6px rgba(0,0,0,0.08);">
+          <div style="font-size:11px; font-weight:bold;">CHEMICAL SAFETY LABEL</div>
+          <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
+            <div style="width:30px; height:30px; border:2px solid #d32f2f; transform:rotate(45deg); display:flex; align-items:center; justify-content:center;">
+              <span class="material-symbols-rounded" style="transform:rotate(-45deg); font-size:16px; color:#d32f2f;">local_fire_department</span>
+            </div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:monospace; font-size:10px; letter-spacing:2px;">||| | |||| || |||</div>
+            <div style="font-size:9px; font-family:monospace;">${specialtyState.labels.barcode}</div>
+          </div>
+        </div>
+      `;
+    } else if (mod === "receipt") {
+      const is80 = specialtyState.receipt.width === "80mm";
+      if (badgeDims) badgeDims.textContent = `${is80 ? "80mm (48 cols)" : "58mm (32 cols)"} Thermal`;
+      if (statFooter) statFooter.textContent = `Auto-cut: ${specialtyState.receipt.autoCut} • ESC/POS GS V 0`;
+
+      container.innerHTML = `
+        <div class="receipt-paper-box" style="width:${is80 ? '240px' : '190px'};">
+          <div style="text-align:center; font-weight:bold;">PRINT HELPER COPY CENTER</div>
+          <div style="text-align:center; font-size:8.5px;">142 High Level Rd, Nugegoda</div>
+          <div style="text-align:center; font-size:8.5px;">Tel: +94 11 282 5590</div>
+          <div>--------------------------------</div>
+          <div>INV: INV-2026-1049  2026-10-27</div>
+          <div>CASHIER: SUNIL    CUST: WALK-IN</div>
+          <div>--------------------------------</div>
+          <div>A4 B&W Copies x25     Rs. 300.00</div>
+          <div>Glossy Photo 4x6" x4   Rs. 200.00</div>
+          <div>--------------------------------</div>
+          <div>SUBTOTAL:             Rs. 500.00</div>
+          <div>DISCOUNT:            -Rs.  25.00</div>
+          <div style="font-weight:bold;">TOTAL PAID (CASH):   Rs. 475.00</div>
+          <div>================================</div>
+          <div style="text-align:center; margin-top:8px;">THANK YOU FOR YOUR BUSINESS!</div>
+          <div style="text-align:center; font-size:8px; color:#757575;">[ PAPER CUT COMMAND ]</div>
+        </div>
+      `;
+    }
+  }
+
+  // Bind Event Listeners
+  btnOpen.addEventListener("click", () => {
+    updateTabsState();
+    modal.classList.remove("hidden");
+    renderActivePreview();
+  });
+
+  [btnClose, btnCancel].forEach(b => {
+    if (b) b.addEventListener("click", () => modal.classList.add("hidden"));
+  });
+
+  btnPrintSpooler?.addEventListener("click", () => {
+    modal.classList.add("hidden");
+    showToast(currentLang === 'si' 
+      ? `🖨️ විශේෂිත මුද්‍රණ කාර්යය Windows Spooler වෙත යවන ලදී!` 
+      : `🖨️ Specialty print job dispatched to Windows Spooler safely!`);
+  });
+
+  // Tab switching clicks
+  tabStrip?.querySelectorAll(".specialty-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      if (tab.classList.contains("disabled")) {
+        const support = getActivePrinterSupport();
+        showToast(currentLang === 'si' 
+          ? `මෙම විකල්පය සක්‍රිය ප්‍රින්ටරයේ (${support.printerName}) සහාය නොදක්වයි` 
+          : `This feature is not supported on ${support.printerName}`);
+        return;
+      }
+      const mod = tab.getAttribute("data-mod");
+      if (mod) switchModuleTab(mod);
+    });
+  });
+
+  // CD/DVD Event Listeners
+  const rngOuter = document.getElementById("rngOuterDia");
+  const valOuter = document.getElementById("valOuterDia");
+  if (rngOuter && valOuter) {
+    rngOuter.addEventListener("input", (e) => {
+      const val = parseFloat(e.target.value);
+      specialtyState.cd.outerDiameterMm = val;
+      valOuter.textContent = `${val.toFixed(1)} mm`;
+      renderActivePreview();
+    });
+  }
+
+  const rngInner = document.getElementById("rngInnerDia");
+  const valInner = document.getElementById("valInnerDia");
+  if (rngInner && valInner) {
+    rngInner.addEventListener("input", (e) => {
+      const val = parseFloat(e.target.value);
+      specialtyState.cd.innerDiameterMm = val;
+      valInner.textContent = `${val.toFixed(1)} mm`;
+      renderActivePreview();
+    });
+  }
+
+  const btnDisc12 = document.getElementById("btnDisc12cm");
+  const btnDisc8 = document.getElementById("btnDisc8cm");
+  btnDisc12?.addEventListener("click", () => {
+    btnDisc12.classList.add("active");
+    btnDisc8?.classList.remove("active");
+    specialtyState.cd.outerDiameterMm = 116.0;
+    specialtyState.cd.innerDiameterMm = 43.0;
+    if (rngOuter) rngOuter.value = "116";
+    if (rngInner) rngInner.value = "43";
+    if (valOuter) valOuter.textContent = "116.0 mm";
+    if (valInner) valInner.textContent = "43.0 mm";
+    renderActivePreview();
+  });
+  btnDisc8?.addEventListener("click", () => {
+    btnDisc8.classList.add("active");
+    btnDisc12?.classList.remove("active");
+    specialtyState.cd.outerDiameterMm = 80.0;
+    specialtyState.cd.innerDiameterMm = 18.0;
+    if (rngOuter) rngOuter.value = "80";
+    if (rngInner) rngInner.value = "18";
+    if (valOuter) valOuter.textContent = "80.0 mm";
+    if (valInner) valInner.textContent = "18.0 mm";
+    renderActivePreview();
+  });
+
+  const inputCdText = document.getElementById("inputCircularText");
+  inputCdText?.addEventListener("input", (e) => {
+    specialtyState.cd.text = e.target.value;
+    renderActivePreview();
+  });
+
+  const btnPrintCdTest = document.getElementById("btnPrintCdTestPattern");
+  const badgeCdVerified = document.getElementById("badgeCdTestVerified");
+  const iconCdCheck = document.getElementById("iconCdTestCheck");
+  const guardrailCd = document.getElementById("guardrailCdDvd");
+  btnPrintCdTest?.addEventListener("click", () => {
+    specialtyState.cd.testPrintDone = true;
+    badgeCdVerified?.classList.remove("hidden");
+    if (iconCdCheck) {
+      iconCdCheck.textContent = "check_circle";
+      iconCdCheck.style.color = "#2e7d32";
+    }
+    guardrailCd?.classList.add("verified");
+    showToast(currentLang === 'si' 
+      ? "📄 1:1 පෙර-පරීක්ෂණ සැකිල්ල සාමාන්‍ය කොළයේ මුද්‍රණය විය!" 
+      : "📄 1:1 Plain paper alignment test target sent to spooler!");
+  });
+
+  // PVC Event Listeners
+  const btnPvc2 = document.getElementById("btnPvc2Slots");
+  const btnPvc1 = document.getElementById("btnPvc1Slot");
+  btnPvc2?.addEventListener("click", () => {
+    btnPvc2.classList.add("active");
+    btnPvc1?.classList.remove("active");
+    specialtyState.pvc.slots = 2;
+    renderActivePreview();
+  });
+  btnPvc1?.addEventListener("click", () => {
+    btnPvc1.classList.add("active");
+    btnPvc2?.classList.remove("active");
+    specialtyState.pvc.slots = 1;
+    renderActivePreview();
+  });
+
+  document.getElementById("chkConfirmInkjetPvc")?.addEventListener("change", (e) => {
+    specialtyState.pvc.inkjetConfirmed = e.target.checked;
+  });
+
+  document.getElementById("chkAftermarketTray")?.addEventListener("change", (e) => {
+    specialtyState.pvc.aftermarketTray = e.target.checked;
+    updateTabsState();
+  });
+
+  const rngPvcX = document.getElementById("rngPvcOffsetX");
+  const valPvcX = document.getElementById("valPvcOffsetX");
+  rngPvcX?.addEventListener("input", (e) => {
+    specialtyState.pvc.offsetX = parseFloat(e.target.value);
+    if (valPvcX) valPvcX.textContent = `${specialtyState.pvc.offsetX.toFixed(1)} mm`;
+    renderActivePreview();
+  });
+
+  const rngPvcY = document.getElementById("rngPvcOffsetY");
+  const valPvcY = document.getElementById("valPvcOffsetY");
+  rngPvcY?.addEventListener("input", (e) => {
+    specialtyState.pvc.offsetY = parseFloat(e.target.value);
+    if (valPvcY) valPvcY.textContent = `${specialtyState.pvc.offsetY.toFixed(1)} mm`;
+    renderActivePreview();
+  });
+
+  document.getElementById("btnImportPvcCsv")?.addEventListener("click", () => {
+    showToast(currentLang === 'si' ? "📁 CSV කාඩ්පත් ලැයිස්තුව සාර්ථකව පූරණය විය (කාඩ්පත් 12)" : "📁 Loaded 12 cardholder records from CSV batch!");
+  });
+
+  // Passport Event Listeners
+  document.getElementById("selPassportPreset")?.addEventListener("change", (e) => {
+    specialtyState.passport.preset = e.target.value;
+    if (e.target.value === "35x45") { specialtyState.passport.photoWidthMm = 35; specialtyState.passport.photoHeightMm = 45; }
+    if (e.target.value === "51x51") { specialtyState.passport.photoWidthMm = 51; specialtyState.passport.photoHeightMm = 51; }
+    if (e.target.value === "30x40") { specialtyState.passport.photoWidthMm = 30; specialtyState.passport.photoHeightMm = 40; }
+    if (e.target.value === "35x35") { specialtyState.passport.photoWidthMm = 35; specialtyState.passport.photoHeightMm = 35; }
+    renderActivePreview();
+  });
+
+  const btnP4x6 = document.getElementById("btnPaper4x6");
+  const btnPA4 = document.getElementById("btnPaperA4");
+  btnP4x6?.addEventListener("click", () => {
+    btnP4x6.classList.add("active");
+    btnPA4?.classList.remove("active");
+    specialtyState.passport.paper = "4x6";
+    renderActivePreview();
+  });
+  btnPA4?.addEventListener("click", () => {
+    btnPA4.classList.add("active");
+    btnP4x6?.classList.remove("active");
+    specialtyState.passport.paper = "A4";
+    renderActivePreview();
+  });
+
+  document.getElementById("selCropGuides")?.addEventListener("change", (e) => {
+    specialtyState.passport.guides = e.target.value;
+    renderActivePreview();
+  });
+
+  // Rigid Event Listeners
+  const rngThick = document.getElementById("rngMediaThickness");
+  const valThick = document.getElementById("valMediaThickness");
+  rngThick?.addEventListener("input", (e) => {
+    const val = parseFloat(e.target.value);
+    specialtyState.rigid.thicknessMm = val;
+    if (valThick) valThick.textContent = `${val.toFixed(2)} mm`;
+    renderActivePreview();
+  });
+
+  // Roll Event Listeners
+  document.getElementById("selRollWidth")?.addEventListener("change", (e) => {
+    specialtyState.roll.widthInches = parseFloat(e.target.value);
+    renderActivePreview();
+  });
+
+  document.getElementById("selAutoCutMode")?.addEventListener("change", (e) => {
+    specialtyState.roll.autoCut = e.target.value;
+    renderActivePreview();
+  });
+
+  // Sublimation Event Listeners
+  document.getElementById("selSublimationItem")?.addEventListener("change", (e) => {
+    specialtyState.sublimation.item = e.target.value;
+    if (e.target.value === "mug11") { specialtyState.sublimation.widthMm = 200; specialtyState.sublimation.heightMm = 95; }
+    if (e.target.value === "mug15") { specialtyState.sublimation.widthMm = 220; specialtyState.sublimation.heightMm = 105; }
+    if (e.target.value === "tshirtA4") { specialtyState.sublimation.widthMm = 210; specialtyState.sublimation.heightMm = 297; }
+    if (e.target.value === "lanyard") { specialtyState.sublimation.widthMm = 900; specialtyState.sublimation.heightMm = 20; }
+    if (e.target.value === "mousepad") { specialtyState.sublimation.widthMm = 230; specialtyState.sublimation.heightMm = 190; }
+    renderActivePreview();
+  });
+
+  // Receipt Event Listeners
+  const btnRcpt80 = document.getElementById("btnReceipt80mm");
+  const btnRcpt58 = document.getElementById("btnReceipt58mm");
+  btnRcpt80?.addEventListener("click", () => {
+    btnRcpt80.classList.add("active");
+    btnRcpt58?.classList.remove("active");
+    specialtyState.receipt.width = "80mm";
+    renderActivePreview();
+  });
+  btnRcpt58?.addEventListener("click", () => {
+    btnRcpt58.classList.add("active");
+    btnRcpt80?.classList.remove("active");
+    specialtyState.receipt.width = "58mm";
+    renderActivePreview();
+  });
+
+  // Watch for printer changes in the main window
+  const selPrinter = document.getElementById("selPrinter");
+  selPrinter?.addEventListener("change", () => {
+    updateTabsState();
+    renderActivePreview();
+  });
+
+  // Initial render
+  updateTabsState();
+  renderActivePreview();
+}
+
+// ============================================================================
+// Multi-Printer Fleet Dashboard & Intelligent Routing Engine
+// ============================================================================
+function initMultiPrinterDashboard() {
+  // 1. Subnet Scan Modal
+  const modalSubnet = document.getElementById("subnetScanModal");
+  const btnTriggerSubnet = document.getElementById("btnTriggerSubnetScan");
+  const btnCloseSubnet = document.getElementById("btnCloseSubnetScanModal");
+  const btnCancelSubnet = document.getElementById("btnCancelSubnetScan");
+  const btnAuthSubnet = document.getElementById("btnAuthorizeSubnetScan");
+  const inputCidr = document.getElementById("inputTargetSubnetCidr");
+
+  btnTriggerSubnet?.addEventListener("click", () => {
+    modalSubnet?.classList.remove("hidden");
+  });
+
+  const hideSubnetModal = () => modalSubnet?.classList.add("hidden");
+  btnCloseSubnet?.addEventListener("click", hideSubnetModal);
+  btnCancelSubnet?.addEventListener("click", hideSubnetModal);
+
+  btnAuthSubnet?.addEventListener("click", () => {
+    const cidr = inputCidr ? inputCidr.value.trim() : "192.168.1.0/24";
+    subnetScanConsentGranted = true;
+    hideSubnetModal();
+    const isSi = currentLang === "si";
+    const msg = isSi
+      ? `📡 ${cidr} ජාලයේ IP 254 ක් SNMP සහ IPP මඟින් පරීක්ෂා කර ප්‍රින්ටර් 4 ක් සොයා ගන්නා ලදී.`
+      : `📡 Scanned 254 hosts on ${cidr} via IPP & SNMP. Discovered 4 network printers.`;
+    showToast(msg);
+    renderPrintersGrid();
+  });
+
+  // 2. Simulation Trigger Dropdown
+  const btnSimTrigger = document.getElementById("btnSimulateRoutingTrigger");
+  const simMenu = document.getElementById("simulateRoutingDropdown");
+
+  btnSimTrigger?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    simMenu?.classList.toggle("hidden");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!btnSimTrigger?.contains(e.target) && !simMenu?.contains(e.target)) {
+      simMenu?.classList.add("hidden");
+    }
+  });
+
+  // 3. Routing Simulation Options & Failover Modal
+  const modalFailover = document.getElementById("routingFailoverModal");
+  const btnCloseFailover = document.getElementById("btnCloseFailoverModal");
+  const btnKeepQueue = document.getElementById("btnKeepInQueue");
+  const btnApproveReroute = document.getElementById("btnApproveReroute");
+
+  const hideFailoverModal = () => modalFailover?.classList.add("hidden");
+  btnCloseFailover?.addEventListener("click", hideFailoverModal);
+  btnKeepQueue?.addEventListener("click", hideFailoverModal);
+
+  btnApproveReroute?.addEventListener("click", () => {
+    hideFailoverModal();
+    selectedPrinterId = "epson_l8050";
+    renderPrinterDropdown();
+    renderPrintersGrid();
+    updateLivePrinterPanel();
+    validateDependenciesAndAutoFixes();
+    updateLiveSummary();
+    const isSi = currentLang === "si";
+    showToast(
+      isSi
+        ? "🔀 ක්‍රියාවිරහිත SC-P900 වෙනුවට Studio Photo L8050 වෙත රැකියාව මාරු කරන ලදී."
+        : "🔀 Job approved & rerouted from SC-P900 to Studio Photo L8050."
+    );
+  });
+
+  simMenu?.querySelectorAll(".dropdown-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      simMenu.classList.add("hidden");
+      const simType = btn.dataset.sim;
+      const isSi = currentLang === "si";
+
+      if (simType === "pvc") {
+        const msg = isSi
+          ? "PVC ID කාඩ්පත් මුද්‍රණය සඳහා විශේෂිත තැටි මාර්ගෝපදේශයක් අවශ්‍ය බැවින් Studio Photo L8050 වෙත යොමු කරන ලදී."
+          : "Routed to Studio Photo L8050 because PVC ID card printing requires a dedicated card tray guide.";
+        showToast(`🖨️ ${msg}`);
+      } else if (simType === "cd") {
+        const msg = isSi
+          ? "CD/DVD තැටි මුද්‍රණය සඳහා විශේෂිත තැටි මාර්ගෝපදේශයක් අවශ්‍ය බැවින් Studio Photo L8050 වෙත යොමු කරන ලදී."
+          : "Routed to Studio Photo L8050 because optical disc label printing requires a direct CD/DVD tray guide.";
+        showToast(`🖨️ ${msg}`);
+      } else if (simType === "heavy_doc") {
+        const msg = isSi
+          ? "පිටු 150 ක විශාල ලේඛනයක් බැවින් අධිවේගී ද්විත්ව මුද්‍රණය සහ අඩු පිරිවැය සහිත RIPS තීන්ත ඇසුරුම් ඇති WF-C5890 වෙත යොමු කරන ලදී."
+          : "Routed 150-page document to Production WF-C5890 for high-speed hardware duplex and low cost-per-page RIPS ink packs.";
+        showToast(`🖨️ ${msg}`);
+      } else if (simType === "offline_reroute") {
+        modalFailover?.classList.remove("hidden");
+      }
+    });
+  });
+
+  // 4. Fleet Routing Rules Modal
+  const modalRules = document.getElementById("fleetRoutingRulesModal");
+  const btnOpenRules = document.getElementById("btnOpenFleetRoutingRules");
+  const btnCloseRules = document.getElementById("btnCloseRoutingRulesModal");
+  const btnSaveRules = document.getElementById("btnSaveRoutingRules");
+
+  btnOpenRules?.addEventListener("click", () => {
+    modalRules?.classList.remove("hidden");
+  });
+
+  const hideRulesModal = () => modalRules?.classList.add("hidden");
+  btnCloseRules?.addEventListener("click", hideRulesModal);
+  btnSaveRules?.addEventListener("click", () => {
+    hideRulesModal();
+    const isSi = currentLang === "si";
+    showToast(isSi ? "✅ මාර්ගගත කිරීමේ නීති සාර්ථකව සුරකින ලදී." : "✅ Fleet routing policies saved and applied.");
+  });
+
+  // 5. Low Supply Threshold Select
+  const selThreshold = document.getElementById("fleetLowSupplyThresholdSelect");
+  selThreshold?.addEventListener("change", (e) => {
+    fleetLowSupplyThreshold = parseFloat(e.target.value);
+    renderPrintersGrid();
+  });
+
+  // 6. Filter Chips
+  const filterChips = document.querySelectorAll("#tabPrinters .filter-chips-row .filter-chip");
+  filterChips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      filterChips.forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      activeFilter = chip.dataset.filter || "all";
+      renderPrintersGrid();
+    });
+  });
+}
+
+

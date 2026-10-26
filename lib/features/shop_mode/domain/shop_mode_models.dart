@@ -330,6 +330,10 @@ class ShopFilePricingBreakdown {
   final String matchedRuleLabelEn;
   final String matchedRuleLabelSi;
   final double unitPricePerImpression;
+  final double resolutionSurcharge;
+  final int resolutionDpi;
+  final double inkCoveragePercent;
+  final double inkSaverSavings;
   final double lineSubtotal;
   final double estimatedInkCost;
   final double estimatedPaperCost;
@@ -343,6 +347,10 @@ class ShopFilePricingBreakdown {
     required this.matchedRuleLabelEn,
     required this.matchedRuleLabelSi,
     required this.unitPricePerImpression,
+    this.resolutionSurcharge = 0.0,
+    this.resolutionDpi = 600,
+    this.inkCoveragePercent = 5.0,
+    this.inkSaverSavings = 0.0,
     required this.lineSubtotal,
     required this.estimatedInkCost,
     required this.estimatedPaperCost,

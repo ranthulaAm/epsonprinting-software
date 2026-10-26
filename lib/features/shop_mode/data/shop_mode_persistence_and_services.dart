@@ -275,16 +275,28 @@ class ShopPricingAndReceiptService {
         rules: priceRules,
       );
 
-      final unitPrice = matchedRule.pricePerPage;
+      // High quality DPI surcharge (e.g. 1440+ DPI photo grade)
+      final double resSurchargePerImpression = (s.targetDpi >= 1440 || s.quality == PrintQualityMode.high)
+          ? 25.0
+          : 0.0;
+      final unitPrice = matchedRule.pricePerPage + resSurchargePerImpression;
       final lineSub = impressions * unitPrice;
 
-      // Estimated ink/toner cost
-      final double inkPerImpression = s.isColor
+      // Estimated ink/toner cost with ink coverage and ink saver discount
+      double inkSaverSavingsPct = 0.0;
+      if (s.toneAndInkMap != null && s.toneAndInkMap!['inkSaverEnabled'] == true) {
+        inkSaverSavingsPct = 28.0; // Standard balanced saver ~28%
+      }
+      final double inkPerImpressionRaw = s.isColor
           ? (isPhoto
               ? costConfig.estimatedColorInkCostPerPage * 1.45
               : costConfig.estimatedColorInkCostPerPage)
           : costConfig.estimatedBlackInkCostPerPage;
+      final double inkPerImpression = inkSaverSavingsPct > 0
+          ? inkPerImpressionRaw * (1.0 - (inkSaverSavingsPct / 100.0))
+          : inkPerImpressionRaw;
       final estInk = impressions * inkPerImpression;
+      final estSavings = impressions * (inkPerImpressionRaw - inkPerImpression);
 
       // Estimated paper cost
       final double sheetCost = _sheetCostForPaper(s.paperSize, s.mediaType, costConfig);
@@ -314,6 +326,10 @@ class ShopPricingAndReceiptService {
           matchedRuleLabelEn: matchedRule.labelEn,
           matchedRuleLabelSi: matchedRule.labelSi,
           unitPricePerImpression: unitPrice,
+          resolutionSurcharge: resSurchargePerImpression * impressions,
+          resolutionDpi: s.targetDpi,
+          inkCoveragePercent: 5.0,
+          inkSaverSavings: estSavings,
           lineSubtotal: lineSub,
           estimatedInkCost: estInk,
           estimatedPaperCost: estPaper,

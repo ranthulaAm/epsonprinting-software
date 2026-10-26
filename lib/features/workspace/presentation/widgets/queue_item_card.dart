@@ -4,6 +4,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../domain/print_queue_item.dart';
+import '../../domain/resolution_system_models.dart';
+import 'photo_size_helper_dialog.dart';
 
 class QueueItemCard extends StatelessWidget {
   const QueueItemCard({
@@ -100,6 +102,38 @@ class QueueItemCard extends StatelessWidget {
                             color: colorScheme.surfaceContainerHighest,
                             textColor: colorScheme.onSurfaceVariant,
                           ),
+                          // Effective PPI Sharpness Chip
+                          () {
+                            final ppi = (item.documentType == PrintDocumentType.image) ? 96.0 : 300.0;
+                            final rating = PpiQualityRating.fromPpi(ppi);
+                            return Tooltip(
+                              message: strings.isSi ? rating.labelSi : rating.labelEn,
+                              child: InkWell(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => PhotoSizeHelperDialog(
+                                      pixelWidth: (item.documentType == PrintDocumentType.image) ? 800 : 2480,
+                                      pixelHeight: (item.documentType == PrintDocumentType.image) ? 600 : 3508,
+                                      fileName: item.fileName,
+                                      currentPaperSize: item.settings.paperSize ?? 'A4',
+                                      strings: strings,
+                                      onSelectSize: (chosen) {
+                                        onUpdateSettings(item.settings.copyWith(paperSize: chosen));
+                                      },
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(6),
+                                child: _BadgeChip(
+                                  icon: rating.icon,
+                                  label: '${ppi.round()} PPI',
+                                  color: rating.color.withOpacity(0.14),
+                                  textColor: rating.color,
+                                ),
+                              ),
+                            );
+                          }(),
                         ],
                       ),
                     ],
