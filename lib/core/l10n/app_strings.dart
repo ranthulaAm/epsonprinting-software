@@ -71,6 +71,15 @@ class AppStrings {
   String get navSettings => _lookup('navSettings');
   String get navPresets => _lookup('navPresets');
 
+  // Print option labels (queue card & preview dialog)
+  String get bwLabel => _lookup('bwLabel');
+  String get colorLabel => _lookup('colorLabel');
+  String get duplexNone => _lookup('duplexNone');
+  String get duplexLongEdge => _lookup('duplexLongEdge');
+  String get duplexShortEdge => _lookup('duplexShortEdge');
+  String get advancedOptions => _lookup('advancedOptions');
+  String get reorderHint => _lookup('reorderHint');
+
   // Title Bar & System
   String get appTitle => _lookup('appTitle');
   String get offlineBadge => _lookup('offlineBadge');
@@ -313,6 +322,13 @@ class AppStrings {
     'pageRangeCustom': 'Custom Pages',
     'pageRangeHint': 'e.g. 1-3, 5',
     'paperTypeLabel': 'Paper Type',
+    'bwLabel': 'Black & White',
+    'colorLabel': 'Color',
+    'duplexNone': 'One-sided',
+    'duplexLongEdge': 'Two-sided (long edge)',
+    'duplexShortEdge': 'Two-sided (short edge)',
+    'advancedOptions': 'Advanced options',
+    'reorderHint': 'Drag to reorder',
     'paperTypePlain': 'Plain Paper',
     'paperTypeMatte': 'Matte Paper',
     'paperTypeGlossy': 'Glossy Photo Paper',
@@ -471,6 +487,13 @@ class AppStrings {
     'pageRangeCustom': 'තෝරාගත් පිටු',
     'pageRangeHint': 'උදා: 1-3, 5',
     'paperTypeLabel': 'කඩදාසි වර්ගය',
+    'bwLabel': 'කළු සහ සුදු',
+    'colorLabel': 'වර්ණ',
+    'duplexNone': 'එක් පැත්තක්',
+    'duplexLongEdge': 'පැති දෙකම (දිගු දාරය)',
+    'duplexShortEdge': 'පැති දෙකම (කෙටි දාරය)',
+    'advancedOptions': 'උසස් විකල්ප',
+    'reorderHint': 'නැවත පිළිවෙළ කිරීමට ඇදගෙන යන්න',
     'paperTypePlain': 'සාමාන්‍ය කඩදාසි',
     'paperTypeMatte': 'මැට් කඩදාසි',
     'paperTypeGlossy': 'ග්ලොසි ෆොටෝ කඩදාසි',

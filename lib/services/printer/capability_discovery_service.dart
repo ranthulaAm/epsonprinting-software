@@ -561,7 +561,7 @@ class CapabilityDiscoveryService {
       abilitySources['paperSizes'] = CapabilitySourceEntry(
         featureKey: 'paperSizes',
         source: CapabilitySource.profileDb,
-        confidence: TelemetryConfidence.verified,
+        confidence: TelemetryConfidence.high,
         details: 'Loaded from ${family['familyId']}',
       );
     } else {
@@ -581,7 +581,7 @@ class CapabilityDiscoveryService {
       abilitySources['mediaTypes'] = CapabilitySourceEntry(
         featureKey: 'mediaTypes',
         source: CapabilitySource.profileDb,
-        confidence: TelemetryConfidence.verified,
+        confidence: TelemetryConfidence.high,
         details: 'Exposed media types from profile',
       );
     } else {
@@ -610,7 +610,7 @@ class CapabilityDiscoveryService {
       abilitySources['trays'] = const CapabilitySourceEntry(
         featureKey: 'trays',
         source: CapabilitySource.profileDb,
-        confidence: TelemetryConfidence.verified,
+        confidence: TelemetryConfidence.high,
       );
     } else {
       trays.add('Auto Select');
@@ -632,7 +632,7 @@ class CapabilityDiscoveryService {
       abilitySources['duplex'] = const CapabilitySourceEntry(
         featureKey: 'duplex',
         source: CapabilitySource.profileDb,
-        confidence: TelemetryConfidence.verified,
+        confidence: TelemetryConfidence.high,
         details: 'Manual-only duplex supported via Print Helper Assistant',
       );
     }

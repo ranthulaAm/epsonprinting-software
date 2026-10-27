@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:antigravity_pdf_gear/features/workspace/domain/print_queue_item.dart';
-import 'package:antigravity_pdf_gear/features/workspace/domain/print_settings_models.dart';
-import 'package:antigravity_pdf_gear/features/shop_mode/domain/shop_mode_models.dart';
-import 'package:antigravity_pdf_gear/features/shop_mode/domain/shop_pricing_engine_models.dart';
-import 'package:antigravity_pdf_gear/features/shop_mode/data/shop_pricing_engine_service.dart';
+import 'package:print_helper/features/workspace/domain/print_queue_item.dart';
+import 'package:print_helper/features/workspace/domain/print_settings_models.dart';
+import 'package:print_helper/features/shop_mode/domain/shop_mode_models.dart';
+import 'package:print_helper/features/shop_mode/domain/shop_pricing_engine_models.dart';
+import 'package:print_helper/features/shop_mode/data/shop_pricing_engine_service.dart';
 
 void main() {
   const service = ShopPricingEngineService();

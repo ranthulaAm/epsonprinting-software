@@ -157,7 +157,7 @@ class LocalOnDeviceHeuristicPluginStub implements IAiPlugin {
     required AiConsentGrant consent,
   }) async {
     final isMultiPage = item.pageCount >= 2;
-    final isTextOrMd = item.documentType == PrintDocumentType.text ||
+    final isTextOrMd = item.documentType == PrintDocumentType.plainText ||
         item.documentType == PrintDocumentType.markdown;
     final suggested = item.settings.copyWith(
       duplex: isMultiPage ? DuplexMode.longEdge : DuplexMode.none,

@@ -526,3 +526,17 @@ abstract final class DesktopTheme {
     );
   }
 }
+
+/// Compatibility tokens used by the specialty printing dialog.
+///
+/// Values are aligned to the light [DesktopPalette] (single slate-blue accent,
+/// no teal) so they compile in `const` contexts. TODO: migrate the dialog to
+/// `DesktopPalette.of(context)` so it follows dark mode.
+abstract final class DesktopColors {
+  static const Color accentTeal = Color(0xFF0F548C); // == DesktopPalette.light.accent
+  static const Color dialogBackground = Color(0xFFFFFFFF);
+  static const Color dialogBorder = Color(0xFFD8DEE4);
+  static const Color dialogHeaderBackground = Color(0xFFF0F2F5);
+  static const Color menuBackground = Color(0xFFF0F2F5);
+  static const Color previewBackground = Color(0xFFF5F6F8);
+}

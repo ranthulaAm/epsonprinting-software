@@ -1,4 +1,4 @@
-import '../../../features/workspace/domain/print_queue_item.dart';
+import '../../features/workspace/domain/print_queue_item.dart';
 import 'models/ai_models.dart';
 
 /// Metadata describing an installable or built-in AI plugin for Print Helper.

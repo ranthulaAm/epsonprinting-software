@@ -398,7 +398,7 @@ class PrinterCard extends StatelessWidget {
         return (
           bgColor: scheme.errorContainer,
           fgColor: scheme.onErrorContainer,
-          icon: Icons.SimCardAlert_outlined,
+          icon: Icons.sim_card_alert_outlined,
           label: strings.isSi ? 'කඩදාසි අවසන් (Out of Paper)' : 'Out of Paper',
         );
       case PrinterStatusType.paperJam:

@@ -36,18 +36,18 @@ class PrinterAbilitiesDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = DesktopTheme.of(context).palette;
+    final palette = DesktopPalette.of(context);
 
     return Dialog(
-      backgroundColor: palette.surface,
+      backgroundColor: palette.surfacePrimary,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(DesktopRadius.r8),
-        side: BorderSide(color: palette.border),
+        side: BorderSide(color: palette.borderSubtle),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720, maxHeight: 680),
         child: Padding(
-          padding: const EdgeInsets.all(DesktopSpacing.s20),
+          padding: const EdgeInsets.all(DesktopSpacing.s16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -63,7 +63,7 @@ class PrinterAbilitiesDialog extends StatelessWidget {
                     ),
                     child: Icon(Icons.tune_rounded, color: palette.accent, size: 20),
                   ),
-                  const SizedBox(width: DesktopSpacing.s12),
+                  const SizedBox(width: DesktopSpacing.s16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,7 +94,7 @@ class PrinterAbilitiesDialog extends StatelessWidget {
               // Capabilities Body
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(vertical: DesktopSpacing.s12),
+                  padding: const EdgeInsets.symmetric(vertical: DesktopSpacing.s16),
                   children: [
                     // Family & Supply Technology
                     _buildSectionHeader(
@@ -141,14 +141,14 @@ class PrinterAbilitiesDialog extends StatelessWidget {
                         : 'Sizes: ${capabilities.supportedPaperSizes.join(", ")}',
                       style: DesktopTypography.body14(palette, isSinhala: isSinhala),
                     ),
-                    const SizedBox(height: DesktopSpacing.s6),
+                    const SizedBox(height: DesktopSpacing.s8),
                     Text(
                       isSinhala
                         ? 'මාධ්‍ය වර්ග: ${capabilities.supportedMediaTypes.join(", ")}'
                         : 'Media: ${capabilities.supportedMediaTypes.join(", ")}',
                       style: DesktopTypography.body14(palette, isSinhala: isSinhala),
                     ),
-                    const SizedBox(height: DesktopSpacing.s6),
+                    const SizedBox(height: DesktopSpacing.s8),
                     Text(
                       isSinhala
                         ? 'ඇතුළත් කිරීමේ තැටි: ${capabilities.inputBins.join(", ")}'
@@ -267,7 +267,7 @@ class PrinterAbilitiesDialog extends StatelessWidget {
               ),
 
               const Divider(height: 1),
-              const SizedBox(height: DesktopSpacing.s12),
+              const SizedBox(height: DesktopSpacing.s16),
 
               // Bottom Actions
               Row(
@@ -332,7 +332,7 @@ class PrinterAbilitiesDialog extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, size: 16, color: palette.accent),
-          const SizedBox(width: DesktopSpacing.s6),
+          const SizedBox(width: DesktopSpacing.s8),
           Text(
             title,
             style: DesktopTypography.caption12(palette, weight: FontWeight.w700),

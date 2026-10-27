@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/desktop_design_system.dart';
-import '../../../../core/widgets/desktop_widgets.dart';
+import '../../../core/theme/desktop_design_system.dart';
+import '../../../core/widgets/desktop_widgets.dart';
 import '../data/specialty_printing_service.dart';
 import '../domain/specialty_print_models.dart';
 

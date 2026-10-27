@@ -81,7 +81,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = DesktopTheme.of(context).palette;
+    final palette = DesktopPalette.of(context);
     final isSi = widget.strings.isSi;
 
     // Validate settings against capabilities
@@ -144,7 +144,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
                     },
                     onOpenManualDuplexAssistant: widget.onOpenManualDuplexAssistant,
                   ),
-                  const SizedBox(height: DesktopSpacing.s12),
+                  const SizedBox(height: DesktopSpacing.s16),
 
                   // Tier Content: BASIC
                   if (widget.settings.tier == PrintSettingsTier.basic) ...[
@@ -152,14 +152,14 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
                   ] else if (widget.settings.tier == PrintSettingsTier.standard) ...[
                     // STANDARD Tier includes basic essentials + office features
                     _buildBasicTier(palette, isSi),
-                    const SizedBox(height: DesktopSpacing.s12),
+                    const SizedBox(height: DesktopSpacing.s16),
                     _buildStandardTier(palette, isSi),
                   ] else ...[
                     // PROFESSIONAL Tier includes all features
                     _buildBasicTier(palette, isSi),
-                    const SizedBox(height: DesktopSpacing.s12),
+                    const SizedBox(height: DesktopSpacing.s16),
                     _buildStandardTier(palette, isSi),
-                    const SizedBox(height: DesktopSpacing.s12),
+                    const SizedBox(height: DesktopSpacing.s16),
                     _buildProfessionalTier(palette, isSi),
                   ],
                 ],
@@ -169,7 +169,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
 
           // 4. Fixed / Pinned Print Action Button: NEVER pushed off screen!
           Padding(
-            padding: const EdgeInsets.only(top: DesktopSpacing.s12),
+            padding: const EdgeInsets.only(top: DesktopSpacing.s16),
             child: PrimaryButton(
               expandWidth: true,
               icon: Icons.print_rounded,
@@ -191,7 +191,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
       decoration: BoxDecoration(
         color: palette.surfaceSecondary,
         borderRadius: BorderRadius.circular(DesktopRadius.r6),
-        border: Border.all(color: palette.border),
+        border: Border.all(color: palette.borderSubtle),
       ),
       padding: const EdgeInsets.all(2),
       child: Row(
@@ -207,7 +207,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 decoration: BoxDecoration(
-                  color: isSelected ? palette.surface : Colors.transparent,
+                  color: isSelected ? palette.surfacePrimary : Colors.transparent,
                   borderRadius: BorderRadius.circular(DesktopRadius.r4),
                   boxShadow: isSelected
                       ? [
@@ -249,7 +249,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
               style: TextStyle(fontSize: 12, color: palette.textPrimary),
               decoration: InputDecoration(
                 hintText: isSi ? 'සැකසුම් සොයන්න...' : 'Search settings...',
-                hintStyle: TextStyle(fontSize: 12, color: palette.textTertiary),
+                hintStyle: TextStyle(fontSize: 12, color: palette.textMuted),
                 prefixIcon: Icon(Icons.search, size: 16, color: palette.textSecondary),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
@@ -265,11 +265,11 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
                 fillColor: palette.surfaceSecondary,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(DesktopRadius.r6),
-                  borderSide: BorderSide(color: palette.border),
+                  borderSide: BorderSide(color: palette.borderSubtle),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(DesktopRadius.r6),
-                  borderSide: BorderSide(color: palette.border),
+                  borderSide: BorderSide(color: palette.borderSubtle),
                 ),
               ),
               onChanged: (val) => setState(() => _searchQuery = val),
@@ -286,7 +286,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
               color: _onlyChangedSettings ? palette.accent.withOpacity(0.12) : palette.surfaceSecondary,
               borderRadius: BorderRadius.circular(DesktopRadius.r4),
               border: Border.all(
-                color: _onlyChangedSettings ? palette.accent : palette.border,
+                color: _onlyChangedSettings ? palette.accent : palette.borderSubtle,
               ),
             ),
             child: Row(
@@ -319,11 +319,11 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
     final summary = isSi ? widget.settings.generateSummarySi() : widget.settings.generateSummaryEn();
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: DesktopSpacing.s10, vertical: DesktopSpacing.s6),
+      padding: const EdgeInsets.symmetric(horizontal: DesktopSpacing.s8, vertical: DesktopSpacing.s8),
       decoration: BoxDecoration(
         color: palette.surfaceSecondary,
         borderRadius: BorderRadius.circular(DesktopRadius.r6),
-        border: Border.all(color: palette.border),
+        border: Border.all(color: palette.borderSubtle),
       ),
       child: Row(
         children: [
@@ -375,7 +375,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
                     size: 16,
                     color: issue.isBlocking ? Colors.red.shade800 : Colors.amber.shade900,
                   ),
-                  const SizedBox(width: DesktopSpacing.s6),
+                  const SizedBox(width: DesktopSpacing.s8),
                   Expanded(
                     child: Text(
                       isSi ? issue.messageSi : issue.messageEn,
@@ -389,7 +389,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
                 ],
               ),
               if (issue.autoFix != null) ...[
-                const SizedBox(height: DesktopSpacing.s6),
+                const SizedBox(height: DesktopSpacing.s8),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
@@ -429,20 +429,20 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
     return FormRow(
       label: isSi ? 'ප්‍රින්ටරය' : 'Printer',
       isSinhala: isSi,
-      child: Row(
+      control: Row(
         children: [
           Expanded(
             child: DropdownButton<String>(
-              value: widget.printers.any((p) => p.name == widget.activePrinterName)
+              value: widget.printers.any((p) => p.systemName == widget.activePrinterName)
                   ? widget.activePrinterName
                   : (widget.printers.isNotEmpty ? widget.printers.first.name : null),
               isExpanded: true,
               underline: const SizedBox(),
               items: widget.printers.map((p) {
                 return DropdownMenuItem(
-                  value: p.name,
+                  value: p.systemName,
                   child: Text(
-                    p.name,
+                    p.systemName,
                     style: TextStyle(fontSize: 13, color: palette.textPrimary),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -482,7 +482,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: widget.strings.copiesLabel,
             isSinhala: isSi,
-            child: Row(
+            control: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
@@ -510,14 +510,14 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: isSi ? 'පිටු පරාසය' : 'Page Range',
             isSinhala: isSi,
-            child: SizedBox(
+            control: SizedBox(
               width: 140,
               height: 32,
               child: TextField(
                 style: const TextStyle(fontSize: 12),
                 decoration: InputDecoration(
                   hintText: isSi ? 'සියල්ල (උදා. 1-3, 5)' : 'All (e.g. 1-3, 5)',
-                  hintStyle: TextStyle(fontSize: 11, color: palette.textTertiary),
+                  hintStyle: TextStyle(fontSize: 11, color: palette.textMuted),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(DesktopRadius.r4)),
                 ),
@@ -534,7 +534,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: widget.strings.colorModeLabel,
             isSinhala: isSi,
-            child: SegmentedButton<bool>(
+            control: SegmentedButton<bool>(
               segments: [
                 ButtonSegment(
                   value: true,
@@ -558,7 +558,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: widget.strings.sidesLabel,
             isSinhala: isSi,
-            child: Row(
+            control: Row(
               children: [
                 Expanded(
                   child: DropdownButton<DuplexMode>(
@@ -611,7 +611,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: widget.strings.paperSizeLabel,
             isSinhala: isSi,
-            child: DropdownButton<String>(
+            control: DropdownButton<String>(
               value: caps.isPaperSizeSupported(s.paperSize) ? s.paperSize : caps.supportedPaperSizes.first,
               isExpanded: true,
               underline: const SizedBox(),
@@ -631,7 +631,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: widget.strings.orientationLabel,
             isSinhala: isSi,
-            child: SegmentedButton<PageOrientation>(
+            control: SegmentedButton<PageOrientation>(
               segments: [
                 ButtonSegment(
                   value: PageOrientation.portrait,
@@ -654,7 +654,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: isSi ? 'කොළයට ගැලපීම' : 'Fit to Page',
             isSinhala: isSi,
-            child: Switch(
+            control: Switch(
               value: s.fitToPage,
               onChanged: (val) => widget.onSettingsChanged(s.copyWith(fitToPage: val)),
             ),
@@ -678,13 +678,13 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: widget.strings.paperTypeLabel,
           isSinhala: isSi,
-          child: DropdownButton<String>(
+          control: DropdownButton<String>(
             value: caps.isMediaTypeSupported(s.mediaType) ? s.mediaType : caps.supportedMediaTypes.first,
             isExpanded: true,
             underline: const SizedBox(),
             items: caps.supportedMediaTypes.map((m) {
               return DropdownMenuItem(value: m, child: Text(m));
-            }).toList>,
+            }).toList(),
             onChanged: (media) {
               if (media != null) widget.onSettingsChanged(s.copyWith(mediaType: media));
             },
@@ -696,7 +696,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: isSi ? 'ගුණාත්මකභාවය' : 'Print Quality',
           isSinhala: isSi,
-          child: DropdownButton<PrintQualityMode>(
+          control: DropdownButton<PrintQualityMode>(
             value: s.quality,
             isExpanded: true,
             underline: const SizedBox(),
@@ -723,7 +723,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: isSi ? 'කඩදාසි තැටිය' : 'Paper Tray',
           isSinhala: isSi,
-          child: DropdownButton<String>(
+          control: DropdownButton<String>(
             value: caps.inputBins.contains(s.paperTray) ? s.paperTray : caps.inputBins.first,
             isExpanded: true,
             underline: const SizedBox(),
@@ -741,7 +741,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: isSi ? 'කොළයකට පිටු (N-up)' : 'Pages Per Sheet',
           isSinhala: isSi,
-          child: DropdownButton<int>(
+          control: DropdownButton<int>(
             value: s.pagesPerSheet,
             isExpanded: true,
             underline: const SizedBox(),
@@ -763,7 +763,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: widget.strings.borderlessLabel,
           isSinhala: isSi,
-          child: Switch(
+          control: Switch(
             value: s.isBorderless,
             onChanged: caps.supportsBorderless
                 ? (val) => widget.onSettingsChanged(s.copyWith(isBorderless: val))
@@ -838,7 +838,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: isSi ? 'විදැහුම් විභේදනය (Render DPI)' : 'Render DPI (Rasterization)',
           isSinhala: isSi,
-          child: DropdownButton<RenderDpiChoice>(
+          control: DropdownButton<RenderDpiChoice>(
             value: s.renderDpi,
             isExpanded: true,
             underline: const SizedBox(),
@@ -858,7 +858,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           padding: const EdgeInsets.only(top: 2, bottom: DesktopSpacing.s8),
           child: Row(
             children: [
-              Icon(Icons.memory_rounded, size: 13, color: s.renderDpi == RenderDpiChoice.dpi1200 ? palette.warning : palette.textSecondary),
+              Icon(Icons.memory_rounded, size: 13, color: s.renderDpi == RenderDpiChoice.dpi1200 ? palette.statusWarningText : palette.textSecondary),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -867,7 +867,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
                       : 'Est. Memory: ~${EffectivePpiCalculator.estimateRasterMemoryMb(pageWInches: 8.27, pageHInches: 11.69, renderDpi: s.renderDpi.resolveDpi(s.hardwareDpi)).round()} MB/page. Vector text preserved directly.',
                   style: TextStyle(
                     fontSize: 11,
-                    color: s.renderDpi == RenderDpiChoice.dpi1200 ? palette.warning : palette.textSecondary,
+                    color: s.renderDpi == RenderDpiChoice.dpi1200 ? palette.statusWarningText : palette.textSecondary,
                     fontWeight: s.renderDpi == RenderDpiChoice.dpi1200 ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
@@ -880,7 +880,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: isSi ? 'ප්‍රතිනියැදි ෆිල්ටරය' : 'Resample Filter',
           isSinhala: isSi,
-          child: DropdownButton<ResamplingAlgorithm>(
+          control: DropdownButton<ResamplingAlgorithm>(
             value: s.resampleFilter,
             isExpanded: true,
             underline: const SizedBox(),
@@ -895,7 +895,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
             },
           ),
         ),
-        const SizedBox(height: DesktopSpacing.s6),
+        const SizedBox(height: DesktopSpacing.s8),
 
         // Upscale for Print Button with Dialog
         OutlinedButton.icon(
@@ -922,7 +922,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
             );
           },
         ),
-        const SizedBox(height: DesktopSpacing.s10),
+        const SizedBox(height: DesktopSpacing.s8),
 
         // Tone and Ink Adjustment Panel
         _buildSectionTitle(palette, isSi ? 'ටෝන සහ තීන්ත පාලනය (Tone & Ink)' : 'Tone & Ink Adjustments', Icons.palette_outlined),
@@ -967,7 +967,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
             );
           },
         ),
-        const SizedBox(height: DesktopSpacing.s12),
+        const SizedBox(height: DesktopSpacing.s16),
 
         _buildSectionTitle(palette, isSi ? 'වෘත්තීය වර්ණ සහ පිරිසැලසුම්' : 'Professional Color & Imposition', Icons.auto_awesome),
 
@@ -975,7 +975,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: isSi ? 'වර්ණ කළමනාකරණය' : 'Color Management',
           isSinhala: isSi,
-          child: DropdownButton<ProColorManagementMode>(
+          control: DropdownButton<ProColorManagementMode>(
             value: s.colorMode,
             isExpanded: true,
             underline: const SizedBox(),
@@ -995,7 +995,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: isSi ? 'ICC පැතිකඩ' : 'ICC Profile',
             isSinhala: isSi,
-            child: DropdownButton<String>(
+            control: DropdownButton<String>(
               value: s.iccProfile,
               isExpanded: true,
               underline: const SizedBox(),
@@ -1010,7 +1010,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: isSi ? 'වර්ණ විදැහුම් අරමුණ' : 'Rendering Intent',
             isSinhala: isSi,
-            child: DropdownButton<IccRenderingIntent>(
+            control: DropdownButton<IccRenderingIntent>(
               value: s.renderingIntent,
               isExpanded: true,
               underline: const SizedBox(),
@@ -1033,7 +1033,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: isSi ? 'විශේෂ කළු-සුදු ටෝනින්' : 'Advanced B&W Toning',
             isSinhala: isSi,
-            child: Row(
+            control: Row(
               children: [
                 Switch(
                   value: s.advancedBwEnabled,
@@ -1066,7 +1066,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: isSi ? 'පිරිසැලසුම (Imposition)' : 'Sheet Imposition',
           isSinhala: isSi,
-          child: DropdownButton<ProImpositionMode>(
+          control: DropdownButton<ProImpositionMode>(
             value: s.impositionMode,
             isExpanded: true,
             underline: const SizedBox(),
@@ -1089,7 +1089,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: isSi ? 'පාස්පෝට් / හැඳුනුම්පත් ෆොටෝ' : 'Passport / ID Photo Sheet',
           isSinhala: isSi,
-          child: Row(
+          control: Row(
             children: [
               Switch(
                 value: s.photoIdLayoutEnabled,
@@ -1121,7 +1121,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
           FormRow(
             label: isSi ? 'CD/DVD තැටි මුද්‍රණය' : 'Direct CD/DVD Print',
             isSinhala: isSi,
-            child: Switch(
+            control: Switch(
               value: s.cdDvdPrintEnabled,
               onChanged: (val) => widget.onSettingsChanged(s.copyWith(cdDvdPrintEnabled: val)),
             ),
@@ -1133,7 +1133,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: isSi ? 'මුද්‍රා තැබීම (Stamp)' : 'Document Stamp',
           isSinhala: isSi,
-          child: DropdownButton<OverlayStampPreset>(
+          control: DropdownButton<OverlayStampPreset>(
             value: s.stampPreset,
             isExpanded: true,
             underline: const SizedBox(),
@@ -1184,7 +1184,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
         FormRow(
           label: isSi ? 'මුද්‍රණ විභේදනය (DPI)' : 'Printer Resolution (DPI)',
           isSinhala: isSi,
-          child: DropdownButton<int>(
+          control: DropdownButton<int>(
             value: availableDpis.contains(currentDpi) ? currentDpi : availableDpis.first,
             isExpanded: true,
             underline: const SizedBox(),
@@ -1201,7 +1201,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
                         isSi ? info.labelSi : info.labelEn,
                         style: TextStyle(
                           fontSize: 12,
-                          color: isSupported ? palette.textPrimary : palette.textTertiary,
+                          color: isSupported ? palette.textPrimary : palette.textMuted,
                           decoration: isSupported ? null : TextDecoration.lineThrough,
                         ),
                       ),
@@ -1239,7 +1239,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: DesktopSpacing.s4),
-      padding: const EdgeInsets.all(DesktopSpacing.s10),
+      padding: const EdgeInsets.all(DesktopSpacing.s8),
       decoration: BoxDecoration(
         color: rating.color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(DesktopRadius.r6),
@@ -1281,9 +1281,9 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   decoration: BoxDecoration(
-                    color: palette.surface,
+                    color: palette.surfacePrimary,
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: palette.border),
+                    border: Border.all(color: palette.borderSubtle),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1316,7 +1316,7 @@ class _PrintSettingsPanelState extends ConsumerState<PrintSettingsPanel> {
       child: Row(
         children: [
           Icon(icon, size: 14, color: palette.accent),
-          const SizedBox(width: DesktopSpacing.s6),
+          const SizedBox(width: DesktopSpacing.s8),
           Text(
             title,
             style: TextStyle(

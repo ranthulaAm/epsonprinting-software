@@ -23,14 +23,14 @@ class TestPatternDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = DesktopTheme.of(context).palette;
+    final palette = DesktopPalette.of(context);
     final isSi = strings.isSi;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesktopRadius.r8)),
       child: Container(
         width: 620,
-        padding: const EdgeInsets.all(DesktopSpacing.s20),
+        padding: const EdgeInsets.all(DesktopSpacing.s16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -39,7 +39,7 @@ class TestPatternDialog extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.gradient_rounded, color: palette.accent, size: 22),
-                const SizedBox(width: DesktopSpacing.s10),
+                const SizedBox(width: DesktopSpacing.s8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,17 +69,17 @@ class TestPatternDialog extends StatelessWidget {
 
             // Honest Advisory Callout
             Container(
-              padding: const EdgeInsets.all(DesktopSpacing.s12),
+              padding: const EdgeInsets.all(DesktopSpacing.s16),
               decoration: BoxDecoration(
                 color: palette.surfaceSecondary,
                 borderRadius: BorderRadius.circular(DesktopRadius.r6),
-                border: Border.all(color: palette.border),
+                border: Border.all(color: palette.borderSubtle),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.shield_outlined, color: palette.accent, size: 20),
-                  const SizedBox(width: DesktopSpacing.s10),
+                  const SizedBox(width: DesktopSpacing.s8),
                   Expanded(
                     child: Text(
                       isSi ? TestPatternGenerator.advisoryNoticeSi : TestPatternGenerator.advisoryNoticeEn,
@@ -97,7 +97,7 @@ class TestPatternDialog extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(DesktopRadius.r6),
-                border: Border.all(color: palette.border),
+                border: Border.all(color: palette.borderSubtle),
               ),
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -191,7 +191,7 @@ class TestPatternDialog extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(isSi ? 'වසන්න' : 'Close'),
                 ),
-                const SizedBox(width: DesktopSpacing.s10),
+                const SizedBox(width: DesktopSpacing.s8),
                 PrimaryButton(
                   icon: Icons.print_rounded,
                   label: isSi ? 'පරීක්ෂණ පිටුව මුද්‍රණය කරන්න' : 'Print Test Page Now',

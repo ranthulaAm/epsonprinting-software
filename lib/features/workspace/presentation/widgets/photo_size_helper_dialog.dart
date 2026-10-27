@@ -54,14 +54,14 @@ class _PhotoSizeHelperDialogState extends State<PhotoSizeHelperDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = DesktopTheme.of(context).palette;
+    final palette = DesktopPalette.of(context);
     final isSi = widget.strings.isSi;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesktopRadius.r8)),
       child: Container(
         width: 620,
-        padding: const EdgeInsets.all(DesktopSpacing.s20),
+        padding: const EdgeInsets.all(DesktopSpacing.s16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -70,7 +70,7 @@ class _PhotoSizeHelperDialogState extends State<PhotoSizeHelperDialog> {
             Row(
               children: [
                 Icon(Icons.photo_size_select_actual_outlined, color: palette.accent, size: 22),
-                const SizedBox(width: DesktopSpacing.s10),
+                const SizedBox(width: DesktopSpacing.s8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,16 +100,16 @@ class _PhotoSizeHelperDialogState extends State<PhotoSizeHelperDialog> {
 
             // Concept Explanation Callout
             Container(
-              padding: const EdgeInsets.all(DesktopSpacing.s12),
+              padding: const EdgeInsets.all(DesktopSpacing.s16),
               decoration: BoxDecoration(
                 color: palette.surfaceSecondary,
                 borderRadius: BorderRadius.circular(DesktopRadius.r6),
-                border: Border.all(color: palette.border),
+                border: Border.all(color: palette.borderSubtle),
               ),
               child: Row(
                 children: [
                   Icon(Icons.lightbulb_outline_rounded, color: palette.accent, size: 20),
-                  const SizedBox(width: DesktopSpacing.s10),
+                  const SizedBox(width: DesktopSpacing.s8),
                   Expanded(
                     child: Text(
                       isSi
@@ -145,12 +145,12 @@ class _PhotoSizeHelperDialogState extends State<PhotoSizeHelperDialog> {
                     decoration: BoxDecoration(
                       color: s.isRecommendedForSource
                           ? palette.accent.withOpacity(0.08)
-                          : (isCurrent ? palette.surfaceSecondary : palette.surface),
+                          : (isCurrent ? palette.surfaceSecondary : palette.surfacePrimary),
                       borderRadius: BorderRadius.circular(DesktopRadius.r6),
                       border: Border.all(
                         color: s.isRecommendedForSource
                             ? palette.accent
-                            : (isCurrent ? palette.border : palette.borderLight),
+                            : (isCurrent ? palette.borderSubtle : palette.borderLight),
                         width: s.isRecommendedForSource ? 1.5 : 1.0,
                       ),
                     ),
@@ -250,11 +250,11 @@ class _PhotoSizeHelperDialogState extends State<PhotoSizeHelperDialog> {
 
             // Custom Size Calculator Row
             Container(
-              padding: const EdgeInsets.all(DesktopSpacing.s12),
+              padding: const EdgeInsets.all(DesktopSpacing.s16),
               decoration: BoxDecoration(
                 color: palette.surfaceSecondary,
                 borderRadius: BorderRadius.circular(DesktopRadius.r6),
-                border: Border.all(color: palette.border),
+                border: Border.all(color: palette.borderSubtle),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

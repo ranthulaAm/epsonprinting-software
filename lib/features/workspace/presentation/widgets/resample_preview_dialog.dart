@@ -36,7 +36,7 @@ class _ResamplePreviewDialogState extends State<ResamplePreviewDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = DesktopTheme.of(context).palette;
+    final palette = DesktopPalette.of(context);
     final isSi = widget.strings.isSi;
 
     final targetW = (widget.originalWidth * _multiplier).round();
@@ -49,7 +49,7 @@ class _ResamplePreviewDialogState extends State<ResamplePreviewDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesktopRadius.r8)),
       child: Container(
         width: 700,
-        padding: const EdgeInsets.all(DesktopSpacing.s20),
+        padding: const EdgeInsets.all(DesktopSpacing.s16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -58,7 +58,7 @@ class _ResamplePreviewDialogState extends State<ResamplePreviewDialog> {
             Row(
               children: [
                 Icon(Icons.auto_fix_high_rounded, color: palette.accent, size: 22),
-                const SizedBox(width: DesktopSpacing.s10),
+                const SizedBox(width: DesktopSpacing.s8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,15 +147,15 @@ class _ResamplePreviewDialogState extends State<ResamplePreviewDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: DesktopSpacing.s12),
+            const SizedBox(height: DesktopSpacing.s16),
 
             // Algorithm Description Box
             Container(
-              padding: const EdgeInsets.all(DesktopSpacing.s10),
+              padding: const EdgeInsets.all(DesktopSpacing.s8),
               decoration: BoxDecoration(
                 color: palette.surfaceSecondary,
                 borderRadius: BorderRadius.circular(DesktopRadius.r6),
-                border: Border.all(color: palette.border),
+                border: Border.all(color: palette.borderSubtle),
               ),
               child: Text(
                 isSi ? _selectedAlgorithm.descSi : _selectedAlgorithm.descEn,
@@ -170,11 +170,11 @@ class _ResamplePreviewDialogState extends State<ResamplePreviewDialog> {
                 // BEFORE
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.all(DesktopSpacing.s12),
+                    padding: const EdgeInsets.all(DesktopSpacing.s16),
                     decoration: BoxDecoration(
-                      color: palette.surface,
+                      color: palette.surfacePrimary,
                       borderRadius: BorderRadius.circular(DesktopRadius.r6),
-                      border: Border.all(color: palette.border),
+                      border: Border.all(color: palette.borderSubtle),
                     ),
                     child: Column(
                       children: [
@@ -195,7 +195,7 @@ class _ResamplePreviewDialogState extends State<ResamplePreviewDialog> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.grid_4x4_rounded, size: 36, color: palette.textTertiary),
+                                Icon(Icons.grid_4x4_rounded, size: 36, color: palette.textMuted),
                                 const SizedBox(height: 4),
                                 Text(
                                   '${widget.originalWidth} × ${widget.originalHeight} px',
@@ -222,18 +222,18 @@ class _ResamplePreviewDialogState extends State<ResamplePreviewDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: DesktopSpacing.s12),
+                const SizedBox(width: DesktopSpacing.s16),
 
                 // Arrow
                 Icon(Icons.arrow_forward_rounded, color: palette.accent, size: 24),
-                const SizedBox(width: DesktopSpacing.s12),
+                const SizedBox(width: DesktopSpacing.s16),
 
                 // AFTER
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.all(DesktopSpacing.s12),
+                    padding: const EdgeInsets.all(DesktopSpacing.s16),
                     decoration: BoxDecoration(
-                      color: palette.surface,
+                      color: palette.surfacePrimary,
                       borderRadius: BorderRadius.circular(DesktopRadius.r6),
                       border: Border.all(color: palette.accent),
                     ),
@@ -319,7 +319,7 @@ class _ResamplePreviewDialogState extends State<ResamplePreviewDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(isSi ? 'අවලංගු කරන්න' : 'Cancel'),
                 ),
-                const SizedBox(width: DesktopSpacing.s10),
+                const SizedBox(width: DesktopSpacing.s8),
                 PrimaryButton(
                   icon: Icons.check_circle_outline,
                   label: isSi ? 'ප්‍රතිනියැදීම යොදන්න' : 'Apply Upscale to Job',

@@ -46,7 +46,7 @@ class _PriceEditorTableState extends State<PriceEditorTable> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = DesktopTheme.of(context).palette;
+    final palette = DesktopPalette.of(context);
     final isSi = widget.isSi;
     final p = widget.priceList;
     final cur = p.currencyConfig;
@@ -60,16 +60,16 @@ class _PriceEditorTableState extends State<PriceEditorTable> {
         // 1. Missing Price Safeguard Banner (if any combination is missing)
         if (missingCombinations.isNotEmpty) ...[
           Container(
-            margin: const EdgeInsets.only(bottom: DesktopSpacing.s10),
+            margin: const EdgeInsets.only(bottom: DesktopSpacing.s8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: palette.warning.withOpacity(0.08),
+              color: palette.statusWarningText.withOpacity(0.08),
               borderRadius: BorderRadius.circular(DesktopRadius.r6),
-              border: Border.all(color: palette.warning.withOpacity(0.4)),
+              border: Border.all(color: palette.statusWarningText.withOpacity(0.4)),
             ),
             child: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, size: 16, color: palette.warning),
+                Icon(Icons.warning_amber_rounded, size: 16, color: palette.statusWarningText),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -99,7 +99,7 @@ class _PriceEditorTableState extends State<PriceEditorTable> {
           decoration: BoxDecoration(
             color: palette.surfaceSecondary,
             borderRadius: BorderRadius.circular(DesktopRadius.r6),
-            border: Border.all(color: palette.border),
+            border: Border.all(color: palette.borderSubtle),
           ),
           child: Row(
             children: [
@@ -114,7 +114,7 @@ class _PriceEditorTableState extends State<PriceEditorTable> {
                     prefixIcon: const Icon(Icons.search, size: 16),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(DesktopRadius.r4),
-                      borderSide: BorderSide(color: palette.border),
+                      borderSide: BorderSide(color: palette.borderSubtle),
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   ),
@@ -192,9 +192,9 @@ class _PriceEditorTableState extends State<PriceEditorTable> {
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: palette.surface,
+              color: palette.surfacePrimary,
               borderRadius: BorderRadius.circular(DesktopRadius.r6),
-              border: Border.all(color: palette.border),
+              border: Border.all(color: palette.borderSubtle),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(DesktopRadius.r6),
@@ -305,7 +305,7 @@ class _PriceEditorTableState extends State<PriceEditorTable> {
                     decoration: BoxDecoration(
                       color: palette.surfaceSecondary,
                       borderRadius: BorderRadius.circular(3),
-                      border: Border.all(color: palette.border),
+                      border: Border.all(color: palette.borderSubtle),
                     ),
                     child: Text(
                       '${e.tiers.length} Tiers (from ${cur.format(e.tiers.last.unitPrice)})',
@@ -352,7 +352,7 @@ class _PriceEditorTableState extends State<PriceEditorTable> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(DesktopRadius.r4),
-        border: Border.all(color: DesktopTheme.of(context).palette.border),
+        border: Border.all(color: DesktopPalette.of(context).borderSubtle),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(

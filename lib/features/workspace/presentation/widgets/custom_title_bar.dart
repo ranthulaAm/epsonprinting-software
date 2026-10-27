@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../../core/integration/global_command_palette_and_recent_files.dart';
-import '../../../core/l10n/app_strings.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../../core/integration/global_command_palette_and_recent_files.dart';
+import '../../../../core/l10n/app_strings.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class CustomTitleBar extends ConsumerWidget {
   const CustomTitleBar({super.key});

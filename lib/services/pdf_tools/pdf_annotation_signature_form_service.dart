@@ -8,7 +8,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:uuid/uuid.dart';
 
-import '../../../core/diagnostics/diagnostic_logger.dart';
+import '../../core/diagnostics/diagnostic_logger.dart';
 import '../../features/pdf_tools/domain/pdf_annotations_Grouping_models.dart';
 
 /// Offline engine for:

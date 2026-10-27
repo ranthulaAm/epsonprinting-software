@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:antigravity_pdf_gear/features/printers/data/printer_intelligence_snmp_routing_service.dart';
-import 'package:antigravity_pdf_gear/features/printers/domain/printer_routing_engine_models.dart';
-import 'package:antigravity_pdf_gear/features/printers/domain/snmp_printer_mib_models.dart';
+import 'package:print_helper/features/printers/data/printer_intelligence_snmp_routing_service.dart';
+import 'package:print_helper/features/printers/domain/printer_routing_engine_models.dart';
+import 'package:print_helper/features/printers/domain/snmp_printer_mib_models.dart';
 
 /// Mock SNMP/IPP server simulating live network responses across multiple test profiles.
 class MockSnmpIppServer {

@@ -1291,7 +1291,7 @@ class _LivePrintPreviewDialogState
                     ),
 
                     // 7. Plain Text & Markdown Typography (Sinhala & English)
-                    if (widget.item.documentType == PrintDocumentType.text ||
+                    if (widget.item.documentType == PrintDocumentType.plainText ||
                         widget.item.documentType == PrintDocumentType.markdown) ...[
                       const SizedBox(height: 16),
                       _SectionHeader(
@@ -1807,7 +1807,7 @@ class _PhysicalSheetCanvas extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 28 * zoomLevel,
                           fontWeight: FontWeight.w800,
-                          color: Colors.redGreyOrIndigo(settings.isColor),
+                          color: _previewColorFor(settings.isColor),
                         ),
                       ),
                     ),
@@ -2001,10 +2001,8 @@ class _PhysicalSheetCanvas extends StatelessWidget {
   }
 }
 
-extension on Colors {
-  static Color redGreyOrIndigo(bool isColor) =>
-      isColor ? const Color(0xFFB3261E) : Colors.black54;
-}
+Color _previewColorFor(bool isColor) =>
+    isColor ? const Color(0xFFB3261E) : Colors.black54;
 
 class _PreviewFooterSummary extends StatelessWidget {
   const _PreviewFooterSummary({

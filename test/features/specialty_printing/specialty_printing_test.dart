@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:antigravity_pdf_gear/features/specialty_printing/data/specialty_printing_service.dart';
-import 'package:antigravity_pdf_gear/features/specialty_printing/domain/specialty_print_models.dart';
+import 'package:print_helper/features/specialty_printing/data/specialty_printing_service.dart';
+import 'package:print_helper/features/specialty_printing/domain/specialty_print_models.dart';
 
 void main() {
   group('Specialty Printing Modules Test Suite', () {

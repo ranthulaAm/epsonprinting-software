@@ -383,7 +383,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                       // Friendly Error Banner if any
                       if (queueState.latestErrorMessages.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: DesktopSpacing.s12),
+                          padding: const EdgeInsets.only(bottom: DesktopSpacing.s16),
                           child: InlineMessage(
                             kind: DesktopStatusKind.warning,
                             message: queueState.latestErrorMessages.join(' • '),
@@ -468,7 +468,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                         child: Column(
                           children: [
                             Padding(
-                              padding: const EdgeInsets.all(DesktopSpacing.s12),
+                              padding: const EdgeInsets.all(DesktopSpacing.s16),
                               child: Row(
                                 children: [
                                   Text(
@@ -536,7 +536,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
         children: [
           // Pinned Drop Zone at Top
           _buildDropZonePinnedHeader(context, palette, strings, controller),
-          const SizedBox(height: DesktopSpacing.s12),
+          const SizedBox(height: DesktopSpacing.s16),
 
           // Scrollable File List below Drop Zone
           Expanded(
@@ -603,7 +603,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
     QueueController controller,
   ) {
     return Container(
-      padding: const EdgeInsets.all(DesktopSpacing.s12),
+      padding: const EdgeInsets.all(DesktopSpacing.s16),
       decoration: BoxDecoration(
         color: palette.surfaceSecondary,
         borderRadius: BorderRadius.circular(DesktopRadius.r6),
@@ -666,7 +666,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
   ) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: DesktopSpacing.s12,
+        horizontal: DesktopSpacing.s16,
         vertical: DesktopSpacing.s8,
       ),
       decoration: BoxDecoration(
@@ -774,7 +774,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
                             size: 48,
                             color: palette.textMuted,
                           ),
-                          const SizedBox(height: DesktopSpacing.s12),
+                          const SizedBox(height: DesktopSpacing.s16),
                           Text(
                             strings.queueEmptyHint,
                             textAlign: TextAlign.center,
@@ -793,7 +793,7 @@ class _WorkspaceScreenState extends ConsumerState<WorkspaceScreen> {
           // Pinned Bottom Bar: Page Navigation & Zoom Controls
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: DesktopSpacing.s12,
+              horizontal: DesktopSpacing.s16,
               vertical: DesktopSpacing.s8,
             ),
             decoration: BoxDecoration(

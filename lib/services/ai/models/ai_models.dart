@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '../../features/workspace/domain/print_queue_item.dart';
+import '../../../features/workspace/domain/print_queue_item.dart';
 
 /// All 7 extensible AI capabilities supported by the Print Helper AI Plugin System.
 enum AiFeatureCapability {

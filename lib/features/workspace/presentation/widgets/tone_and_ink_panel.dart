@@ -38,7 +38,7 @@ class _ToneAndInkPanelState extends State<ToneAndInkPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = DesktopTheme.of(context).palette;
+    final palette = DesktopPalette.of(context);
     final isSi = widget.strings.isSi;
     final s = widget.settings;
 
@@ -48,19 +48,19 @@ class _ToneAndInkPanelState extends State<ToneAndInkPanel> {
         // 1. Double Adjustment Warning Banner (if both driver & app are adjusting)
         if (s.isDoubleAdjustmentWarning) ...[
           Container(
-            margin: const EdgeInsets.only(bottom: DesktopSpacing.s10),
-            padding: const EdgeInsets.all(DesktopSpacing.s10),
+            margin: const EdgeInsets.only(bottom: DesktopSpacing.s8),
+            padding: const EdgeInsets.all(DesktopSpacing.s8),
             decoration: BoxDecoration(
-              color: palette.warning.withOpacity(0.08),
+              color: palette.statusWarningText.withOpacity(0.08),
               borderRadius: BorderRadius.circular(DesktopRadius.r6),
-              border: Border.all(color: palette.warning.withOpacity(0.4)),
+              border: Border.all(color: palette.statusWarningText.withOpacity(0.4)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, size: 16, color: palette.warning),
+                    Icon(Icons.warning_amber_rounded, size: 16, color: palette.statusWarningText),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -70,7 +70,7 @@ class _ToneAndInkPanelState extends State<ToneAndInkPanel> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: palette.warning,
+                          color: palette.statusWarningText,
                         ),
                       ),
                     ),
@@ -106,7 +106,7 @@ class _ToneAndInkPanelState extends State<ToneAndInkPanel> {
         FormRow(
           label: isSi ? 'කඩදාසි අනුව වෙනස්කම්' : 'Paper Compensation',
           isSinhala: isSi,
-          child: DropdownButton<PaperCompensationPreset>(
+          control: DropdownButton<PaperCompensationPreset>(
             value: s.paperCompensation,
             isExpanded: true,
             underline: const SizedBox(),
@@ -278,7 +278,7 @@ class _ToneAndInkPanelState extends State<ToneAndInkPanel> {
             ),
           ],
         ),
-        const SizedBox(height: DesktopSpacing.s12),
+        const SizedBox(height: DesktopSpacing.s16),
 
         // 8. Color Controls (if Color Printer)
         if (widget.isColorPrinter) ...[
@@ -322,7 +322,7 @@ class _ToneAndInkPanelState extends State<ToneAndInkPanel> {
                   onChanged: (v) => widget.onSettingsChanged(s.copyWith(colorBalanceCyanRed: v.round())),
                 ),
               ),
-              const SizedBox(width: DesktopSpacing.s6),
+              const SizedBox(width: DesktopSpacing.s8),
               Expanded(
                 child: _buildCompactSlider(
                   palette: palette,
@@ -334,7 +334,7 @@ class _ToneAndInkPanelState extends State<ToneAndInkPanel> {
                   onChanged: (v) => widget.onSettingsChanged(s.copyWith(colorBalanceMagentaGreen: v.round())),
                 ),
               ),
-              const SizedBox(width: DesktopSpacing.s6),
+              const SizedBox(width: DesktopSpacing.s8),
               Expanded(
                 child: _buildCompactSlider(
                   palette: palette,
@@ -348,17 +348,17 @@ class _ToneAndInkPanelState extends State<ToneAndInkPanel> {
               ),
             ],
           ),
-          const SizedBox(height: DesktopSpacing.s12),
+          const SizedBox(height: DesktopSpacing.s16),
         ],
 
         // 9. Ink Saver / Toner Saver Card
         Container(
-          padding: const EdgeInsets.all(DesktopSpacing.s10),
+          padding: const EdgeInsets.all(DesktopSpacing.s8),
           decoration: BoxDecoration(
             color: s.inkSaverEnabled ? palette.accent.withOpacity(0.06) : palette.surfaceSecondary,
             borderRadius: BorderRadius.circular(DesktopRadius.r6),
             border: Border.all(
-              color: s.inkSaverEnabled ? palette.accent : palette.border,
+              color: s.inkSaverEnabled ? palette.accent : palette.borderSubtle,
             ),
           ),
           child: Column(
@@ -430,11 +430,11 @@ class _ToneAndInkPanelState extends State<ToneAndInkPanel> {
             ],
           ),
         ),
-        const SizedBox(height: DesktopSpacing.s12),
+        const SizedBox(height: DesktopSpacing.s16),
 
         // 10. CMYK Ink Coverage Meter (Feeds Price Calculator)
         _buildCmykCoverageMeter(palette, isSi),
-        const SizedBox(height: DesktopSpacing.s12),
+        const SizedBox(height: DesktopSpacing.s16),
 
         // 11. Actions: Reset, Compare with Original, and Print Test Pattern
         Row(
@@ -610,11 +610,11 @@ class _ToneAndInkPanelState extends State<ToneAndInkPanel> {
     const total = covC + covM + covY + covK;
 
     return Container(
-      padding: const EdgeInsets.all(DesktopSpacing.s10),
+      padding: const EdgeInsets.all(DesktopSpacing.s8),
       decoration: BoxDecoration(
         color: palette.surfaceSecondary,
         borderRadius: BorderRadius.circular(DesktopRadius.r6),
-        border: Border.all(color: palette.border),
+        border: Border.all(color: palette.borderSubtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
