@@ -1,3 +1,13 @@
+function escapeHtml(s) {
+  return String(s || "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "\x27": "&#39;"
+  }[c]));
+}
+
 // Print Helper, Shop POS & PDF Studio - Interactive Web Preview
 
 const strings = {
@@ -49,7 +59,7 @@ const strings = {
   },
   si: {
     appTitle: "Print Helper",
-    offlineBadge: "100% නොබැඳිව (Offline)",
+    offlineBadge: "100% නොබැඳිව",
     navPrint: "ප්‍රින්ට්",
     navPrinters: "ප්‍රින්ටර්ස්",
     navJobs: "පෝලිම",
@@ -307,95 +317,26 @@ let subnetScanConsentGranted = false;
 // Queue Items Store
 let queue = [];
 
-// Sample Demo Files
-const sampleBatch = [
-  {
-    id: "f_1",
-    name: "sinhala_orthography_test.pdf",
-    ext: "PDF",
-    sizeStr: "1.2 MB",
-    pages: 4,
-    type: "pdf",
-    copies: 1,
-    colorMode: "color",
-    duplex: "two-sided",
-    orientation: "portrait",
-    paperSize: "A4",
-    tray: "Auto",
-    expanded: false
-  },
-  {
-    id: "f_2",
-    name: "Annual_Financial_Audit_2026.pdf",
-    ext: "PDF",
-    sizeStr: "2.4 MB",
-    pages: 14,
-    type: "pdf",
-    copies: 1,
-    colorMode: "bw",
-    duplex: "two-sided",
-    orientation: "portrait",
-    paperSize: "A4",
-    tray: "Auto",
-    expanded: false
-  },
-  {
-    id: "f_3",
-    name: "Product_Packaging_Mockup_v4.png",
-    ext: "PNG",
-    sizeStr: "4.8 MB",
-    pages: 1,
-    type: "image",
-    copies: 2,
-    colorMode: "color",
-    duplex: "one-sided",
-    orientation: "landscape",
-    paperSize: "A4",
-    tray: "Tray 1",
-    expanded: false
-  }
-];
 
 // Jobs Log Store
-let jobs = [
-  {
-    id: "JOB-4081",
-    doc: "Client_NDA_Contract.pdf",
-    printer: "HP LaserJet Pro M404dn",
-    pages: "3 pages",
-    status: "Completed",
-    time: "10 mins ago"
-  },
-  {
-    id: "JOB-4080",
-    doc: "Shipping_Invoice_#992.pdf",
-    printer: "HP LaserJet Pro M404dn",
-    pages: "1 page",
-    status: "Completed",
-    time: "25 mins ago"
-  }
-];
+let jobs = [];
 
 // Organizer Pages State
-let organizedPages = [
-  { id: 1, label: "Page 1 (Cover)", rotated: 0, selected: false },
-  { id: 2, label: "Page 2 (Agenda)", rotated: 0, selected: false },
-  { id: 3, label: "Page 3 (Metrics)", rotated: 0, selected: false },
-  { id: 4, label: "Page 4 (Signatures)", rotated: 0, selected: false }
-];
+let organizedPages = [];
 
 // Command Palette Registry (all searchable actions & screens)
 const commands = [
-  { title: "Print Queue", sub: "View files and configure print batch", icon: "print", tab: "print" },
+  { title: "Print Queue", sub: "View files, preview sheets, and configure print batch", icon: "print", tab: "print" },
   { title: "Shop Mode POS & Billing", sub: "Cashier counter, price estimation, receipts, multi-printer fleet", icon: "point_of_sale", tab: "shop", subview: "counter" },
   { title: "Customer Jobs & Barcode Scanner", sub: "Scan tickets, customer grouping, job status", icon: "badge", tab: "shop", subview: "customers" },
   { title: "Multi-Printer Live Fleet Dashboard", sub: "Live ink/toner gauges, paper meters, auto-routing rules", icon: "hub", tab: "shop", subview: "fleet" },
   { title: "Price List & Profit Tracker", sub: "Editable page rates (LKR), daily cashier profit audit", icon: "payments", tab: "shop", subview: "pricing" },
-  { title: "PDF Multi-Tab Viewer", sub: "Inspect pages, zoom, rotate, search text", icon: "menu_book", tab: "tools", subview: "viewer" },
-  { title: "Page Organizer (Merge / Split / Rotate)", sub: "Reorder, extract, rotate 90°, delete pages", icon: "dashboard_customize", tab: "tools", subview: "organizer" },
-  { title: "Annotate, Sign & AcroForms", sub: "Draw signature, sticky notes, approve stamp, fill forms", icon: "edit_document", tab: "tools", subview: "annotate" },
-  { title: "Security & Redaction", sub: "256-bit AES password encryption, blackout text, visual compare", icon: "security", tab: "tools", subview: "security" },
-  { title: "Convert & OCR (Sinhala + English)", sub: "Tesseract neural text extraction, PDF to PNG", icon: "transform", tab: "tools", subview: "ocr" },
+  { title: "PDF Power Tools Studio", sub: "20 professional offline tools (Merge, Split, OCR, Compress)", icon: "bolt", tab: "tools" },
+  { title: "Page Organizer (Merge / Split / Rotate)", sub: "Reorder, extract, rotate, and delete pages", icon: "dashboard_customize", tab: "tools", tool: "organize" },
+  { title: "OCR Text Recognition", sub: "Neural text extraction from PDF and image scans", icon: "psychology", tab: "tools", tool: "ocr" },
+  { title: "Compress PDF", sub: "Optimize stream objects and downsample images", icon: "compress", tab: "tools", tool: "compress" },
+  { title: "Protect & Encrypt PDF", sub: "256-bit AES encryption with password permissions", icon: "lock", tab: "tools", tool: "protect" },
+  { title: "Redact PDF (Permanent Blackout)", sub: "Sanitize PII and sensitive text permanently", icon: "ink_eraser", tab: "tools", tool: "redact" },
   { title: "Manual Duplex Paper Turn Assistant", sub: "Visual instructions for flipping paper on single-sided printers", icon: "flip", action: "openDuplex" },
   { title: "Epson Diagnostics & Nozzle Check", sub: "Clean head, test nozzle pattern, ESC/P-R telemetry", icon: "precision_manufacturing", action: "openEpson" },
   { title: "Live Sheet Layout Preview (N-Up)", sub: "Open 1-Up, 2-Up, 4-Up imposition preview dialog", icon: "pageview", action: "openPreview" },
@@ -403,7 +344,7 @@ const commands = [
   { title: "Printers & Spooler Management", sub: "Add network LAN printer, view toner levels, test print", icon: "router", tab: "printers" },
   { title: "Print Jobs Spooler History", sub: "Audit trail and reprint dispatched jobs", icon: "layers", tab: "jobs" },
   { title: "Print Presets", sub: "Eco Draft B&W, High-DPI Color, Booklet Duplex", icon: "bookmarks", tab: "presets" },
-  { title: "Settings & AI Plugin", sub: "On-device AI document model, language and dark mode", icon: "settings", tab: "settings" }
+  { title: "Settings", sub: "Theme, language, and system configuration", icon: "settings", tab: "settings" }
 ];
 
 // DOM Elements
@@ -430,8 +371,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const theme = urlParams.get('theme') || cfg.theme;
   const lang = urlParams.get('lang') || cfg.lang;
   const tab = urlParams.get('tab') || cfg.tab;
-  const sample = urlParams.get('sample') !== null ? (urlParams.get('sample') === 'true') : (cfg.sample !== undefined ? cfg.sample : true);
-
+  
   if (theme) setTheme(theme);
   if (lang) {
     currentLang = lang;
@@ -447,11 +387,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupCommandPalette();
   updateUIStrings();
 
-  if (sample) {
-    loadSampleBatch();
-  } else {
-    updateQueueUI();
-  }
+  updateQueueUI();
 
   updateLivePrinterPanel();
   initThreeTierPrintSettings();
@@ -543,7 +479,6 @@ function setupEventListeners() {
   if (btnPasteTop) btnPasteTop.addEventListener("click", pasteFromClipboard);
 
   // Load Demo Batch
-  document.getElementById("btnLoadDemo").addEventListener("click", loadSampleBatch);
 
   // Clear Queue
   const btnClearAll = document.getElementById("btnClearAll");
@@ -587,33 +522,7 @@ function setupEventListeners() {
     showToast(currentLang === 'si' ? "📄 දෙවන පැත්ත මුද්‍රණය ආරම්භ විය!" : "📄 Resumed! Even pages sent to printer.");
   });
 
-  // Shop Mode Print & Receipt
-  document.getElementById("btnShopPrintAndReceipt").addEventListener("click", () => {
-    receiptModal.classList.remove("hidden");
-    showToast("🧾 Dispatched counter batch & generated Customer Receipt Ticket #SHP-4089");
-  });
-
-  document.getElementById("btnOpenReceiptPreview").addEventListener("click", () => {
-    receiptModal.classList.remove("hidden");
-  });
-
-  document.getElementById("btnReprintLastJob").addEventListener("click", () => {
-    showToast("🔁 1-Click Reprint dispatched for Ticket #SHP-4089");
-  });
-
-  document.querySelectorAll(".btn-view-rcpt").forEach(b => {
-    b.addEventListener("click", () => receiptModal.classList.remove("hidden"));
-  });
-
-  document.getElementById("btnSaveReceiptPdf").addEventListener("click", () => {
-    showToast("💾 Saved SHP-4089_Receipt.pdf");
-    receiptModal.classList.add("hidden");
-  });
-
-  document.getElementById("btnPrintReceiptThermal").addEventListener("click", () => {
-    showToast("🖨️ Sent to 80mm ESC/POS Thermal Receipt Printer");
-    receiptModal.classList.add("hidden");
-  });
+  // Shop counter / receipts are handled by shop_live.js
 
   document.getElementById("btnExportDailyReport")?.addEventListener("click", () => {
     showToast("📊 Exported Daily_Cashier_Report_2026-10-27.csv");
@@ -741,6 +650,28 @@ function setupEventListeners() {
 }
 
 function setupZoneControls() {
+  // Mobile / Tablet 3-Zone Segmented Switcher Tabs
+  document.querySelectorAll(".m-zone-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const zone = btn.dataset.zone;
+      const zones = document.getElementById("workspaceThreeZones");
+      if (zones) {
+        zones.className = `workspace-three-zones show-${zone}`;
+      }
+      document.querySelectorAll(".m-zone-btn").forEach(b => b.classList.toggle("active", b === btn));
+    });
+  });
+
+  const btnRespAdd = document.getElementById("btnResponsiveAddFiles");
+  if (btnRespAdd) {
+    btnRespAdd.addEventListener("click", () => document.getElementById("filePicker")?.click());
+  }
+
+  const btnEmptyBrowse = document.getElementById("btnEmptyBrowse");
+  if (btnEmptyBrowse) {
+    btnEmptyBrowse.addEventListener("click", () => document.getElementById("filePicker")?.click());
+  }
+
   // Mobile / Tablet Slide-over Queue Drawer Toggle
   const btnToggleDrawer = document.getElementById("btnToggleQueueDrawer");
   const leftQueue = document.getElementById("zoneLeftQueue");
@@ -894,91 +825,94 @@ function updatePreviewCanvas() {
   simulatedPaper.style.transform = `scale(${previewZoom})`;
   simulatedPaper.style.transformOrigin = "center center";
 
+  const isSi = currentLang === 'si';
   const item = queue[selectedQueueIndex] || queue[0];
+
   if (!item) {
-    if (lblDocInfo) lblDocInfo.innerText = "A4 • Ready";
-    if (lblCounter) lblCounter.innerText = "Page 1 of 1";
+    if (lblDocInfo) lblDocInfo.innerText = isSi ? "A4 • සූදානම්" : "A4 • Ready";
+    if (lblCounter) lblCounter.innerText = isSi ? "පිටුව 0 / 0" : "Page 0 of 0";
+    simulatedPaper.className = "paper-sheet-simulated empty-state";
     simulatedPaper.innerHTML = `
-      <div style="height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#888; text-align:center;">
-        <span class="material-symbols-rounded" style="font-size:36px; opacity:0.4;">description</span>
-        <p style="font-size:12px; margin-top:8px;">${currentLang === 'si' ? 'ෆයිල් එකක් තෝරන්න' : 'Select a document to preview'}</p>
+      <div class="preview-empty-box">
+        <span class="material-symbols-rounded empty-icon">description</span>
+        <h4 class="empty-title">${isSi ? 'ලේඛනයක් තෝරා නැත' : 'No document selected'}</h4>
+        <p class="empty-sub">${isSi ? 'මුද්‍රණයට පෙරදසුන් කිරීමට PDF, පින්තූර හෝ පෙළ ගොනු මෙතැනට එක් කරන්න' : 'Add PDF, image, or text files to preview and adjust print settings'}</p>
+        <button class="btn btn-outline btn-sm" id="btnEmptyBrowse" onclick="document.getElementById('filePicker')?.click()">
+          <span class="material-symbols-rounded">add</span>
+          <span>${isSi ? 'ෆයිල් එක් කරන්න' : 'Add Files'}</span>
+        </button>
       </div>
     `;
     return;
   }
 
-  const totalPages = item.pages;
+  const isLandscape = item.orientation === 'landscape';
+  simulatedPaper.className = "paper-sheet-simulated active-doc" + (isLandscape ? " landscape" : " portrait");
+
+  const totalPages = item.pages || 1;
   if (previewCurrentPage > totalPages) previewCurrentPage = totalPages;
   if (previewCurrentPage < 1) previewCurrentPage = 1;
 
   if (lblCounter) {
-    lblCounter.innerText = currentLang === 'si' 
+    lblCounter.innerText = isSi 
       ? `පිටුව ${previewCurrentPage} / ${totalPages}`
       : `Page ${previewCurrentPage} of ${totalPages}`;
   }
 
   if (lblDocInfo) {
     const isColor = item.colorMode === 'color';
-    const colorStr = currentLang === 'si' ? (isColor ? 'පාටින්' : 'කළු සුදු') : (isColor ? 'Color' : 'B&W');
-    lblDocInfo.innerText = `${item.paperSize} • ${colorStr} • ${item.pages} ${item.pages === 1 ? 'pg' : 'pgs'}`;
+    const colorStr = isSi ? (isColor ? 'පාටින්' : 'කළු සුදු') : (isColor ? 'Color' : 'B&W');
+    const pgsStr = isSi ? `පිටු ${item.pages}` : `${item.pages} ${item.pages === 1 ? 'pg' : 'pgs'}`;
+    lblDocInfo.innerText = `${item.paperSize} • ${colorStr} • ${pgsStr}`;
   }
 
-  // Dynamic high-fidelity simulated paper layout
-  if (item.ext === 'PNG' || item.ext === 'JPG' || item.type === 'image') {
+  const isImage = (item.ext === 'PNG' || item.ext === 'JPG' || item.ext === 'JPEG' || item.ext === 'WEBP' || item.ext === 'BMP' || item.ext === 'SVG' || item.type === 'image');
+  const isPdf = (item.ext === 'PDF' || item.type === 'pdf');
+
+  if (isImage) {
+    const filter = (item.colorMode === 'bw') ? 'grayscale(100%)' : 'none';
     simulatedPaper.innerHTML = `
-      <div style="height:100%; display:flex; flex-direction:column; gap:8px;">
-        <div style="display:flex; justify-content:space-between; font-size:10px; font-weight:700; color:#0b57d0; border-bottom:1px solid #ddd; padding-bottom:4px;">
-          <span>${item.name}</span><span>${item.paperSize}</span>
+      <div class="real-image-stage" style="width:100%; height:100%; display:flex; flex-direction:column; background:#ffffff; overflow:hidden;">
+        <div style="flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:10px;">
+          <img src="${item.previewUrl || ''}" alt="${escapeHtml(item.name)}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:2px; filter:${filter}; box-shadow:0 1px 6px rgba(0,0,0,0.14);" />
         </div>
-        <div style="flex:1; background:#e8ecf4; border-radius:4px; border:1px dashed #b0c4de; display:flex; align-items:center; justify-content:center; color:#0b57d0;">
-          <span class="material-symbols-rounded" style="font-size:48px;">image</span>
+        <div style="padding:6px 12px; font-size:10px; color:#555; display:flex; justify-content:space-between; border-top:1px solid #eee; background:#fafafa;">
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%; font-weight:600;">${escapeHtml(item.name)}</span>
+          <span>${item.naturalWidth ? item.naturalWidth + '×' + item.naturalHeight + ' px' : (item.sizeStr || '')}</span>
         </div>
-        <div style="font-size:9px; color:#777; text-align:center;">300 DPI High-Resolution Image Preview</div>
       </div>
     `;
-  } else if (item.name.includes("sinhala")) {
+  } else if (isPdf) {
     simulatedPaper.innerHTML = `
-      <div style="height:100%; display:flex; flex-direction:column; font-family:'Noto Sans Sinhala', sans-serif;">
-        <div style="border-bottom:2px solid #0b57d0; padding-bottom:6px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-          <strong style="font-size:11px; color:#0b57d0;">ශ්‍රී ලංකා මුද්‍රණ සහායක</strong>
-          <span style="font-size:9px; color:#666;">2026-10-27</span>
+      <div class="real-pdf-stage" style="width:100%; height:100%; display:flex; flex-direction:column; background:#ffffff; overflow:hidden;">
+        <div style="flex:1; width:100%; height:100%; position:relative; overflow:hidden;">
+          <iframe src="${item.previewUrl || ''}#toolbar=0&navpanes=0&page=${previewCurrentPage}" style="width:100%; height:100%; border:none; display:block;" title="PDF Preview"></iframe>
         </div>
-        <h4 style="font-size:11.5px; margin-bottom:6px; color:#111;">ලේඛන පරීක්ෂණ වාර්තාව (Sinhala Orthography)</h4>
-        <p style="font-size:9.5px; line-height:1.5; color:#333; margin-bottom:8px;">
-          මෙම ලේඛනය සාමාන්‍ය කතාබස් කරන ශ්‍රී ලාංකීය සිංහල වචන (ප්‍රින්ටර්, ෆයිල්, කඩදාසි, කොපි) සහ යතුරුලියන ප්‍රමිතීන් නිවැරදිව පරීක්ෂා කිරීමට සකස් කර ඇත.
-        </p>
-        <div style="border:1px solid #e0e0e0; border-radius:3px; padding:6px; font-size:9px; background:#fafafa; margin-bottom:8px;">
-          <div>• කඩදාසි ප්‍රමාණය: A4 Standard</div>
-          <div>• මුද්‍රණ පැත්ත: දෙපැත්තෙන්ම (පොතක් වගේ)</div>
-          <div>• තත්ත්වය: සම්පූර්ණයෙන්ම සූදානම්</div>
+        <div style="padding:6px 12px; font-size:10px; color:#555; display:flex; justify-content:space-between; border-top:1px solid #eee; background:#fafafa;">
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%; font-weight:600;">${escapeHtml(item.name)}</span>
+          <span>${isSi ? 'පිටුව ' + previewCurrentPage + ' / ' + totalPages : 'Page ' + previewCurrentPage + ' of ' + totalPages}</span>
         </div>
-        <div style="margin-top:auto; border-top:1px solid #eee; padding-top:6px; display:flex; justify-content:space-between; font-size:8.5px; color:#888;">
-          <span>Print Helper Engine • 100% Offline</span>
-          <span>පිටුව ${previewCurrentPage} / ${totalPages}</span>
+      </div>
+    `;
+  } else if (item.textContent || item.type === 'text') {
+    simulatedPaper.innerHTML = `
+      <div class="real-text-stage" style="width:100%; height:100%; display:flex; flex-direction:column; background:#ffffff; overflow:hidden;">
+        <div style="flex:1; overflow:auto; padding:16px; font-family:var(--font-mono, monospace); font-size:11px; line-height:1.55; color:#111; white-space:pre-wrap; word-break:break-word;">
+          ${escapeHtml(item.textContent || (isSi ? 'පෙළ ලේඛනය පූරණය වෙමින්...' : 'Loading document text...'))}
+        </div>
+        <div style="padding:6px 12px; font-size:10px; color:#555; display:flex; justify-content:space-between; border-top:1px solid #eee; background:#fafafa;">
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%; font-weight:600;">${escapeHtml(item.name)}</span>
+          <span>${item.sizeStr || ''}</span>
         </div>
       </div>
     `;
   } else {
     simulatedPaper.innerHTML = `
-      <div style="height:100%; display:flex; flex-direction:column;">
-        <div style="border-bottom:2px solid #333; padding-bottom:6px; margin-bottom:10px; display:flex; justify-content:space-between;">
-          <strong style="font-size:11px; text-transform:uppercase;">${item.name.replace(/\.[^/.]+$/, "")}</strong>
-          <span style="font-size:9px; color:#777;">Page ${previewCurrentPage}/${totalPages}</span>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:12px;">
-          <div style="height:5px; background:#0b57d0; width:65%; border-radius:2px;"></div>
-          <div style="height:4px; background:#ddd; width:95%; border-radius:2px;"></div>
-          <div style="height:4px; background:#ddd; width:88%; border-radius:2px;"></div>
-          <div style="height:4px; background:#ddd; width:92%; border-radius:2px;"></div>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:12px;">
-          <div style="height:4px; background:#ddd; width:100%; border-radius:2px;"></div>
-          <div style="height:4px; background:#ddd; width:75%; border-radius:2px;"></div>
-        </div>
-        <div style="margin-top:auto; font-size:8.5px; color:#999; border-top:1px solid #eee; padding-top:4px; display:flex; justify-content:space-between;">
-          <span>Print Helper Offline Imposition</span>
-          <span>Sheet ${previewCurrentPage}</span>
-        </div>
+      <div style="width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#ffffff; color:#333; padding:24px; text-align:center;">
+        <span class="material-symbols-rounded" style="font-size:48px; color:var(--primary); margin-bottom:12px;">description</span>
+        <strong style="font-size:13px; margin-bottom:4px; max-width:90%; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.name)}</strong>
+        <span style="font-size:11px; color:#666; margin-bottom:12px;">${item.paperSize} • ${item.sizeStr}</span>
+        <span class="badge badge-active">${isSi ? 'මුද්‍රණයට සූදානම්' : 'Ready to Print'}</span>
       </div>
     `;
   }
@@ -1495,6 +1429,7 @@ function updateLiveSummary() {
 function validateDependenciesAndAutoFixes() {
   const container = document.getElementById("validationAlertsBox");
   if (!container) return;
+  if (queue.length === 0) { container.innerHTML = ""; return; }
 
   const p = printerProfilesDb[selectedPrinterId] || printerProfilesDb["epson_l3250"];
   const paperType = document.getElementById("selPaperType")?.value || "Plain Paper";
@@ -1813,9 +1748,7 @@ function renderCommandResults(query) {
     `;
     div.addEventListener("click", () => {
       cmdModal.classList.add("hidden");
-      if (c.action === 'loadSample') {
-        loadSampleBatch();
-      } else if (c.action === 'openPreview') {
+      if (c.action === 'openPreview') {
         livePreviewModal.classList.remove("hidden");
       } else if (c.action === 'openDuplex') {
         manualDuplexModal.classList.remove("hidden");
@@ -1828,6 +1761,12 @@ function renderCommandResults(query) {
         if (c.subview) {
           const pill = document.querySelector(`.pill-btn[data-subview="${c.subview}"], .pill-btn[data-shop-view="${c.subview}"]`);
           if (pill) pill.click();
+        }
+        if (c.tool) {
+          setTimeout(() => {
+            const toolEl = document.querySelector(`.pt-tool[data-id="${c.tool}"]`);
+            if (toolEl) toolEl.click();
+          }, 60);
         }
       }
     });
@@ -1909,16 +1848,6 @@ function renderOrganizerPages() {
   });
 }
 
-function loadSampleBatch() {
-  queue = JSON.parse(JSON.stringify(sampleBatch));
-  selectedQueueIndex = 0;
-  previewCurrentPage = 1;
-  updateQueueUI();
-  updatePreviewCanvas();
-  updateRightPanelSettings();
-  showToast(currentLang === 'si' ? "✨ සාම්පල ෆයිල් ප්‍රින්ට් පෝලිමට එක් කරන ලදී!" : "✨ Sample batch loaded into print queue!");
-}
-
 function handleFileSelect(e) {
   if (e.target.files && e.target.files.length > 0) {
     addRealFiles(e.target.files);
@@ -1931,20 +1860,23 @@ function addRealFiles(files) {
     const f = files[i];
     const ext = f.name.split('.').pop().toUpperCase();
     const isPdf = ext === 'PDF';
-    const isTxt = ext === 'TXT' || ext === 'MD';
-    const isImg = ['PNG', 'JPG', 'JPEG', 'WEBP', 'BMP'].includes(ext);
+    const isTxt = ext === 'TXT' || ext === 'MD' || ext === 'CSV' || ext === 'JSON' || ext === 'LOG';
+    const isImg = ['PNG', 'JPG', 'JPEG', 'WEBP', 'BMP', 'GIF', 'SVG'].includes(ext);
 
     let docType = 'text';
     if (isPdf) docType = 'pdf';
     else if (isImg) docType = 'image';
 
     let estPages = 1;
-    if (isPdf) estPages = Math.max(1, Math.min(60, Math.round(f.size / 150000) || 3));
+    if (isPdf) estPages = Math.max(1, Math.min(60, Math.round(f.size / 150000) || 1));
     else if (isTxt) estPages = Math.max(1, Math.round(f.size / 4000) || 1);
 
-    queue.push({
+    const blobUrl = URL.createObjectURL(f);
+    const item = {
       id: "file_" + Date.now() + "_" + i,
       name: f.name,
+      file: f,
+      previewUrl: blobUrl,
       ext: ext,
       sizeStr: formatBytes(f.size),
       pages: estPages,
@@ -1956,7 +1888,30 @@ function addRealFiles(files) {
       paperSize: "A4",
       tray: "Auto",
       expanded: false
-    });
+    };
+
+    if (isImg) {
+      const img = new Image();
+      img.onload = () => {
+        item.naturalWidth = img.naturalWidth;
+        item.naturalHeight = img.naturalHeight;
+        if (img.naturalWidth > img.naturalHeight) {
+          item.orientation = "landscape";
+        }
+        updatePreviewCanvas();
+        if (window.updateEffectivePpiDisplay) window.updateEffectivePpiDisplay();
+      };
+      img.src = blobUrl;
+    } else if (isTxt) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        item.textContent = e.target.result;
+        updatePreviewCanvas();
+      };
+      reader.readAsText(f.slice(0, 50000));
+    }
+
+    queue.push(item);
   }
 
   selectedQueueIndex = queue.length - 1;
@@ -1965,16 +1920,32 @@ function addRealFiles(files) {
   updateQueueUI();
   updatePreviewCanvas();
   updateRightPanelSettings();
+  validateDependenciesAndAutoFixes();
+  updateLivePricePanel();
+
+  // On mobile/tablet, switch to preview view automatically so user sees file
+  const zones = document.getElementById("workspaceThreeZones");
+  if (zones && window.innerWidth <= 950) {
+    zones.className = "workspace-three-zones show-preview";
+    document.querySelectorAll(".m-zone-btn").forEach(b => b.classList.toggle("active", b.dataset.zone === "preview"));
+  }
+
   showToast(currentLang === 'si' ? `ෆයිල් ${files.length} ක් එක් කරන ලදී` : `Added ${files.length} file(s) to queue`);
 }
 
-function pasteFromClipboard() {
-  queue.push({
+async function pasteFromClipboard() {
+  let clipText = "";
+  try {
+    clipText = await navigator.clipboard.readText();
+  } catch (err) {
+    // clipboard read not permitted or empty
+  }
+  const item = {
     id: "clip_" + Date.now(),
     name: "Clipboard_Snippet_" + new Date().toLocaleTimeString().replace(/:/g, '-') + ".txt",
     ext: "TXT",
-    sizeStr: "4.2 KB",
-    pages: 1,
+    sizeStr: formatBytes(clipText ? clipText.length : 120),
+    pages: Math.max(1, Math.ceil((clipText ? clipText.length : 120) / 3000)),
     type: "text",
     copies: 1,
     colorMode: "bw",
@@ -1982,13 +1953,17 @@ function pasteFromClipboard() {
     orientation: "portrait",
     paperSize: "A4",
     tray: "Auto",
-    expanded: false
-  });
+    expanded: false,
+    textContent: clipText || (currentLang === 'si' ? "පේස්ට් කරන ලද පෙළ අන්තර්ගතය" : "Pasted clipboard text content")
+  };
+  queue.push(item);
   selectedQueueIndex = queue.length - 1;
   previewCurrentPage = 1;
   updateQueueUI();
   updatePreviewCanvas();
   updateRightPanelSettings();
+  validateDependenciesAndAutoFixes();
+  updateLivePricePanel();
   showToast(currentLang === 'si' ? "📋 පේස්ට් කරන ලද ෆයිල් එකතු විය" : "📋 Pasted text from clipboard into queue");
 }
 
@@ -2505,6 +2480,37 @@ function handlePrintAction() {
     : `🚀 Dispatched ${queue.length} file(s) (${totalPages} pages) to "${p.name}"`
   );
 
+  // Trigger real document printing
+  const activeItem = queue[selectedQueueIndex] || queue[0];
+  if (activeItem && activeItem.previewUrl) {
+    try {
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.src = activeItem.previewUrl;
+      document.body.appendChild(iframe);
+      iframe.onload = () => {
+        setTimeout(() => {
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          } catch (e) {
+            window.print();
+          }
+          setTimeout(() => iframe.remove(), 60000);
+        }, 500);
+      };
+    } catch (e) {
+      window.print();
+    }
+  } else {
+    window.print();
+  }
+
   const autoClear = document.getElementById("chkAutoClear");
   if (autoClear && autoClear.checked) {
     queue = [];
@@ -2515,7 +2521,7 @@ function handlePrintAction() {
 
 function applyPresetToQueue(preset) {
   if (queue.length === 0) {
-    showToast("⚠️ Add files to the queue first or load the Sample Batch!");
+    showToast((currentLang === 'si' ? "⚠️ මුලින් පෝලිමට ෆයිල් එක් කරන්න!" : "⚠️ Add files to the queue first."));
     return;
   }
 
@@ -2559,7 +2565,7 @@ function setTheme(theme) {
 function toggleLang() {
   currentLang = currentLang === 'en' ? 'si' : 'en';
   const lbl = document.getElementById("currentLangLabel");
-  if (lbl) lbl.innerText = currentLang === 'en' ? 'සිංහල' : 'English';
+  if (lbl) lbl.innerText = currentLang === 'si' ? 'සිංහල' : 'English';
   const sel = document.getElementById("settingLangSelect");
   if (sel) sel.value = currentLang;
   updateUIStrings();
@@ -2611,16 +2617,16 @@ function updateUIStrings() {
   setTxt("lblTonePaperPreset", isSi ? "කඩදාසි අනුව වෙනස්කම්" : "Paper Compensation");
   setTxt("badgePaperPresetApp", isSi ? "Print Helper සැකසුම" : "Print Helper adjustment");
   setTxt("lblDensity", isSi ? "සමස්ත තීන්ත ඝනත්වය" : "Overall Density");
-  setTxt("lblBrightness", isSi ? "දීප්තිය (Brightness)" : "Brightness");
-  setTxt("lblContrast", isSi ? "ප්‍රතිවිරෝධය (Contrast)" : "Contrast");
-  setTxt("lblGamma", isSi ? "ගැමා වක්‍රය (Gamma)" : "Gamma Curve");
-  setTxt("lblShadows", isSi ? "සෙවණැලි (Shadows)" : "Shadows");
+  setTxt("lblBrightness", isSi ? "දීප්තිය" : "Brightness");
+  setTxt("lblContrast", isSi ? "ප්‍රතිවිරෝධය" : "Contrast");
+  setTxt("lblGamma", isSi ? "ගැමා වක්‍රය" : "Gamma Curve");
+  setTxt("lblShadows", isSi ? "සෙවණැලි" : "Shadows");
   setTxt("lblHighlights", isSi ? "දීප්තිමත් පෙදෙස්" : "Highlights");
-  setTxt("lblBlackLevel", isSi ? "කළු මට්ටම (Black Level)" : "Black Level");
+  setTxt("lblBlackLevel", isSi ? "කළු මට්ටම" : "Black Level");
   setTxt("lblTextDarkness", isSi ? "අකුරු අඳුරු බව" : "Text Darkness");
   setTxt("lblTextSharp", isSi ? "අකුරු තියුණු බව" : "Text Sharpening");
   setTxt("lblPhotoSharp", isSi ? "ඡායාරූප තියුණු බව" : "Photo Sharpening");
-  setTxt("lblSaturation", isSi ? "සන්තෘප්තිය (Saturation)" : "Saturation");
+  setTxt("lblSaturation", isSi ? "සන්තෘප්තිය" : "Saturation");
   setTxt("lblVibrance", isSi ? "වර්ණ ප්‍රාණවත් බව" : "Vibrance (Skin Safe)");
   setTxt("lblInkSaverTitle", isSi ? "තීන්ත / ටෝනර් ඉතිරි කිරීම" : "Ink / Toner Saver Mode");
   setTxt("lblInkSaverLevel", isSi ? "ඉතිරි කිරීමේ මට්ටම" : "Reduction Level");
@@ -2629,13 +2635,21 @@ function updateUIStrings() {
   setTxt("lblCmykNote", isSi ? "ප්‍රතිශතය අනුව සාප්පු ගාස්තු සහ පිරිවැය ගණනය කෙරේ." : "Per-channel optical analysis feeds Shop Mode cost & pricing estimates.");
   setTxt("lblBtnResetTone", isSi ? "මුල් තත්ත්වයට" : "Reset");
   setTxt("lblBtnCompare", toneAndInkState.compareWithOriginal ? (isSi ? "සංසන්දනය නවත්වන්න" : "Stop Compare") : (isSi ? "මුල් පිටුව සමඟ බලන්න" : "Compare Original"));
-  setTxt("lblBtnTestPattern", isSi ? "පරීක්ෂණ රටාව මුද්‍රණය (Test Pattern)..." : "Print Test Pattern (Nozzle & Ramp)...");
-  setTxt("lblTestPatternTitle", isSi ? "පරීක්ෂණ රටාව මුද්‍රණය (Test Pattern)" : "Print Tone & Quality Test Pattern");
-  setTxt("lblTestPatternSub", isSi ? "Epson EcoTank L3250 — Gray Ramp, Color Patches & Nozzle Chart" : "Epson EcoTank L3250 — Gray Ramp, Color Patches & Nozzle Chart");
-  setTxt("lblBtnDriverMaint", isSi ? "Epson ඩ්‍රයිවර් මෙනුව (Maintenance)" : "Open Driver Maintenance");
+  setTxt("lblBtnTestPattern", isSi ? "පරීක්ෂණ රටාව මුද්‍රණය..." : "Print Test Pattern (Nozzle & Ramp)...");
+  setTxt("lblTestPatternTitle", isSi ? "පරීක්ෂණ රටාව මුද්‍රණය" : "Print Tone & Quality Test Pattern");
+  setTxt("lblTestPatternSub", isSi ? "Epson EcoTank L3250 — අළු වර්ණ පරාසය සහ නොසල් සටහන" : "Epson EcoTank L3250 — Gray Ramp, Color Patches & Nozzle Chart");
+  setTxt("lblBtnDriverMaint", isSi ? "Epson ඩ්‍රයිවර් නඩත්තු මෙනුව" : "Open Driver Maintenance");
   setTxt("lblBtnPrintTestPage", isSi ? "පරීක්ෂණ පිටුව මුද්‍රණය කරන්න" : "Print Test Page Now");
   setTxt("lblPreviewApprox", isSi ? "මුද්‍රණ පෙරදසුන (ආසන්න)" : "Approximate print preview (Tone active)");
   setTxt("lblCompareMode", isSi ? "මුල් පිටුව පෙන්වයි (වෙනස්කම් රහිත)" : "Showing Original (Unadjusted)");
+
+  setTxt("lblQueueEmptyHint", isSi ? "තවම ෆයිල් එකතු කර නැත" : "No files added yet");
+  setTxt("lblEmptyPreviewTitle", isSi ? "ලේඛනයක් තෝරා නැත" : "No document selected");
+  setTxt("lblEmptyPreviewSub", isSi ? "මුද්‍රණයට පෙරදසුන් කිරීමට PDF, පින්තූර හෝ පෙළ ගොනු මෙතැනට එක් කරන්න" : "Add PDF, image, or text files to preview and adjust print settings");
+  setTxt("lblEmptyBrowseBtn", isSi ? "ෆයිල් එක් කරන්න" : "Add Files");
+  setTxt("lblMZoneQueue", isSi ? "ෆයිල්" : "Files");
+  setTxt("lblMZonePreview", isSi ? "පෙරදසුන" : "Preview");
+  setTxt("lblMZoneSettings", isSi ? "සැකසුම්" : "Settings");
 
   // Pricing Engine Translations
   setTxt("lblPricingEngineTitle", isSi ? "පූර්ණ බහුමානීය මිල එන්ජිම" : "Full Multidimensional Pricing Engine");
@@ -2694,7 +2708,7 @@ function updateUIStrings() {
   setTxt("lblRoutingRulesTitle", isSi ? "ප්‍රින්ටර් මාර්ගගත කිරීමේ නීති සහ ප්‍රතිපත්ති" : "Fleet Routing Rules & Policies");
   setTxt("lblRoutingRulesSubtitle", isSi ? "විශේෂිත ද්‍රව්‍ය සීමා, ඉහළ පිටු ප්‍රමාණ සහ බර තුලනය" : "Configurable routing priority, hardware constraints, and load balancing");
 
-  setTxt("currentLangLabel", currentLang === 'si' ? "English" : "සිංහල");
+  setTxt("currentLangLabel", currentLang === 'si' ? "සිංහල" : "English");
 }
 
 function showToast(msg) {
@@ -3814,18 +3828,14 @@ function calculateCurrentQueueQuote() {
   let totalCost = 0;
   let lineSegments = [];
 
-  const items = queue.length > 0 ? queue : [
-    {
-      name: "Annual_Report_2026.pdf",
-      pageCount: 20,
-      copies: 1,
-      paperSize: "A4",
-      paperType: "Plain Paper",
-      isColor: true,
-      sides: "single",
-      isBorderless: false
-    }
-  ];
+  const items = queue.map(q => ({
+    name: q.name,
+    pageCount: q.pages,
+    copies: q.copies,
+    paperSize: q.paperSize,
+    isColor: q.colorMode === 'color',
+    sides: q.duplex === 'one-sided' ? 'single' : 'double-long'
+  }));
 
   let remainingFreePages = group.freePages;
   let freePagesDeducted = 0;
@@ -3961,7 +3971,7 @@ function calculateCurrentQueueQuote() {
     minAdjustment = shopPricingEngine.minimumJobCharge - discountedSubtotal;
   }
 
-  const finalTotal = discountedSubtotal + minAdjustment + shopPricingEngine.setupFee;
+  const finalTotal = totalImpressions > 0 ? discountedSubtotal + minAdjustment + shopPricingEngine.setupFee : 0;
   const netProfit = Math.max(0, finalTotal - totalCost);
 
   return {

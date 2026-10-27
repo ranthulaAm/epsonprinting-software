@@ -31,3 +31,7 @@ scratch/
 
 # Windows build artifacts
 /windows/flutter/ephemeral/
+
+# Python cache & archives
+__pycache__/
+*.zip

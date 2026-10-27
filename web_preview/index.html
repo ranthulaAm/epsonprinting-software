@@ -90,29 +90,25 @@
         <div class="receipt-thermal-paper" id="receiptPaper">
           <div class="receipt-header">
             <h4>PRINT HELPER SHOP & COPY CENTER</h4>
-            <p>No. 45, Galle Road, Colombo • Tel: +94 11 234 5678</p>
-            <p class="receipt-dt" id="receiptDateTime">2026-10-26 23:30 • CASHIER #01</p>
+            <p class="receipt-dt" id="receiptDateTime"></p>
             <div class="receipt-divider">-----------------------------------------</div>
           </div>
           <div class="receipt-customer-row">
-            <span id="rcptCustomerName">Customer: Walk-in Client</span>
-            <span id="rcptJobCode">Ticket: #SHP-4089</span>
+            <span id="rcptCustomerName"></span>
+            <span id="rcptJobCode"></span>
           </div>
           <div class="receipt-divider">-----------------------------------------</div>
-          <div class="receipt-items-list" id="rcptItemsList">
-            <div class="r-item"><span>Audit Report (14 pgs B&W Duplex)</span><span>LKR 140.00</span></div>
-            <div class="r-item"><span>Product Mockup (2 pgs Color Photo)</span><span>LKR 80.00</span></div>
-          </div>
+          <div class="receipt-items-list" id="rcptItemsList"></div>
           <div class="receipt-divider">-----------------------------------------</div>
           <div class="receipt-totals">
-            <div class="r-total-row"><span>Subtotal</span><span id="rcptSubtotal">LKR 220.00</span></div>
-            <div class="r-total-row"><span>Discount</span><span>LKR 0.00</span></div>
-            <div class="r-total-row grand"><span>TOTAL AMOUNT</span><span id="rcptGrandTotal">LKR 220.00</span></div>
+            <div class="r-total-row"><span>Subtotal</span><span id="rcptSubtotal">Rs. 0.00</span></div>
+            <div class="r-total-row"><span>Discount</span><span id="rcptDiscount">Rs. 0.00</span></div>
+            <div class="r-total-row grand"><span>TOTAL AMOUNT</span><span id="rcptGrandTotal">Rs. 0.00</span></div>
           </div>
           <div class="receipt-divider">-----------------------------------------</div>
           <div class="receipt-footer">
             <p>Thank you for printing with us!</p>
-            <p>ස්තූතියි • Please retain this ticket for pickup</p>
+            <p>Please retain this ticket for pickup</p>
           </div>
         </div>
       </div>
@@ -345,7 +341,7 @@
 
         <div class="helper-source-bar">
           <span class="material-symbols-rounded">image</span>
-          <span id="lblPhotoHelperSource">Source Image: <strong>sample_photo.jpg</strong> (1800 × 1200 px)</span>
+          <span id="lblPhotoHelperSource">Source Image: <strong>Image from the print queue</strong></span>
         </div>
 
         <h4 class="helper-table-title" id="lblPhotoHelperTableTitle">Quality Across Standard Sizes:</h4>
@@ -587,22 +583,7 @@
                 <th style="text-align:right;">Subtotal</th>
               </tr>
             </thead>
-            <tbody id="quoteItemsTbody">
-              <tr>
-                <td><strong>annual_report.pdf</strong> (Pages 1-17)</td>
-                <td><span class="source-badge">B&W Text</span></td>
-                <td>17 pages × 1 copy</td>
-                <td>Rs. 12.00 (Tier 11-50)</td>
-                <td style="text-align:right;">Rs. 204.00</td>
-              </tr>
-              <tr>
-                <td><strong>annual_report.pdf</strong> (Pages 18-20)</td>
-                <td><span class="source-badge app">Color Charts</span></td>
-                <td>3 pages × 1 copy</td>
-                <td>Rs. 40.00</td>
-                <td style="text-align:right;">Rs. 120.00</td>
-              </tr>
-            </tbody>
+            <tbody id="quoteItemsTbody"></tbody>
           </table>
         </div>
 
@@ -610,7 +591,7 @@
         <div class="quote-financial-summary">
           <div class="quote-sum-row">
             <span>Gross Page Impressions Subtotal:</span>
-            <strong id="lblQuoteGrossSubtotal">Rs. 324.00</strong>
+            <strong id="lblQuoteGrossSubtotal">Rs. 0.00</strong>
           </div>
           <div class="quote-sum-row text-success" id="rowQuoteFreePages">
             <span>Free Pages Allowance Deduction:</span>
@@ -631,11 +612,11 @@
           <div class="quote-sum-divider"></div>
           <div class="quote-sum-row quote-grand-total">
             <span>FINAL PAYABLE TOTAL:</span>
-            <strong class="total-price" id="lblQuoteGrandTotal">Rs. 324.00</strong>
+            <strong class="total-price" id="lblQuoteGrandTotal">Rs. 0.00</strong>
           </div>
           <div class="quote-est-profit-callout" id="lblQuoteProfitAudit">
             <span class="material-symbols-rounded">trending_up</span>
-            <span>Estimated Supplies Cost: <strong>Rs. 68.50</strong> • Estimated Net Profit: <strong>Rs. 255.50</strong> (labeled estimate)</span>
+            <span>Estimated Supplies Cost: <strong>Rs. 0.00</strong> • Estimated Net Profit: <strong>Rs. 0.00</strong> (labeled estimate)</span>
           </div>
         </div>
       </div>
@@ -858,7 +839,7 @@
               </div>
             </div>
             <div class="form-row">
-              <label id="lblOuterDia">Outer Diameter (විෂ්කම්භය)</label>
+              <label id="lblOuterDia">Outer Diameter</label>
               <div class="slider-val-wrap">
                 <input type="range" id="rngOuterDia" min="70" max="120" step="0.5" value="116" class="form-range" />
                 <span class="slider-display" id="valOuterDia">116.0 mm</span>
@@ -872,7 +853,7 @@
               </div>
             </div>
             <div class="form-row">
-              <label id="lblCircularText">Text on Circle Path (වෘත්තාකාර අකුරු)</label>
+              <label id="lblCircularText">Text on Circle Path</label>
               <input type="text" id="inputCircularText" class="form-input" value="PRINT HELPER WEDDING ARCHIVE 2026" placeholder="Enter disc label text" />
             </div>
 
@@ -985,10 +966,10 @@
             <div class="form-row">
               <label id="lblCropGuides">Cutting Guides Style</label>
               <select id="selCropGuides" class="form-select">
-                <option value="dashed" selected>Dashed Cut Lines (කඩ ඉරි)</option>
-                <option value="corners">Corner Crop Marks (කොන් සලකුණු)</option>
-                <option value="solid">Thin Solid Borders (තනි ඉරි)</option>
-                <option value="none">No Guidelines (ඉරි නැත)</option>
+                <option value="dashed" selected>Dashed Cut Lines</option>
+                <option value="corners">Corner Crop Marks</option>
+                <option value="solid">Thin Solid Borders</option>
+                <option value="none">No Guidelines</option>
               </select>
             </div>
           </div>
@@ -997,7 +978,7 @@
           <div class="specialty-panel hidden" id="panelSpecialtyRigid">
             <h4 class="specialty-pane-title" id="titleRigid">Rigid & Posterboard Straight-Through Pass</h4>
             <div class="form-row">
-              <label id="lblMediaThickness">Media Thickness (ඝනකම)</label>
+              <label id="lblMediaThickness">Media Thickness</label>
               <div class="slider-val-wrap">
                 <input type="range" id="rngMediaThickness" min="0.1" max="2.0" step="0.05" value="0.8" class="form-range" />
                 <span class="slider-display" id="valMediaThickness">0.80 mm</span>
@@ -1232,7 +1213,7 @@
             Rerouted to Epson EcoTank L8050 because target printer is offline and L8050 supports borderless photo printing.
           </div>
           <div id="failoverRationaleSentenceSi" style="margin-top:4px; padding:8px 12px; background:var(--bg-surface-container); border-radius:4px; font-size:12px; color:var(--text-muted); font-style:italic;">
-            ඉලක්කගත මුද්‍රණ යන්ත්‍රය ක්‍රියාවිරහිත බැවින් සහ L8050 මඟින් ඡායාරූප මුද්‍රණය කළ හැකි බැවින් L8050 වෙත යොමු කරන ලදී.
+            Target printer is offline and the L8050 can print photos, so the job was routed to the L8050.
           </div>
         </div>
 
@@ -1388,16 +1369,11 @@
       </button>
 
       <div class="title-bar-actions">
-        <!-- Sample batch populate button -->
-        <button id="btnLoadDemo" class="btn-ghost" title="Quickly populate sample files">
-          <span class="material-symbols-rounded">auto_awesome</span>
-          <span>Sample Batch</span>
-        </button>
 
         <!-- Language Switcher -->
-        <button id="btnLangToggle" class="btn-ghost" title="Switch Language (EN / සිංහල)">
+        <button id="btnLangToggle" class="btn-ghost" title="Switch Language">
           <span class="material-symbols-rounded">translate</span>
-          <span id="currentLangLabel">සිංහල</span>
+          <span id="currentLangLabel">English</span>
         </button>
 
         <!-- Theme Toggle -->
@@ -1460,21 +1436,27 @@
       <main class="content-area">
         <!-- 1. PRINT TAB (Three Clear Zones) -->
         <section id="tabPrint" class="tab-pane active">
-          <!-- Top Responsive Queue Toggle (shown when screen < 1100px) -->
-          <div class="responsive-queue-toggle-bar">
-            <button class="btn btn-outline btn-sm" id="btnToggleQueueDrawer">
-              <span class="material-symbols-rounded">queue</span>
-              <span id="lblToggleQueueDrawer">Files (0)</span>
+          <!-- Top Responsive Zone Switcher (for tablet / mobile <= 950px) -->
+          <div class="mobile-zone-tabs" id="mobileZoneTabs">
+            <button class="m-zone-btn" data-zone="queue" id="btnMZoneQueue">
+              <span class="material-symbols-rounded">folder_open</span>
+              <span id="lblMZoneQueue">Files</span>
+              <span class="m-badge" id="mZoneQueueBadge">0</span>
             </button>
-            <button class="btn btn-tonal btn-sm" id="btnResponsiveAddFiles">
+            <button class="m-zone-btn active" data-zone="preview" id="btnMZonePreview">
+              <span class="material-symbols-rounded">visibility</span>
+              <span id="lblMZonePreview">Preview</span>
+            </button>
+            <button class="m-zone-btn" data-zone="settings" id="btnMZoneSettings">
+              <span class="material-symbols-rounded">tune</span>
+              <span id="lblMZoneSettings">Settings</span>
+            </button>
+            <button class="btn btn-tonal btn-sm m-add-btn" id="btnResponsiveAddFiles" title="Add Files">
               <span class="material-symbols-rounded">add</span>
-              <span id="lblResponsiveAdd">Add Files</span>
             </button>
-            <span class="spacer"></span>
-            <span class="total-pages-tag" id="lblResponsiveTotalPages">0 pages</span>
           </div>
 
-          <div class="workspace-three-zones">
+          <div class="workspace-three-zones show-preview" id="workspaceThreeZones">
             <!-- ZONE 1: Left Queue & Drop Zone (~30% when >= 1100px; drawer when < 1100px) -->
             <div class="zone-left-queue" id="zoneLeftQueue">
               <div class="zone-card">
@@ -1527,13 +1509,15 @@
                     <span class="material-symbols-rounded">compare</span>
                     <span id="lblCompareMode">Showing Original (Unadjusted)</span>
                   </div>
-                  <div class="paper-sheet-simulated" id="paperSheetSimulated">
-                    <div class="sheet-header-mock">
-                      <div class="mock-icon"></div>
-                      <div class="mock-lines"><div></div><div></div></div>
-                    </div>
-                    <div class="sheet-body-mock">
-                      <div></div><div></div><div></div><div></div><div></div>
+                  <div class="paper-sheet-simulated empty-state" id="paperSheetSimulated">
+                    <div class="preview-empty-box">
+                      <span class="material-symbols-rounded empty-icon">description</span>
+                      <h4 class="empty-title" id="lblEmptyPreviewTitle">No document selected</h4>
+                      <p class="empty-sub" id="lblEmptyPreviewSub">Add PDF, image, or text files to preview and adjust print settings</p>
+                      <button class="btn btn-outline btn-sm" id="btnEmptyBrowse">
+                        <span class="material-symbols-rounded">add</span>
+                        <span id="lblEmptyBrowseBtn">Add Files</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -2206,9 +2190,9 @@
                         <option value="COPY">COPY</option>
                         <option value="PAID">PAID</option>
                         <option value="DRAFT">DRAFT</option>
-                        <option value="sinhalaCopy">පිටපත (Sinhala Copy)</option>
-                        <option value="sinhalaPaid">ගෙවන ලදී (Sinhala Paid)</option>
-                        <option value="sinhalaDraft">කෙටුම්පත (Sinhala Draft)</option>
+                        <option value="sinhalaCopy">Copy (Sinhala stamp)</option>
+                        <option value="sinhalaPaid">Paid (Sinhala stamp)</option>
+                        <option value="sinhalaDraft">Draft (Sinhala stamp)</option>
                       </select>
                     </div>
 
@@ -2235,7 +2219,7 @@
                   <div class="live-price-strip" id="livePriceStrip">
                     <div class="price-main-col">
                       <div class="price-label-small" id="lblLivePriceHeader">Estimated Total</div>
-                      <div class="price-value-big" id="lblLivePriceAmount">Rs. 185.00</div>
+                      <div class="price-value-big" id="lblLivePriceAmount">Rs. 0.00</div>
                     </div>
                     <div class="price-actions-col">
                       <button class="btn btn-outline btn-sm btn-breakdown-toggle" id="btnTogglePriceBreakdown" title="View Price Breakdown">
@@ -2318,11 +2302,11 @@
                 <div class="form-row-2">
                   <div>
                     <label>Customer Name / Phone</label>
-                    <input type="text" id="shopCustomerName" placeholder="e.g. Kasun Perera (+94 77 123 4567)" class="form-input">
+                    <input type="text" id="shopCustomerName" placeholder="Customer name or phone (optional)" class="form-input">
                   </div>
                   <div>
                     <label>Pickup / Job Tag</label>
-                    <input type="text" id="shopJobTag" value="SHP-2026-0042" class="form-input" readonly>
+                    <input type="text" id="shopJobTag" value="SHP-0001" class="form-input" readonly>
                   </div>
                 </div>
 
@@ -2336,12 +2320,9 @@
                 <div class="shop-batch-table">
                   <table class="jobs-table">
                     <thead>
-                      <tr><th>File</th><th>Pages</th><th>Color Mode</th><th>Duplex</th><th>Price</th></tr>
-                    </thead>
-                    <tbody id="shopBatchTbody">
-                      <tr><td>Annual_Report_Audit.pdf</td><td>14</td><td>B&W</td><td>2-Sided</td><td>LKR 140.00</td></tr>
-                      <tr><td>Product_Design_A4.png</td><td>2</td><td>Full Color</td><td>1-Sided</td><td>LKR 80.00</td></tr>
-                    </tbody>
+<tr><th>File</th><th>Pages</th><th>Copies</th><th>Color Mode</th><th>Duplex</th></tr>
+</thead>
+<tbody id="shopBatchTbody"></tbody>
                   </table>
                 </div>
               </div>
@@ -2351,17 +2332,15 @@
                 <h3>Counter Billing & Dispatch</h3>
                 
                 <div class="bill-breakdown-box">
-                  <div class="bill-row"><span>Total Document Pages</span><strong>16 pages</strong></div>
-                  <div class="bill-row"><span>Black & White Pages (14 × LKR 10.00)</span><span>LKR 140.00</span></div>
-                  <div class="bill-row"><span>Color Pages (2 × LKR 40.00)</span><span>LKR 80.00</span></div>
-                  <div class="bill-row"><span>Binding / Lamination</span><span>LKR 0.00</span></div>
-                  <div class="bill-divider"></div>
+<div class="bill-row"><span>Total Document Pages</span><strong id="shopBillPages">0 pages</strong></div>
+<div id="shopBillRows"></div>
+<div class="bill-divider"></div>
                   <div class="bill-row grand-total">
                     <span>CUSTOMER TOTAL</span>
-                    <strong class="total-price" id="shopCalculatedTotal">LKR 220.00</strong>
+                    <strong class="total-price" id="shopCalculatedTotal">Rs. 0.00</strong>
                   </div>
                   <div class="bill-est-cost">
-                    Estimated Ink & Paper Supply Cost: <strong>LKR 46.50</strong> (Profit: <span class="text-success">LKR 173.50</span>)
+                    <span id="shopBillCostLine">Estimated Ink & Paper Supply Cost: <strong>Rs. 0.00</strong> (Profit: <span class="text-success">Rs. 0.00</span>)</span>
                   </div>
                 </div>
 
@@ -2400,66 +2379,7 @@
             </div>
 
             <div class="customer-jobs-grid" id="customerJobsGrid">
-              <!-- Customer Ticket 1 -->
-              <div class="cust-job-card">
-                <div class="cust-card-top">
-                  <div>
-                    <h4>Kasun Perera</h4>
-                    <span class="ticket-code">TICKET #SHP-4089</span>
-                  </div>
-                  <span class="badge-status status-printing">Printing (45%)</span>
-                </div>
-                <div class="cust-meta">
-                  <span>📄 2 Files • 16 Pages</span>
-                  <strong>LKR 220.00 (Paid)</strong>
-                </div>
-                <p class="cust-notes">Notes: Spiral bind report with transparent plastic cover.</p>
-                <div class="cust-card-actions">
-                  <button class="btn btn-tonal btn-sm btn-view-rcpt">Receipt</button>
-                  <button class="btn btn-outline btn-sm" onclick="showToast('Marked Ticket #SHP-4089 as Done')">Mark Done</button>
-                </div>
-              </div>
-
-              <!-- Customer Ticket 2 -->
-              <div class="cust-job-card">
-                <div class="cust-card-top">
-                  <div>
-                    <h4>Dilshan Fernando</h4>
-                    <span class="ticket-code">TICKET #SHP-4088</span>
-                  </div>
-                  <span class="badge-status status-done">Ready for Pickup</span>
-                </div>
-                <div class="cust-meta">
-                  <span>📄 1 File • 48 Pages</span>
-                  <strong>LKR 480.00 (Due)</strong>
-                </div>
-                <p class="cust-notes">Notes: Urgent thesis printing double-sided.</p>
-                <div class="cust-card-actions">
-                  <button class="btn btn-tonal btn-sm btn-view-rcpt">Receipt</button>
-                  <button class="btn btn-primary btn-sm" onclick="showToast('Ticket #SHP-4088 Picked up & Closed')">Hand Over</button>
-                </div>
-              </div>
-
-              <!-- Customer Ticket 3 -->
-              <div class="cust-job-card">
-                <div class="cust-card-top">
-                  <div>
-                    <h4>Ayesha Gunawardena</h4>
-                    <span class="ticket-code">TICKET #SHP-4087</span>
-                  </div>
-                  <span class="badge-status status-waiting">Waiting in Queue</span>
-                </div>
-                <div class="cust-meta">
-                  <span>📄 4 Files • 8 Pages Color</span>
-                  <strong>LKR 320.00 (Paid)</strong>
-                </div>
-                <p class="cust-notes">Notes: High-DPI photo flyers on gloss paper.</p>
-                <div class="cust-card-actions">
-                  <button class="btn btn-tonal btn-sm btn-view-rcpt">Receipt</button>
-                  <button class="btn btn-primary btn-sm" onclick="showToast('Started printing Ticket #SHP-4087')">Start Print</button>
-                </div>
-              </div>
-            </div>
+</div>
           </div>
 
           <!-- Shop Subview 3: Multi-Printer Live Fleet Dashboard & Routing Rules -->
@@ -2731,7 +2651,7 @@
                   <div class="fee-field">
                     <label id="lblCurrencySelect">Currency:</label>
                     <select id="selEngineCurrency" class="form-select form-select-sm">
-                      <option value="LKR" selected>LKR (Rs. / රු.)</option>
+                      <option value="LKR" selected>LKR (Rs.)</option>
                       <option value="USD">USD ($)</option>
                       <option value="EUR">EUR (€)</option>
                       <option value="GBP">GBP (£)</option>
@@ -2778,15 +2698,15 @@
                 <div class="profit-audit-banner">
                   <div class="audit-stat-item">
                     <span class="stat-lbl">Today's Revenue:</span>
-                    <strong class="stat-val" id="lblAuditRevenue">Rs. 14,850.00</strong>
+                    <strong class="stat-val" id="lblAuditRevenue">Rs. 0.00</strong>
                   </div>
                   <div class="audit-stat-item">
                     <span class="stat-lbl">Supplies Cost:</span>
-                    <strong class="stat-val" id="lblAuditCost">Rs. 3,120.00 (est.)</strong>
+                    <strong class="stat-val" id="lblAuditCost">Rs. 0.00 (est.)</strong>
                   </div>
                   <div class="audit-stat-item">
                     <span class="stat-lbl">Estimated Profit:</span>
-                    <strong class="stat-val text-success" id="lblAuditProfit">Rs. 11,730.00 (est.)</strong>
+                    <strong class="stat-val text-success" id="lblAuditProfit">Rs. 0.00 (est.)</strong>
                   </div>
                 </div>
                 <button class="btn btn-outline btn-sm btn-block" style="margin-top:8px;" id="btnExportDailyCsv">
@@ -2799,282 +2719,10 @@
         </section>
 
         <!-- 3. PDF TOOLS TAB -->
+                <!-- 3. PDF TOOLS TAB (Consolidated & Powered by PDF Power Tools Engine) -->
         <section id="tabTools" class="tab-pane">
-          <div class="tools-subbar">
-            <div class="segmented-toggle-pills" id="pdfToolsSubbar">
-              <button class="pill-btn active" data-subview="power">
-                <span class="material-symbols-rounded">bolt</span>
-                <span>PDF Power Tools (20 real tools)</span>
-              </button>
-              <button class="pill-btn" data-subview="viewer">
-                <span class="material-symbols-rounded">menu_book</span>
-                <span>PDF Multi-Tab Viewer</span>
-              </button>
-              <button class="pill-btn" data-subview="organizer">
-                <span class="material-symbols-rounded">dashboard_customize</span>
-                <span>Page Tools & Organizer (13 Tools)</span>
-              </button>
-              <button class="pill-btn" data-subview="annotate">
-                <span class="material-symbols-rounded">edit_document</span>
-                <span>Annotate, Sign & AcroForms</span>
-              </button>
-              <button class="pill-btn" data-subview="security">
-                <span class="material-symbols-rounded">security</span>
-                <span>Security, Redaction & Compare</span>
-              </button>
-              <button class="pill-btn" data-subview="ocr">
-                <span class="material-symbols-rounded">transform</span>
-                <span>Convert & OCR (Sinhala + English)</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Subview 1: Multi-Tab PDF Viewer -->
-          <div class="subview-pane active" id="subviewPower"></div>
-
-          <div class="subview-pane" id="subviewViewer">
-            <div class="viewer-tabs-bar">
-              <div class="viewer-tabs-list" id="viewerTabsList">
-                <div class="viewer-tab active" data-file="sinhala_sample">
-                  <span class="material-symbols-rounded tab-doc-icon">picture_as_pdf</span>
-                  <span>sinhala_orthography_test.pdf</span>
-                  <span class="tab-close-btn">&times;</span>
-                </div>
-                <div class="viewer-tab" data-file="financial_report">
-                  <span class="material-symbols-rounded tab-doc-icon">picture_as_pdf</span>
-                  <span>Annual_Financial_Audit_2026.pdf</span>
-                  <span class="tab-close-btn">&times;</span>
-                </div>
-              </div>
-              <button class="btn btn-ghost btn-sm" id="btnOpenNewDocViewer">
-                <span class="material-symbols-rounded">add</span>
-              </button>
-            </div>
-
-            <!-- Viewer Workspace -->
-            <div class="viewer-workspace-body">
-              <!-- Sidebar Thumbnails -->
-              <div class="viewer-sidebar">
-                <div class="sidebar-header">
-                  <span>Pages (4)</span>
-                  <span class="material-symbols-rounded">view_sidebar</span>
-                </div>
-                <div class="thumb-list">
-                  <div class="thumb-item active" data-page="1">
-                    <span class="thumb-num">1</span>
-                    <div class="mini-paper"></div>
-                  </div>
-                  <div class="thumb-item" data-page="2">
-                    <span class="thumb-num">2</span>
-                    <div class="mini-paper"></div>
-                  </div>
-                  <div class="thumb-item" data-page="3">
-                    <span class="thumb-num">3</span>
-                    <div class="mini-paper"></div>
-                  </div>
-                  <div class="thumb-item" data-page="4">
-                    <span class="thumb-num">4</span>
-                    <div class="mini-paper"></div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Main Document View -->
-              <div class="viewer-viewport">
-                <!-- Viewer floating toolbar -->
-                <div class="viewer-floating-bar">
-                  <button class="btn-ghost btn-sm" id="btnZoomOut2" title="Zoom Out"><span class="material-symbols-rounded">zoom_out</span></button>
-                  <span class="zoom-level" id="lblZoomLevel2">100%</span>
-                  <button class="btn-ghost btn-sm" id="btnZoomIn2" title="Zoom In"><span class="material-symbols-rounded">zoom_in</span></button>
-                  <div class="v-divider"></div>
-                  <button class="btn-ghost btn-sm" id="btnRotateView" title="Rotate"><span class="material-symbols-rounded">rotate_right</span></button>
-                  <button class="btn-ghost btn-sm" id="btnFitWidth" title="Fit to Width"><span class="material-symbols-rounded">fit_screen</span></button>
-                  <div class="v-divider"></div>
-                  <button class="btn btn-tonal btn-sm" id="btnSendViewerToQueue">
-                    <span class="material-symbols-rounded">print</span>
-                    <span>Send to Print Queue</span>
-                  </button>
-                </div>
-
-                <!-- Simulated Rendered Page -->
-                <div class="rendered-page-container">
-                  <div class="pdf-virtual-page" id="virtualPageDisplay">
-                    <div class="pdf-page-header">
-                      <h3>ශ්‍රී ලංකා මුද්‍රණ සහායක — සිංහල පරීක්ෂණ පිටුව</h3>
-                      <span class="doc-date">2026-10-26 • රහසිගතයි</span>
-                    </div>
-                    <div class="pdf-sample-content">
-                      <p><strong>Sinhala Orthography & Ligature Validation:</strong></p>
-                      <p>මෙම පිටුව ශ්‍රී ලාංකීය යතුරුලියන ප්‍රමිතීන් (Noto Sans Sinhala / Iskoola Pota) සහ මුද්‍රණ පෙරදසුන් තාක්ෂණය පරීක්ෂා කිරීම සඳහා සකස් කරන ලද්දකි. බැඳි අකුරු (Ligatures), කොම්බුව සහ ඇලපිල්ල නිවැරදිව මුද්‍රණය කෙරේ.</p>
-                      <div class="sample-table-box">
-                        <div class="s-row header"><span>විස්තරය (Item)</span><span>පිටු (Pages)</span><span>තත්ත්වය (Status)</span></div>
-                        <div class="s-row"><span>වාර්ෂික මූල්‍ය විගණනය</span><span>14</span><span class="text-success">සම්පූර්ණයි</span></div>
-                        <div class="s-row"><span>ගිවිසුම් ෆයිල්</span><span>3</span><span class="text-success">සූදානම්</span></div>
-                      </div>
-                    </div>
-                    <div class="pdf-page-footer">
-                      <span>Print Helper Engine • Offline Secured</span>
-                      <span>Page 1 of 4</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Subview 2: Page Organizer (13 Tools) -->
-          <div class="subview-pane" id="subviewOrganizer">
-            <div class="organizer-toolbar">
-              <div class="org-actions-row">
-                <button class="btn btn-tonal btn-sm" id="btnOrgMerge">
-                  <span class="material-symbols-rounded">call_merge</span>
-                  <span>Merge PDFs</span>
-                </button>
-                <button class="btn btn-tonal btn-sm" id="btnOrgSplit">
-                  <span class="material-symbols-rounded">call_split</span>
-                  <span>Split Range</span>
-                </button>
-                <button class="btn btn-tonal btn-sm" id="btnOrgRotateAll">
-                  <span class="material-symbols-rounded">rotate_right</span>
-                  <span>Rotate 90°</span>
-                </button>
-                <button class="btn btn-tonal btn-sm" id="btnOrgWatermark">
-                  <span class="material-symbols-rounded">branding_watermark</span>
-                  <span>Watermark</span>
-                </button>
-                <button class="btn btn-tonal btn-sm" id="btnOrgCompress">
-                  <span class="material-symbols-rounded">compress</span>
-                  <span>Compress (Eco)</span>
-                </button>
-                <button class="btn btn-tonal btn-sm" id="btnOrgBates">
-                  <span class="material-symbols-rounded">tag</span>
-                  <span>Bates Numbering</span>
-                </button>
-                <button class="btn btn-ghost btn-sm text-danger" id="btnOrgDeleteSelected">
-                  <span class="material-symbols-rounded">delete</span>
-                  <span>Delete Selected</span>
-                </button>
-              </div>
-              <button class="btn btn-primary btn-sm" id="btnExportOrganizedPdf">
-                <span class="material-symbols-rounded">save</span>
-                <span>Export Modified PDF</span>
-              </button>
-            </div>
-
-            <!-- Page Grid Organizer -->
-            <div class="pages-grid-container" id="pagesGridOrganizer">
-              <!-- Rendered via JS -->
-            </div>
-          </div>
-
-          <!-- Subview 3: Annotate, Sign & AcroForms -->
-          <div class="subview-pane" id="subviewAnnotate">
-            <div class="annotate-top-bar">
-              <div class="tool-picker">
-                <button class="tool-btn active" data-tool="hand"><span class="material-symbols-rounded">pan_tool</span> Pan</button>
-                <button class="tool-btn" data-tool="highlight"><span class="material-symbols-rounded">ink_highlighter</span> Highlight</button>
-                <button class="tool-btn" data-tool="note"><span class="material-symbols-rounded">sticky_note_2</span> Sticky Note</button>
-                <button class="tool-btn" data-tool="stamp"><span class="material-symbols-rounded">approval</span> Stamp</button>
-                <button class="tool-btn" data-tool="sign"><span class="material-symbols-rounded">signature</span> Sign</button>
-              </div>
-              <div class="annotate-actions">
-                <button class="btn btn-outline btn-sm" id="btnOpenSignaturePad">
-                  <span class="material-symbols-rounded">draw</span>
-                  <span>Draw Signature</span>
-                </button>
-                <button class="btn btn-tonal btn-sm" id="btnFlattenPdf">
-                  <span class="material-symbols-rounded">layers_clear</span>
-                  <span>Flatten PDF</span>
-                </button>
-              </div>
-            </div>
-
-            <div class="annotate-canvas-area" id="annotateCanvasArea">
-              <div class="mock-document-sheet">
-                <div class="anno-stamp" id="sampleStamp">APPROVED • නිල වශයෙන් අනුමතයි</div>
-                <h3>Executive Approval & Sign-off Document</h3>
-                <p>Please review the enclosed contract terms. Sign and stamp below to finalize the printing dispatch order.</p>
-                <div class="signature-slot-box" id="sigSlotBox">
-                  <span class="sig-placeholder" id="sigPlaceholder">Click "Draw Signature" to sign here</span>
-                  <canvas id="drawnSignaturePreview" width="300" height="90" style="display:none"></canvas>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Subview 4: Security, Redaction & Compare -->
-          <div class="subview-pane" id="subviewSecurity">
-            <div class="security-grid">
-              <div class="sec-card">
-                <div class="sec-icon"><span class="material-symbols-rounded">lock</span></div>
-                <h3>256-bit AES Password Encryption</h3>
-                <p>Protect document with high-grade encryption. Restrict printing, editing, and copying.</p>
-                <input type="password" id="txtPdfPassword" placeholder="Enter owner password..." class="form-input">
-                <div class="perms-list">
-                  <label><input type="checkbox" checked> Allow High-Resolution Printing</label>
-                  <label><input type="checkbox"> Allow Content Extraction</label>
-                </div>
-                <button class="btn btn-primary btn-sm" onclick="showToast('🔒 256-bit AES Encryption applied to active PDF')">Apply Encryption</button>
-              </div>
-
-              <div class="sec-card">
-                <div class="sec-icon"><span class="material-symbols-rounded">blur_on</span></div>
-                <h3>Text & Area Redaction (Blackout)</h3>
-                <p>Permanently sanitize sensitive personally identifiable information (PII) before printing.</p>
-                <input type="text" id="txtRedactTerm" placeholder="Keywords to redact (e.g. NIC, Passwords, Names)" class="form-input">
-                <button class="btn btn-tonal btn-sm" onclick="showToast('✂️ Sanitized and redacted 4 instances of sensitive data')">Find & Redact Terms</button>
-              </div>
-
-              <div class="sec-card">
-                <div class="sec-icon"><span class="material-symbols-rounded">compare</span></div>
-                <h3>Side-by-Side Visual Diff / Compare</h3>
-                <p>Highlight text modifications, deleted sentences, and layout shifts between two revisions.</p>
-                <button class="btn btn-outline btn-sm" onclick="showToast('🔍 Visual Diff: 2 pages matched, 1 sentence altered on Page 2')">Compare with Previous Version</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Subview 5: Convert & OCR Studio -->
-          <div class="subview-pane" id="subviewOcr">
-            <div class="ocr-studio-layout">
-              <div class="ocr-controls-box">
-                <h3>Tesseract OCR Text Extraction</h3>
-                <p class="tab-subtitle">On-device neural OCR with Sinhala (සිංහල) + English bilingual support.</p>
-                
-                <label>Script & Language Model</label>
-                <select class="form-select" id="selOcrLang">
-                  <option value="sin+eng">Sinhala + English (sin+eng) — Recommended</option>
-                  <option value="eng">English Only (eng)</option>
-                  <option value="sin">Sinhala Only (sin)</option>
-                </select>
-
-                <div class="ocr-buttons-row">
-                  <button class="btn btn-primary" id="btnRunOcr">
-                    <span class="material-symbols-rounded">psychology</span>
-                    <span>Extract Text from Active PDF</span>
-                  </button>
-                  <button class="btn btn-outline" id="btnPdfToImages">
-                    <span class="material-symbols-rounded">image</span>
-                    <span>Export Pages to PNG (300 DPI)</span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="ocr-results-box">
-                <div class="ocr-results-header">
-                  <span>Recognized OCR Output</span>
-                  <button class="btn-ghost btn-sm" onclick="copyTextSafe(document.getElementById('txtOcrOutput').value).then(()=>showToast('📋 OCR text copied to clipboard!'));">
-                    <span class="material-symbols-rounded">content_copy</span>
-                    <span>Copy Text</span>
-                  </button>
-                </div>
-                <textarea id="txtOcrOutput" class="ocr-textarea" placeholder="OCR recognition text will appear here..."></textarea>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 4. PRINTERS TAB -->
+          <div id="subviewPower" class="subview-pane active"></div>
+        </section><!-- 4. PRINTERS TAB -->
         <section id="tabPrinters" class="tab-pane">
           <div class="tab-header-row">
             <div>
@@ -3332,7 +2980,7 @@
                 <div class="setting-control">
                   <select id="settingLangSelect" class="form-select">
                     <option value="en">English (US)</option>
-                    <option value="si">සිංහල (Sinhala)</option>
+                    <option value="si">Sinhala</option>
                   </select>
                 </div>
               </div>
@@ -3461,5 +3109,8 @@
   <script src="preview_config.js"></script>
   <script src="app.js"></script>
   <script src="power_tools.js"></script>
+  <script src="shop_live.js"></script>
+  <script src="i18n_si.js"></script>
+  <script src="i18n.js"></script>
 </body>
 </html>
