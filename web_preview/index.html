@@ -11,6 +11,9 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Hidden native file picker (used by all "Add files / Browse" buttons) -->
+  <input type="file" id="filePicker" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.bmp,.txt,.md" style="display:none">
+
   <!-- Full-Window Drop Overlay -->
   <div id="globalDropOverlay" class="global-drop-overlay hidden">
     <div class="drop-modal-box">
@@ -2178,7 +2181,7 @@
                       <label id="lblPassportPhoto">Passport / ID</label>
                       <div class="select-with-button">
                         <input type="checkbox" id="chkPassportId" />
-                        <select id="selPassportPreset" class="form-select" disabled>
+                        <select id="selPassportPresetMain" class="form-select" disabled>
                           <option value="passport35x45">Passport 35x45 mm (SL/EU)</option>
                           <option value="visa2x2">Visa 2x2 in (US/Square)</option>
                           <option value="id30x40">NIC / ID 30x40 mm</option>
@@ -2874,9 +2877,9 @@
               <div class="viewer-viewport">
                 <!-- Viewer floating toolbar -->
                 <div class="viewer-floating-bar">
-                  <button class="btn-ghost btn-sm" id="btnZoomOut" title="Zoom Out"><span class="material-symbols-rounded">zoom_out</span></button>
-                  <span class="zoom-level" id="lblZoomLevel">100%</span>
-                  <button class="btn-ghost btn-sm" id="btnZoomIn" title="Zoom In"><span class="material-symbols-rounded">zoom_in</span></button>
+                  <button class="btn-ghost btn-sm" id="btnZoomOut2" title="Zoom Out"><span class="material-symbols-rounded">zoom_out</span></button>
+                  <span class="zoom-level" id="lblZoomLevel2">100%</span>
+                  <button class="btn-ghost btn-sm" id="btnZoomIn2" title="Zoom In"><span class="material-symbols-rounded">zoom_in</span></button>
                   <div class="v-divider"></div>
                   <button class="btn-ghost btn-sm" id="btnRotateView" title="Rotate"><span class="material-symbols-rounded">rotate_right</span></button>
                   <button class="btn-ghost btn-sm" id="btnFitWidth" title="Fit to Width"><span class="material-symbols-rounded">fit_screen</span></button>
@@ -3054,7 +3057,7 @@
               <div class="ocr-results-box">
                 <div class="ocr-results-header">
                   <span>Recognized OCR Output</span>
-                  <button class="btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('txtOcrOutput').value); showToast('📋 OCR text copied to clipboard!');">
+                  <button class="btn-ghost btn-sm" onclick="copyTextSafe(document.getElementById('txtOcrOutput').value).then(()=>showToast('📋 OCR text copied to clipboard!'));">
                     <span class="material-symbols-rounded">content_copy</span>
                     <span>Copy Text</span>
                   </button>

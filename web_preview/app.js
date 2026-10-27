@@ -530,7 +530,7 @@ function setupEventListeners() {
   }
 
   // File Pickers
-  filePicker.addEventListener("change", handleFileSelect);
+  filePicker?.addEventListener("change", handleFileSelect);
   const btnPickTop = document.getElementById("btnPickFilesTop");
   if (btnPickTop) btnPickTop.addEventListener("click", () => filePicker.click());
   const btnRespAdd = document.getElementById("btnResponsiveAddFiles");
@@ -615,7 +615,7 @@ function setupEventListeners() {
     receiptModal.classList.add("hidden");
   });
 
-  document.getElementById("btnExportDailyReport").addEventListener("click", () => {
+  document.getElementById("btnExportDailyReport")?.addEventListener("click", () => {
     showToast("📊 Exported Daily_Cashier_Report_2026-10-27.csv");
   });
 
@@ -783,6 +783,14 @@ function setupZoneControls() {
 
   const btnZIn = document.getElementById("btnZoomIn");
   const btnZOut = document.getElementById("btnZoomOut");
+  document.getElementById("btnZoomIn2")?.addEventListener("click", () => {
+    previewZoom = Math.min(1.8, Math.round((previewZoom + 0.2) * 10) / 10);
+    updatePreviewCanvas();
+  });
+  document.getElementById("btnZoomOut2")?.addEventListener("click", () => {
+    previewZoom = Math.max(0.6, Math.round((previewZoom - 0.2) * 10) / 10);
+    updatePreviewCanvas();
+  });
   const btnZFit = document.getElementById("btnFitPage");
   if (btnZIn) {
     btnZIn.addEventListener("click", () => {
@@ -888,6 +896,8 @@ function updatePreviewCanvas() {
   const lblZoom = document.getElementById("lblZoomLevel");
 
   if (lblZoom) lblZoom.innerText = `${Math.round(previewZoom * 100)}%`;
+  const lblZoom2 = document.getElementById("lblZoomLevel2");
+  if (lblZoom2) lblZoom2.innerText = `${Math.round(previewZoom * 100)}%`;
 
   if (!simulatedPaper) return;
   simulatedPaper.style.transform = `scale(${previewZoom})`;
@@ -1279,7 +1289,7 @@ function initThreeTierPrintSettings() {
     btnCopyDiag.addEventListener("click", () => {
       const p = printerProfilesDb[selectedPrinterId] || printerProfilesDb["epson_l3250"];
       const text = `Printer: ${p.name}\nFamily: ${p.family}\nDuplex: ${p.autoDuplex ? 'Auto' : 'Manual'}\nBorderless: ${p.borderless}\nSizes: ${p.paperSizes.join(', ')}`;
-      if (navigator.clipboard) navigator.clipboard.writeText(text);
+      copyTextSafe(text);
       showToast(currentLang === 'si' ? "විස්තර පිටපත් විය!" : "Diagnostics copied to clipboard!");
     });
   }
@@ -1306,7 +1316,7 @@ function initThreeTierPrintSettings() {
 
   // Passport photo checkbox toggle
   const chkPass = document.getElementById("chkPassportId");
-  const selPass = document.getElementById("selPassportPreset");
+  const selPass = document.getElementById("selPassportPresetMain");
   if (chkPass && selPass) {
     chkPass.addEventListener("change", (e) => {
       selPass.disabled = !e.target.checked;
@@ -1497,6 +1507,7 @@ function validateDependenciesAndAutoFixes() {
 
   const p = printerProfilesDb[selectedPrinterId] || printerProfilesDb["epson_l3250"];
   const paperType = document.getElementById("selPaperType")?.value || "Plain Paper";
+  const paperSize = document.getElementById("selPaperSize")?.value || "A4";
   const sides = document.getElementById("selSides")?.value || "single";
   const isBorderless = document.getElementById("chkBorderless")?.checked || false;
   const isSi = currentLang === 'si';
@@ -2141,6 +2152,70 @@ function renderQueueCards() {
       updateQueueUI();
     });
   });
+}
+
+function copyTextSafe(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text).catch(() => legacyCopy(text));
+  }
+  return Promise.resolve(legacyCopy(text));
+}
+function legacyCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); } catch (e) { /* ignore */ }
+  document.body.removeChild(ta);
+}
+window.copyTextSafe = copyTextSafe;
+
+function updateLivePrinterPanel() {
+  const p = printers.find(x => x.id === selectedPrinterId) || printers[0];
+  if (!p) return;
+  const isSi = currentLang === 'si';
+
+  const nameEl = document.getElementById("compactPrinterName");
+  if (nameEl) nameEl.textContent = p.name;
+
+  const badge = document.getElementById("compactStatusBadge");
+  if (badge) {
+    const st = (p.state || "ready").toLowerCase();
+    badge.textContent = p.status || "Ready";
+    badge.className = "badge-status " + (st === "ready" ? "ready" : st === "error" || st === "offline" ? "error" : "warning");
+  }
+
+  const supplies = document.getElementById("compactSupplies");
+  if (supplies) {
+    supplies.innerHTML = "";
+    const chans = Array.isArray(p.inkChannels) ? p.inkChannels : [];
+    if (chans.length === 0) {
+      const note = document.createElement("div");
+      note.className = "compact-paper-duplex";
+      note.textContent = isSi ? "සැපයුම් දත්ත වාර්තා නොකෙරේ" : "Supply levels not reported";
+      supplies.appendChild(note);
+    }
+    chans.forEach(ch => {
+      const pct = ch.calculatedPercentage;
+      const wrap = document.createElement("div");
+      wrap.className = "mini-bar-wrap";
+      const m = /\(([^)]+)\)\s*$/.exec(ch.name || "");
+      const lbl = document.createElement("span");
+      lbl.textContent = m ? m[1] : (ch.name || "?").charAt(0);
+      lbl.title = ch.name || "";
+      const bar = document.createElement("div");
+      bar.className = "mini-bar";
+      const fill = document.createElement("div");
+      fill.style.width = (pct === null || pct === undefined ? 0 : Math.max(0, Math.min(100, pct))) + "%";
+      if (ch.colorHex) fill.style.background = ch.colorHex;
+      bar.appendChild(fill);
+      wrap.appendChild(lbl);
+      wrap.appendChild(bar);
+      supplies.appendChild(wrap);
+    });
+  }
+
+  const paperLine = document.querySelector("#printerCompactInfo .compact-paper-duplex");
+  if (paperLine && p.loadedPaperSummary) paperLine.textContent = p.loadedPaperSummary;
 }
 
 function renderPrinterDropdown() {
@@ -4370,7 +4445,7 @@ function initSpecialtyPrintCenter() {
 
   // Helper: evaluate supported modules from active printer string
   function getActivePrinterSupport() {
-    const printerSelect = document.getElementById("selPrinter");
+    const printerSelect = document.getElementById("printerSelect");
     const printerName = printerSelect ? printerSelect.value : "EPSON L8050 Series";
 
     const nameUpper = printerName.toUpperCase();
@@ -4898,7 +4973,7 @@ function initSpecialtyPrintCenter() {
   });
 
   // Watch for printer changes in the main window
-  const selPrinter = document.getElementById("selPrinter");
+  const selPrinter = document.getElementById("printerSelect");
   selPrinter?.addEventListener("change", () => {
     updateTabsState();
     renderActivePreview();
