@@ -654,24 +654,15 @@ function setupEventListeners() {
     });
   }
 
-  // OCR button
+  // OCR button -> real OCR lives in PDF Power Tools (the old demo returned a hard-coded text)
   const btnOcr = document.getElementById("btnRunOcr");
   if (btnOcr) {
     btnOcr.addEventListener("click", () => {
-      const lang = document.getElementById("selOcrLang").value;
-      document.getElementById("txtOcrOutput").value = 
-`[Tesseract OCR Engine • Result (${lang})]
---------------------------------------------------------
-ශ්‍රී ලංකා මුද්‍රණ සහායක — ලේඛන පරීක්ෂණ වාර්තාව
-දිනය: 2026-10-27 • රහසිගතයි
-
-විස්තරය (Description):
-මෙම ලේඛනය ශ්‍රී ලාංකීය යතුරුලියන ප්‍රමිතීන් (Noto Sans Sinhala / Iskoola Pota)
-සහ මුද්‍රණ පෙරදසුන් තාක්ෂණය පරීක්ෂා කිරීම සඳහා සකස් කරන ලද්දකි.
-බැඳි අකුරු (Ligatures), කොම්බුව සහ ඇලපිල්ල නිවැරදිව මුද්‍රණය කෙරේ.
-
-Status: Verified 100% On-Device Neural Recognition.`;
-      showToast("✨ OCR text extraction complete!");
+      const pill = document.querySelector('#pdfToolsSubbar .pill-btn[data-subview="power"]');
+      if (pill) pill.click();
+      const card = [...document.querySelectorAll("#ptToolGrid .pt-tool")].find(c => c.textContent.includes("OCR"));
+      if (card) card.click();
+      showToast("Use PDF Power Tools → OCR (runs real Tesseract on your file)");
     });
   }
 

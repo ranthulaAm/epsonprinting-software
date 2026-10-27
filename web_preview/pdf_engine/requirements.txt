@@ -1,0 +1,4 @@
+pikepdf>=9
+pypdfium2>=4
+pillow>=10
+reportlab>=4

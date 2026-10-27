@@ -2802,7 +2802,11 @@
         <section id="tabTools" class="tab-pane">
           <div class="tools-subbar">
             <div class="segmented-toggle-pills" id="pdfToolsSubbar">
-              <button class="pill-btn active" data-subview="viewer">
+              <button class="pill-btn active" data-subview="power">
+                <span class="material-symbols-rounded">bolt</span>
+                <span>PDF Power Tools (20 real tools)</span>
+              </button>
+              <button class="pill-btn" data-subview="viewer">
                 <span class="material-symbols-rounded">menu_book</span>
                 <span>PDF Multi-Tab Viewer</span>
               </button>
@@ -2826,7 +2830,9 @@
           </div>
 
           <!-- Subview 1: Multi-Tab PDF Viewer -->
-          <div class="subview-pane active" id="subviewViewer">
+          <div class="subview-pane active" id="subviewPower"></div>
+
+          <div class="subview-pane" id="subviewViewer">
             <div class="viewer-tabs-bar">
               <div class="viewer-tabs-list" id="viewerTabsList">
                 <div class="viewer-tab active" data-file="sinhala_sample">
@@ -3454,5 +3460,6 @@
 
   <script src="preview_config.js"></script>
   <script src="app.js"></script>
+  <script src="power_tools.js"></script>
 </body>
 </html>
