@@ -8,6 +8,11 @@ from urllib.parse import urlparse, parse_qs, unquote
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Ensure workspace root is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+# Ensure standard Homebrew & local tool paths are in PATH
+for p in ("/opt/homebrew/bin", "/usr/local/bin"):
+    if os.path.exists(p) and p not in os.environ.get("PATH", "").split(":"):
+        os.environ["PATH"] = p + ":" + os.environ.get("PATH", "")
 import engine
 from engine import PdfError, PDFIUM_LOCK
 

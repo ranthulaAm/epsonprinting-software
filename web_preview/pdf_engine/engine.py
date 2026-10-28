@@ -3,6 +3,10 @@
 Dependencies: pikepdf, pypdfium2, pillow, reportlab.  Optional: tesseract (OCR).
 """
 import io, os, re, shutil, subprocess, tempfile, zipfile, difflib, threading, collections
+
+for p in ("/opt/homebrew/bin", "/usr/local/bin"):
+    if os.path.exists(p) and p not in os.environ.get("PATH", "").split(":"):
+        os.environ["PATH"] = p + ":" + os.environ.get("PATH", "")
 import pikepdf
 import pypdfium2 as pdfium
 from PIL import Image, ImageDraw
