@@ -263,7 +263,7 @@ def refresh_access_token(refresh_token: Optional[str] = None) -> bool:
         headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10, context=config.get_ssl_context()) as resp:
             body = json.loads(resp.read().decode("utf-8"))
             access_tok = body.get("access_token")
             expires_in = body.get("expires_in", 3600)
@@ -308,7 +308,7 @@ def fetch_user_profile(access_token: str) -> Optional[Dict[str, Any]]:
         headers={"Authorization": f"Bearer {access_token}"}
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10, context=config.get_ssl_context()) as resp:
             info = json.loads(resp.read().decode("utf-8"))
             return {
                 "name": info.get("name", "Google User"),
@@ -488,7 +488,7 @@ def exchange_code_for_tokens(code: str, code_verifier: str, redirect_uri: str) -
         headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
     try:
-        with urllib.request.urlopen(req, timeout=12) as resp:
+        with urllib.request.urlopen(req, timeout=12, context=config.get_ssl_context()) as resp:
             body = json.loads(resp.read().decode("utf-8"))
             access_tok = body.get("access_token")
             refresh_tok = body.get("refresh_token")
@@ -527,7 +527,7 @@ def sign_out() -> bool:
                 data=b"",
                 headers={"Content-Type": "application/x-www-form-urlencoded"}
             )
-            urllib.request.urlopen(req, timeout=5)
+            urllib.request.urlopen(req, timeout=5, context=config.get_ssl_context())
         except Exception:
             pass
 

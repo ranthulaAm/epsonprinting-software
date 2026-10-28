@@ -29,6 +29,50 @@ from web_preview.pdf_engine.lexicon import is_known_word, suggest_candidates, de
 from web_preview.pdf_engine import auth, config, gcp_wizard
 
 
+def preprocess_line_crop_for_ocr(line_img: Image.Image) -> Image.Image:
+    """
+    Cleans table cell outer borders and shaded halftone/stipple backgrounds
+    from line crop so line OCR reaches maximum accuracy.
+    """
+    import cv2
+    np_img = np.array(line_img)
+    if np_img.ndim == 3:
+        gray = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = np_img.copy()
+    h, w = gray.shape
+    if h < 8 or w < 8:
+        return line_img
+
+    # 1. Trim solid border lines at outer perimeter (e.g. table cell borders)
+    top_trim = 0
+    while top_trim < min(14, h // 4) and np.mean(gray[top_trim, :] < 100) > 0.55:
+        top_trim += 1
+    bot_trim = h
+    while bot_trim > max(h - 14, h * 3 // 4) and np.mean(gray[bot_trim - 1, :] < 100) > 0.55:
+        bot_trim -= 1
+
+    left_trim = 0
+    while left_trim < min(14, w // 4) and np.mean(gray[:, left_trim] < 100) > 0.55:
+        left_trim += 1
+    right_trim = w
+    while right_trim > max(w - 14, w * 3 // 4) and np.mean(gray[:, right_trim - 1] < 100) > 0.55:
+        right_trim -= 1
+
+    if bot_trim - top_trim >= 8 and right_trim - left_trim >= 8:
+        gray = gray[top_trim:bot_trim, left_trim:right_trim]
+
+    # 2. Check for shaded stipple background (e.g. gray header cells)
+    med = float(np.median(gray))
+    if 100.0 <= med <= 215.0:
+        denoised = cv2.medianBlur(gray, 3)
+        thresh_val = min(150, int(med - 15))
+        _, clean = cv2.threshold(denoised, thresh_val, 255, cv2.THRESH_BINARY)
+        return Image.fromarray(clean)
+
+    return Image.fromarray(gray)
+
+
 class OcrEngine:
     """Base class for line-level OCR engines."""
     name: str = "base"
@@ -97,7 +141,8 @@ class TesseractEngine(OcrEngine):
         if not self.is_available():
             return []
 
-        w, h = line_img.size
+        cleaned_img = preprocess_line_crop_for_ocr(line_img)
+        w, h = cleaned_img.size
         if w < 5 or h < 5:
             return []
 
@@ -105,10 +150,10 @@ class TesseractEngine(OcrEngine):
         scale = max(1.0, 60.0 / max(1, h))
         if scale > 1.05:
             new_w, new_h = int(w * scale), int(h * scale)
-            proc_img = line_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            proc_img = cleaned_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
         else:
             scale = 1.0
-            proc_img = line_img
+            proc_img = cleaned_img
 
         pad_px = 14
         from PIL import ImageOps
@@ -289,8 +334,9 @@ class LocalSinhalaEngine(OcrEngine):
     name = "local_sinhala"
 
     def read_line(self, line_img: Image.Image, langs: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        # Converts line to grayscale and segments connected character blobs
-        img_arr = np.array(line_img.convert("L"))
+        # Cleans line borders and stipple before reading
+        cleaned_img = preprocess_line_crop_for_ocr(line_img)
+        img_arr = np.array(cleaned_img.convert("L"))
         h, w = img_arr.shape
         if w < 10 or h < 10:
             return []

@@ -21,6 +21,13 @@ def test_browser_ui():
         page.goto("http://localhost:8080", wait_until="networkidle")
         print("Page loaded successfully.")
 
+        # Dismiss login overlay if visible
+        page.evaluate("""() => {
+            const overlay = document.getElementById('fullScreenLoginOverlay');
+            if (overlay) overlay.classList.add('hidden');
+        }""")
+        page.wait_for_timeout(300)
+
         # Switch to Tools tab
         page.click('button.nav-item[data-tab="tools"]')
         page.wait_for_timeout(500)

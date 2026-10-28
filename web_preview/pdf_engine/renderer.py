@@ -121,21 +121,30 @@ def generate_document_html(doc_model: Dict[str, Any], standalone: bool = True) -
                         tds = "".join(f"<td style='border:1px solid #000; padding:4pt 6pt;'>{c}</td>" for c in r)
                         tr_list.append(f"<tr>{tds}</tr>")
                     table_content = "".join(tr_list)
+                    blocks_html.append(f"""
+                    <div class="doc-block block-table" style="
+                        position: absolute;
+                        left: {left_pt:.2f}pt;
+                        top: {top_pt:.2f}pt;
+                        width: {width_pt:.2f}pt;
+                    ">
+                        <table style="width:100%; border-collapse:collapse; font-size:10pt;">
+                            {table_content}
+                        </table>
+                    </div>
+                    """)
                 else:
-                    table_content = "<tr><td style='border:1px solid #000; padding:6pt;'>Table Data</td></tr>"
-
-                blocks_html.append(f"""
-                <div class="doc-block block-table" style="
-                    position: absolute;
-                    left: {left_pt:.2f}pt;
-                    top: {top_pt:.2f}pt;
-                    width: {width_pt:.2f}pt;
-                ">
-                    <table style="width:100%; border-collapse:collapse; font-size:10pt;">
-                        {table_content}
-                    </table>
-                </div>
-                """)
+                    blocks_html.append(f"""
+                    <div class="doc-block block-table" style="
+                        position: absolute;
+                        left: {left_pt:.2f}pt;
+                        top: {top_pt:.2f}pt;
+                        width: {width_pt:.2f}pt;
+                        height: {height_pt:.2f}pt;
+                        border: 1px solid #000;
+                        box-sizing: border-box;
+                    "></div>
+                    """)
 
             elif b_type == "rule":
                 orientation = blk.get("orientation", "horizontal")

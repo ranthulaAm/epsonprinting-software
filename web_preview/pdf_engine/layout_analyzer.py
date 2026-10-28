@@ -638,20 +638,19 @@ def analyze_document_layout(
         sx, sy, sw, sh = s["bbox"]
         cv2.rectangle(non_ocr_mask, (max(0, sx - s_pad_x), max(0, sy - s_pad_y)), (min(w, sx + sw + s_pad_x), min(h, sy + sh + s_pad_y)), 255, -1)
 
-    # Tables
+    # Tables (detected for structure/borders; tables contain text so NEVER added to non_ocr_mask)
     tables = detect_tables(gray, w, h, dpi=dpi)
-    for t in tables:
-        tx, ty, tw, th = t["bbox"]
-        cv2.rectangle(non_ocr_mask, (tx, ty), (tx + tw, ty + th), 255, -1)
 
-    # 2. Text Line Segmentation (runs strictly on unmasked regions)
+    # 2. Text Line Segmentation (runs strictly on unmasked regions, reads all text inside tables and body)
     text_lines = segment_text_lines(gray, orig_bgr, w, h, dpi=dpi, non_ocr_mask=non_ocr_mask)
 
     # 3. Rule and Dotted Line Detection (filters phantom rules and attaches underlines)
     rules_mask = np.zeros((h, w), dtype=np.uint8)
+    t_border = max(2, mm_to_px(1.5, dpi))
     for t in tables:
         tx, ty, tw, th = t["bbox"]
-        cv2.rectangle(rules_mask, (tx, ty), (tx + tw, ty + th), 255, -1)
+        # Mask the perimeter of the table so outer table borders are not duplicated as rules
+        cv2.rectangle(rules_mask, (tx, ty), (tx + tw, ty + th), 255, t_border)
     for b in barcodes:
         bx, by, bw, bh = b["bbox"]
         cv2.rectangle(rules_mask, (bx, by), (bx + bw, by + bh), 255, -1)

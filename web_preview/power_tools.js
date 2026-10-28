@@ -1532,7 +1532,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
           <div>
             <h4 style="margin:0; font-size:14px; color:var(--text-main);">Detected Layout Regions & Document Structure</h4>
-            <small style="color:var(--text-muted);">Blue = Heading • Teal = Text • Purple = Table • Gray = Rule • Orange = Chart • Amber = Stamp/Photo</small>
+            <small style="color:var(--text-muted);">Blue = Heading • Teal = Text • Purple = Table • Gray = Rule • Orange = Chart • Amber = Stamp/Photo • Emerald = Signature</small>
           </div>
           <div style="display:flex; gap:8px;">
             <button class="btn btn-outline btn-sm" id="btnBackToStep2">← Back</button>
@@ -1540,10 +1540,12 @@
           </div>
         </div>
 
-        <div class="pt-mod-region-overlay-container" style="position:relative; width:100%; max-width:680px; padding-bottom:${aspect}%;">
-          <img src="${bgSrc}" alt="Page scan" style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain; opacity:0.85;">
-          <div style="position:absolute; top:0; left:0; width:100%; height:100%;">
-            ${blockBoxes}
+        <div style="display:flex; justify-content:center; align-items:center; width:100%; margin:16px 0;">
+          <div class="pt-mod-region-overlay-container" style="position:relative; display:inline-block; max-width:700px; width:100%; background:#fff; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15); overflow:hidden; line-height:0;">
+            <img src="${bgSrc}" alt="Page scan" style="display:block; width:100%; height:auto; opacity:0.92;">
+            <div style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; line-height:normal;">
+              ${blockBoxes}
+            </div>
           </div>
         </div>
       </div>

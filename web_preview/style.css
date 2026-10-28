@@ -5205,16 +5205,24 @@ body {
 .pt-mod-split-col img{max-height:100%;max-width:100%;object-fit:contain}
 
 /* Step 3: Region Detector Overlay */
-.pt-mod-region-overlay-container{position:relative;max-width:700px;margin:0 auto;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.1);overflow:hidden}
-.pt-mod-region-box{position:absolute;box-sizing:border-box;border:2px solid;border-radius:4px;cursor:pointer;transition:transform .1s, background-color .15s}
-.pt-mod-region-box:hover{transform:scale(1.01);background-color:rgba(255,255,255,0.2)}
+.pt-mod-region-overlay-container{position:relative;max-width:700px;margin:0 auto;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);overflow:hidden;line-height:0}
+.pt-mod-region-box{position:absolute;box-sizing:border-box;border:2px solid;border-radius:4px;cursor:pointer;transition:transform .1s, background-color .15s;pointer-events:auto}
+.pt-mod-region-box:hover{transform:scale(1.01);background-color:rgba(255,255,255,0.25);z-index:10}
 .pt-mod-region-box.heading{border-color:#2563eb;background-color:rgba(37,99,235,0.12)}
 .pt-mod-region-box.text{border-color:#0891b2;background-color:rgba(8,145,178,0.08)}
 .pt-mod-region-box.table{border-color:#7c3aed;background-color:rgba(124,58,237,0.12)}
 .pt-mod-region-box.rule{border-color:#374151;background-color:rgba(55,65,81,0.2)}
 .pt-mod-region-box.chart{border-color:#ea580c;background-color:rgba(234,88,12,0.14)}
 .pt-mod-region-box.photo, .pt-mod-region-box.stamp{border-color:#d97706;background-color:rgba(217,119,6,0.15)}
-.pt-mod-region-label{position:absolute;top:-18px;left:0;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;color:#fff;background:inherit;white-space:nowrap}
+.pt-mod-region-box.signature{border-color:#059669;background-color:rgba(5,150,105,0.15)}
+.pt-mod-region-label{position:absolute;top:0;left:0;font-size:9px;font-weight:700;line-height:1.1;padding:1px 4px;border-bottom-right-radius:3px;color:#fff;white-space:nowrap;pointer-events:none}
+.pt-mod-region-box.heading .pt-mod-region-label{background:#2563eb}
+.pt-mod-region-box.text .pt-mod-region-label{background:#0891b2}
+.pt-mod-region-box.table .pt-mod-region-label{background:#7c3aed}
+.pt-mod-region-box.rule .pt-mod-region-label{background:#374151}
+.pt-mod-region-box.chart .pt-mod-region-label{background:#ea580c}
+.pt-mod-region-box.photo .pt-mod-region-label, .pt-mod-region-box.stamp .pt-mod-region-label{background:#d97706}
+.pt-mod-region-box.signature .pt-mod-region-label{background:#059669}
 
 /* Step 4: Review Screen */
 .pt-mod-review-layout{display:grid;grid-template-columns:320px 1fr;gap:16px;min-height:500px}
