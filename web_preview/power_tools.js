@@ -1198,15 +1198,17 @@
     const mod = state.modernize;
     if (!mod.jobId) {
       const savedJob = sessionStorage.getItem("pt_mod_job_id");
-      if (savedJob) mod.jobId = savedJob;
-    }
-    const savedStep = sessionStorage.getItem("pt_mod_step");
-    if (savedStep && mod.jobId) {
-      mod.step = parseInt(savedStep, 10);
+      if (savedJob) {
+        mod.jobId = savedJob;
+        const savedStep = sessionStorage.getItem("pt_mod_step");
+        if (savedStep) {
+          mod.step = parseInt(savedStep, 10) || 1;
+        }
+      }
     }
     const pdfs = selectedPdfs();
     const activeFile = pdfs[0] || null;
-    mod.file = activeFile;
+    if (activeFile) mod.file = activeFile;
 
     const isSi = isSinhala();
     const titleName = isSi ? MODERNIZE_CONSTANTS.name_si : MODERNIZE_CONSTANTS.name_en;
@@ -1343,31 +1345,45 @@
       </div>
     `;
 
-    $("#btnChangeModFile").onclick = () => $("#ptPick")?.click();
+    $("#btnChangeModFile").onclick = () => {
+      mod.jobId = null;
+      mod.step = 1;
+      sessionStorage.removeItem("pt_mod_job_id");
+      sessionStorage.removeItem("pt_mod_step");
+      $("#ptPick")?.click();
+    };
     $("#chkModDeskew").onchange = e => { mod.deskew = e.target.checked; };
     $("#chkModShadows").onchange = e => { mod.shadowRemoval = e.target.checked; };
     $("#chkModClahe").onchange = e => { mod.clahe = e.target.checked; };
     $("#chkModCloud").onchange = e => { mod.cloudConsent = e.target.checked; };
 
-    $("#btnStartMod").onclick = async () => {
-      try {
-        const resp = await post("/api/modernize/start", {
-          file: f.id,
-          options: {
-            deskew: mod.deskew,
-            shadow_removal: mod.shadowRemoval,
-            clahe: mod.clahe,
-            consent_cloud: mod.cloudConsent
-          }
-        });
-        mod.jobId = resp.job_id;
-        sessionStorage.setItem("pt_mod_job_id", resp.job_id);
-        mod.step = 2;
-        loadModernize();
-      } catch (e) {
-        toast("❌ " + e.message);
-      }
-    };
+    const startBtn = $("#btnStartMod");
+    if (startBtn) {
+      startBtn.onclick = async () => {
+        startBtn.disabled = true;
+        startBtn.innerHTML = `<span class="material-symbols-rounded spinning">progress_activity</span> <span>${isSinhala() ? "ආරම්භ වෙමින් පවතී..." : "Starting..."}</span>`;
+        try {
+          const resp = await post("/api/modernize/start", {
+            file: f.id,
+            options: {
+              deskew: mod.deskew,
+              shadow_removal: mod.shadowRemoval,
+              clahe: mod.clahe,
+              consent_cloud: mod.cloudConsent
+            }
+          });
+          mod.jobId = resp.job_id;
+          sessionStorage.setItem("pt_mod_job_id", resp.job_id);
+          mod.step = 2;
+          sessionStorage.setItem("pt_mod_step", "2");
+          loadModernize();
+        } catch (e) {
+          startBtn.disabled = false;
+          startBtn.innerHTML = `<span class="material-symbols-rounded">auto_awesome</span> <span>Start Modernizing Document</span>`;
+          toast("❌ " + e.message);
+        }
+      };
+    }
   }
 
   // --- Step 2: Live Progress & Before/After Enhancement Preview ---
@@ -1415,6 +1431,7 @@
       await post(`/api/jobs/${mod.jobId}/cancel`, {});
       toast("Cancelled");
       mod.step = 1;
+      sessionStorage.setItem("pt_mod_step", "1");
       loadModernize();
     };
 
@@ -1452,12 +1469,13 @@
 
           const b1 = $("#btnBackTo1");
           const b3 = $("#btnGoTo3");
-          if (b1) b1.onclick = () => { mod.step = 1; loadModernize(); };
-          if (b3) b3.onclick = () => { mod.step = 3; loadModernize(); };
+          if (b1) b1.onclick = () => { mod.step = 1; sessionStorage.setItem("pt_mod_step", "1"); loadModernize(); };
+          if (b3) b3.onclick = () => { mod.step = 3; sessionStorage.setItem("pt_mod_step", "3"); loadModernize(); };
         } else if (j.status === "error") {
           clearInterval(pollInterval);
           toast("❌ " + (j.error || "Processing failed"));
           mod.step = 1;
+          sessionStorage.setItem("pt_mod_step", "1");
           loadModernize();
         } else if (j.status === "cancelled") {
           clearInterval(pollInterval);
@@ -1469,10 +1487,24 @@
   }
 
   // --- Step 3: Interactive Region Overlay ---
-  function renderModStep3(body) {
+  async function renderModStep3(body) {
     const mod = state.modernize;
+    if (!mod.docModel && mod.jobId) {
+      try {
+        const j = await get(`/api/jobs/${mod.jobId}`);
+        if (j && j.doc_model) {
+          mod.job = j;
+          mod.docModel = j.doc_model;
+        }
+      } catch (e) {}
+    }
     const docModel = mod.docModel;
-    if (!docModel || !docModel.pages || !docModel.pages[0]) { mod.step = 1; loadModernize(); return; }
+    if (!docModel || !docModel.pages || !docModel.pages[0]) {
+      mod.step = 1;
+      sessionStorage.setItem("pt_mod_step", "1");
+      loadModernize();
+      return;
+    }
 
     const page = docModel.pages[mod.currentPage - 1] || docModel.pages[0];
     const preview = (mod.job && mod.job.previews && mod.job.previews[mod.currentPage - 1]) || null;
@@ -1517,8 +1549,8 @@
       </div>
     `;
 
-    $("#btnBackToStep2").onclick = () => { mod.step = 2; loadModernize(); };
-    $("#btnGoToStep4").onclick = () => { mod.step = 4; loadModernize(); };
+    $("#btnBackToStep2").onclick = () => { mod.step = 2; sessionStorage.setItem("pt_mod_step", "2"); loadModernize(); };
+    $("#btnGoToStep4").onclick = () => { mod.step = 4; sessionStorage.setItem("pt_mod_step", "4"); loadModernize(); };
   }
 
   // Singlish phonetic transliteration rules
@@ -1609,8 +1641,8 @@
           </div>
         </div>
       `;
-      $("#btnBackToStep3").onclick = () => { mod.step = 3; loadModernize(); };
-      $("#btnGoToStep5").onclick = () => { mod.step = 5; loadModernize(); };
+      $("#btnBackToStep3").onclick = () => { mod.step = 3; sessionStorage.setItem("pt_mod_step", "3"); loadModernize(); };
+      $("#btnGoToStep5").onclick = () => { mod.step = 5; sessionStorage.setItem("pt_mod_step", "5"); loadModernize(); };
       return;
     }
 
@@ -2049,15 +2081,29 @@
       };
     }
 
-    $("#btnBackToStep3").onclick = () => { mod.step = 3; loadModernize(); };
-    $("#btnGoToStep5").onclick = () => { mod.step = 5; loadModernize(); };
+    $("#btnBackToStep3").onclick = () => { mod.step = 3; sessionStorage.setItem("pt_mod_step", "3"); loadModernize(); };
+    $("#btnGoToStep5").onclick = () => { mod.step = 5; sessionStorage.setItem("pt_mod_step", "5"); loadModernize(); };
   }
 
   // --- Step 5: Export & Comparative Overlay ---
   async function renderModStep5(body) {
     const mod = state.modernize;
+    if (!mod.docModel && mod.jobId) {
+      try {
+        const j = await get(`/api/jobs/${mod.jobId}`);
+        if (j && j.doc_model) {
+          mod.job = j;
+          mod.docModel = j.doc_model;
+        }
+      } catch (e) {}
+    }
     const docModel = mod.docModel;
-    if (!docModel || !docModel.pages || !docModel.pages[0]) { mod.step = 1; loadModernize(); return; }
+    if (!docModel || !docModel.pages || !docModel.pages[0]) {
+      mod.step = 1;
+      sessionStorage.setItem("pt_mod_step", "1");
+      loadModernize();
+      return;
+    }
 
     const isSi = isSinhala();
     const page = docModel.pages[mod.currentPage - 1] || docModel.pages[0];
@@ -2158,7 +2204,7 @@
       };
     }
 
-    $("#btnBackToStep4").onclick = () => { mod.step = 4; loadModernize(); };
+    $("#btnBackToStep4").onclick = () => { mod.step = 4; sessionStorage.setItem("pt_mod_step", "4"); loadModernize(); };
 
     async function triggerExport(format) {
       toast("Building " + format.toUpperCase() + "...");

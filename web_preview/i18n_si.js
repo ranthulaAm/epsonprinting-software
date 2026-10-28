@@ -1370,5 +1370,19 @@ window.I18N_SI = {
 "Character Palette": "අක්ෂර පුවරුව",
 "All words verified!": "සියලු වචන තහවුරු කර අවසන්!",
 "Auto-applied to similar words": "සමාන වචන ස්වයංක්‍රීයව සම්පූර්ණ විය",
-"Review Auto-Applied Words": "ස්වයංක්‍රීයව පිරවූ වචන පරීක්ෂා කරන්න"
+"Review Auto-Applied Words": "ස්වයංක්‍රීයව පිරවූ වචන පරීක්ෂා කරන්න",
+"Start Modernizing Document": "ලේඛනය නවීකරණය අරඹන්න",
+"Preprocessing & Optimization Settings": "පෙරසැකසුම් සහ ප්‍රශස්තකරණ සැකසුම්",
+"Change File": "ගොනුව මාරු කරන්න",
+"Select File": "ගොනුවක් තෝරන්න",
+"Auto Deskew": "ස්වයංක්‍රීය ඇලවීම් නිවැරදි කිරීම",
+"Remove Shadows & Bleed": "සෙවනැලි සහ කාන්දු ඉවත් කිරීම",
+"Contrast & Sauvola Binarization": "ප්‍රතිවිරෝධතා සහ සවෝලා ද්විමයකරණය",
+"Vision Second Reader (Cloud)": "දෙවන කියවනය (ක්ලවුඩ් විෂන්)",
+"Processing Document...": "ලේඛනය සකසමින් පවතී...",
+"Before / After Enhancement Preview": "වැඩිදියුණු කිරීමට පෙර / පසු පෙරදසුන",
+"Original Scan (Skewed, Shadows)": "මුල් ස්කෑනය (ඇලවුණු, සෙවනැලි සහිත)",
+"Clean Reconstructed Preprocessed (Deskewed, CLAHE)": "පිරිසිදු කළ ප්‍රතිසංස්කරණය (ඇලවීම් ඉවත් කළ, CLAHE)",
+"Detect Regions": "කලාප හඳුනාගැනීම",
+"Detected Layout Regions & Document Structure": "හඳුනාගත් සැලසුම් කලාප සහ ලේඛන ව්‍යුහය"
 };
