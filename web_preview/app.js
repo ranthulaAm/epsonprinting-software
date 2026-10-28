@@ -528,14 +528,36 @@ function setupEventListeners() {
     showToast("📊 Exported Daily_Cashier_Report_2026-10-27.csv");
   });
 
-  // Drag and Drop (Global)
+  // Drag and Drop (Global - only for external OS files dropped into print tab)
   window.addEventListener("dragenter", (e) => {
+    const dt = e.dataTransfer;
+    if (!dt || !dt.types) return;
+    const types = Array.from(dt.types);
+    if (!types.includes("Files")) return;
+    if (types.includes("text/pt-org-drag") || types.includes("text/pt-index") || types.includes("text/pt-page")) return;
+    const tabTools = document.getElementById("tabTools");
+    if (tabTools && tabTools.classList.contains("active")) return;
+
     e.preventDefault();
     globalDropOverlay.classList.remove("hidden");
     globalDropOverlay.classList.add("visible");
   });
 
-  globalDropOverlay.addEventListener("dragover", (e) => e.preventDefault());
+  globalDropOverlay.addEventListener("dragover", (e) => {
+    const dt = e.dataTransfer;
+    if (!dt || !dt.types || !Array.from(dt.types).includes("Files")) {
+      globalDropOverlay.classList.add("hidden");
+      globalDropOverlay.classList.remove("visible");
+      return;
+    }
+    const tabTools = document.getElementById("tabTools");
+    if (tabTools && tabTools.classList.contains("active")) {
+      globalDropOverlay.classList.add("hidden");
+      globalDropOverlay.classList.remove("visible");
+      return;
+    }
+    e.preventDefault();
+  });
 
   globalDropOverlay.addEventListener("dragleave", (e) => {
     if (e.relatedTarget === null || e.clientX <= 0 || e.clientY <= 0) {

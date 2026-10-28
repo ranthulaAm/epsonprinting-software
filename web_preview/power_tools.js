@@ -503,6 +503,7 @@
 
       // Drag and drop
       card.ondragstart = e => {
+        e.stopPropagation();
         if (!it.sel) {
           state.org.forEach((x, idx) => { x.sel = (idx === i); });
           state.orgLastFocus = i;
@@ -519,6 +520,50 @@
         setTimeout(() => ghost.remove(), 0);
       };
 
+      card.ondragover = e => {
+        if (!e.dataTransfer.types.includes("text/pt-org-drag")) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const scrollParent = $("#subviewPower") || g;
+        const rect = scrollParent.getBoundingClientRect();
+        if (e.clientY < rect.top + 60) scrollParent.scrollTop -= 14;
+        else if (e.clientY > rect.bottom - 60) scrollParent.scrollTop += 14;
+
+        if (it.sel) {
+          card.classList.remove("drop-target-before", "drop-target-after");
+          return;
+        }
+
+        const firstSel = state.org.findIndex(x => x.sel);
+        if (i <= firstSel) {
+          card.classList.add("drop-target-before");
+          card.classList.remove("drop-target-after");
+        } else {
+          card.classList.add("drop-target-after");
+          card.classList.remove("drop-target-before");
+        }
+      };
+
+      card.ondragleave = e => {
+        if (e.relatedTarget && card.contains(e.relatedTarget)) return;
+        card.classList.remove("drop-target-before", "drop-target-after");
+      };
+
+      card.ondrop = e => {
+        if (!e.dataTransfer.types.includes("text/pt-org-drag")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        card.classList.remove("drop-target-before", "drop-target-after");
+        reorderOrganizerToCard(i);
+      };
+
+      card.ondragend = () => {
+        g.querySelectorAll(".pt-org-card").forEach(c => {
+          c.classList.remove("drop-target-before", "drop-target-after");
+        });
+      };
+
       g.appendChild(card);
       const wrapEl = card.querySelector(".pt-org-thumbwrap");
       if (wrapEl && !it.blank) obs.observe(wrapEl);
@@ -526,6 +571,61 @@
 
     updateOrgSelectionUI();
     updateOrgHistoryButtons();
+  }
+
+  function reorderOrganizerToCard(targetIdx) {
+    const selected = state.org.filter(x => x.sel);
+    if (!selected.length) return;
+    const targetItem = state.org[targetIdx];
+    if (!targetItem || targetItem.sel) return;
+
+    pushOrgState();
+    const g = $("#ptOrgGrid");
+    const firstPositions = new Map();
+    if (g) {
+      g.querySelectorAll(".pt-org-card").forEach(c => {
+        firstPositions.set(c.dataset.id, c.getBoundingClientRect());
+      });
+    }
+
+    const targetId = targetItem.id;
+    const firstSel = state.org.findIndex(x => x.sel);
+
+    // Remove selected items
+    const remaining = state.org.filter(x => !x.sel);
+    const newTargetIdx = remaining.findIndex(x => x.id === targetId);
+
+    if (newTargetIdx !== -1) {
+      if (targetIdx <= firstSel) {
+        // Dragging backwards (e.g. Page 3 onto Page 1) -> Insert BEFORE target Page 1
+        remaining.splice(newTargetIdx, 0, ...selected);
+      } else {
+        // Dragging forwards (e.g. Page 1 onto Page 3) -> Insert AFTER target Page 3
+        remaining.splice(newTargetIdx + 1, 0, ...selected);
+      }
+      state.org = remaining;
+      drawOrganizer();
+
+      if (g) {
+        requestAnimationFrame(() => {
+          g.querySelectorAll(".pt-org-card").forEach(c => {
+            const first = firstPositions.get(c.dataset.id);
+            if (!first) return;
+            const last = c.getBoundingClientRect();
+            const dx = first.left - last.left;
+            const dy = first.top - last.top;
+            if (dx !== 0 || dy !== 0) {
+              c.style.transform = `translate(${dx}px, ${dy}px)`;
+              c.style.transition = "none";
+              requestAnimationFrame(() => {
+                c.style.transition = "transform 250ms cubic-bezier(0.2, 0, 0, 1)";
+                c.style.transform = "";
+              });
+            }
+          });
+        });
+      }
+    }
   }
 
   function bindOrgToolbar() {
@@ -635,83 +735,38 @@
       // Auto-scroll
       const scrollParent = $("#subviewPower") || g;
       const rect = scrollParent.getBoundingClientRect();
-      if (e.clientY < rect.top + 55) scrollParent.scrollTop -= 14;
-      else if (e.clientY > rect.bottom - 55) scrollParent.scrollTop += 14;
-
-      // Insertion indicator calculation against cards midpoints
-      const cards = Array.from(g.querySelectorAll(".pt-org-card"));
-      let targetIdx = cards.length;
-      let lineX = 0, lineY = 0, lineH = 120;
-      const gRect = g.getBoundingClientRect();
-
-      for (let idx = 0; idx < cards.length; idx++) {
-        const cRect = cards[idx].getBoundingClientRect();
-        const midX = cRect.left + cRect.width / 2;
-        if (e.clientY >= cRect.top && e.clientY <= cRect.bottom) {
-          if (e.clientX < midX) {
-            targetIdx = idx;
-            lineX = cRect.left - gRect.left - 6 + g.scrollLeft;
-            lineY = cRect.top - gRect.top + g.scrollTop;
-            lineH = cRect.height;
-            break;
-          }
-        } else if (e.clientY < cRect.top) {
-          targetIdx = idx;
-          lineX = cRect.left - gRect.left - 6 + g.scrollLeft;
-          lineY = cRect.top - gRect.top + g.scrollTop;
-          lineH = cRect.height;
-          break;
-        }
-      }
-      if (targetIdx === cards.length && cards.length > 0) {
-        const last = cards[cards.length - 1].getBoundingClientRect();
-        lineX = last.right - gRect.left + 6 + g.scrollLeft;
-        lineY = last.top - gRect.top + g.scrollTop;
-        lineH = last.height;
-      }
-
-      let ind = $("#ptOrgInsertLine");
-      if (!ind) {
-        ind = el("div", "pt-org-insert-line");
-        ind.id = "ptOrgInsertLine";
-        g.appendChild(ind);
-      }
-      ind.style.display = "block";
-      ind.style.left = lineX + "px";
-      ind.style.top = lineY + "px";
-      ind.style.height = lineH + "px";
-      state.orgDropIndex = targetIdx;
+      if (e.clientY < rect.top + 60) scrollParent.scrollTop -= 14;
+      else if (e.clientY > rect.bottom - 60) scrollParent.scrollTop += 14;
     };
 
     g.ondragleave = e => {
       if (e.relatedTarget && g.contains(e.relatedTarget)) return;
-      const ind = $("#ptOrgInsertLine");
-      if (ind) ind.style.display = "none";
+      g.querySelectorAll(".pt-org-card").forEach(c => {
+        c.classList.remove("drop-target-before", "drop-target-after");
+      });
     };
 
     g.ondrop = e => {
-      const data = e.dataTransfer.getData("text/pt-org-drag");
-      const ind = $("#ptOrgInsertLine");
-      if (ind) ind.style.display = "none";
-      if (!data || state.orgDropIndex == null) return;
+      if (!e.dataTransfer.types.includes("text/pt-org-drag")) return;
+      // Triggered only when dropped on empty space of grid (outside cards)
       e.preventDefault();
+      g.querySelectorAll(".pt-org-card").forEach(c => {
+        c.classList.remove("drop-target-before", "drop-target-after");
+      });
+
+      const selected = state.org.filter(x => x.sel);
+      if (!selected.length) return;
 
       pushOrgState();
-      // Record FLIP first positions
       const firstPositions = new Map();
       g.querySelectorAll(".pt-org-card").forEach(c => {
         firstPositions.set(c.dataset.id, c.getBoundingClientRect());
       });
 
-      const selected = state.org.filter(x => x.sel);
-      let countBefore = 0;
-      for (let i = 0; i < state.orgDropIndex; i++) {
-        if (state.org[i].sel) countBefore++;
-      }
-      const nonSelected = state.org.filter(x => !x.sel);
-      const insertAt = Math.max(0, Math.min(nonSelected.length, state.orgDropIndex - countBefore));
-      nonSelected.splice(insertAt, 0, ...selected);
-      state.org = nonSelected;
+      // Append selected items to the end
+      const remaining = state.org.filter(x => !x.sel);
+      remaining.push(...selected);
+      state.org = remaining;
 
       drawOrganizer();
 
