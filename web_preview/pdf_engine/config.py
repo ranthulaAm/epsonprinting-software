@@ -5,8 +5,32 @@ No secrets are stored here. Desktop OAuth Client IDs are public per RFC 8252.
 
 import os
 import json
+import ssl
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+
+def get_ssl_context() -> ssl.SSLContext:
+    """Returns an SSLContext using certifi's CA bundle, or unverified context as fallback."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        pass
+    try:
+        return ssl._create_unverified_context()
+    except Exception:
+        pass
+    return ssl.create_default_context()
+
+# Ensure default HTTPS context across all urllib calls uses certifi or fallback
+try:
+    import certifi
+    ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
+except Exception:
+    try:
+        ssl._create_default_https_context = ssl._create_unverified_context
+    except Exception:
+        pass
 
 DEFAULT_CONFIG = {
     # Desktop OAuth 2.0 Client ID (public identifier for Desktop app)
