@@ -235,13 +235,32 @@ def fetch_user_profile(access_token: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def is_placeholder_client_id(client_id: Optional[str]) -> bool:
+    """Checks if a client ID is a dummy placeholder or unconfigured."""
+    if not client_id or not str(client_id).strip():
+        return True
+    cid = str(client_id).strip().lower()
+    if "printhelperdesktopapp" in cid or cid.startswith("1083921839218"):
+        return True
+    if "your_client_id" in cid or "example" in cid or "placeholder" in cid:
+        return True
+    return False
+
+
 def start_oauth_flow(extra_scopes: Optional[List[str]] = None) -> Dict[str, Any]:
     """
     Initiates loopback OAuth 2.0 PKCE flow on an ephemeral port.
     Returns authorization URL for the browser.
     """
     cfg = config.load_config()
-    client_id = cfg["google_oauth_client_id"]
+    client_id = cfg.get("google_oauth_client_id", "")
+    if is_placeholder_client_id(client_id):
+        return {
+            "error": "client_id_not_configured",
+            "needs_client_id": True,
+            "message": "A Google OAuth Client ID has not been configured yet. Please configure your Client ID or use a Gemini API Key."
+        }
+
     port = find_free_port()
     redirect_uri = f"http://127.0.0.1:{port}/oauth/callback"
 
@@ -458,7 +477,28 @@ def get_public_auth_status() -> Dict[str, Any]:
         offline = AUTH_STATE.get("offline_bypass", False)
         scopes = list(AUTH_STATE.get("granted_scopes", []))
 
-    has_cloud_scope = any("cloud-platform" in s for s in scopes)
+    # Check if user has an active Gemini API key stored in Keychain
+    try:
+        from web_preview.pdf_engine import gcp_wizard
+        api_key = gcp_wizard.get_stored_api_key()
+        has_api_key = bool(api_key and api_key.strip())
+        gcp_settings = gcp_wizard.load_gcp_settings()
+        is_api_key_mode = has_api_key and gcp_settings.get("connection_mode") == "api_key"
+    except Exception:
+        has_api_key = False
+        is_api_key_mode = False
+
+    if is_api_key_mode and not is_auth:
+        is_auth = True
+        user_info = {
+            "name": "Gemini AI User",
+            "email": "Gemini API Key Connected",
+            "picture": ""
+        }
+
+    has_cloud_scope = any("cloud-platform" in s for s in scopes) or is_api_key_mode
+    client_id = cfg.get("google_oauth_client_id", "")
+    client_id_configured = not is_placeholder_client_id(client_id)
 
     return {
         "authenticated": is_auth,
@@ -466,5 +506,8 @@ def get_public_auth_status() -> Dict[str, Any]:
         "require_login": cfg.get("require_login_to_use_app", True),
         "offline_bypass": offline,
         "consent": consent,
-        "has_cloud_scope": has_cloud_scope
+        "has_cloud_scope": has_cloud_scope,
+        "has_api_key": has_api_key,
+        "client_id_configured": client_id_configured,
+        "client_id": client_id if client_id_configured else ""
     }

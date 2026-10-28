@@ -529,6 +529,14 @@ class H(BaseHTTPRequestHandler):
                 extra_scopes = j.get("extra_scopes", [])
                 flow = auth.start_oauth_flow(extra_scopes=extra_scopes)
                 return self._json(flow)
+            if path == "/api/auth/set-client-id":
+                j = json.loads(body) if body else {}
+                cid = j.get("client_id", "").strip()
+                csecret = j.get("client_secret", "").strip()
+                if not cid:
+                    return self._json({"error": "Client ID cannot be empty"}, 400)
+                config.save_config({"google_oauth_client_id": cid, "google_oauth_client_secret": csecret})
+                return self._json({"ok": True, "client_id": cid})
             if path == "/api/auth/bypass":
                 auth.set_offline_bypass(True)
                 return self._json({"ok": True, "offline_bypass": True})

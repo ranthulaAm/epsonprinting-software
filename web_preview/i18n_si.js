@@ -1,5 +1,15 @@
 /* English -> Sinhala dictionary used by i18n.js (generated; edit values freely). */
 window.I18N_SI = {
+"Configure Client ID / Gemini API Key": "Client ID හෝ Gemini API Key සැකසීම",
+"Connect Google Cloud / Gemini AI": "Google Cloud / Gemini AI සම්බන්ධ කිරීම",
+"Your Own Project & Keys": "ඔබගේම ව්‍යාපෘතිය සහ යතුරු",
+"Gemini API Key (Quickest)": "Gemini API Key (පහසුම ක්‍රමය)",
+"Google OAuth Client ID": "Google OAuth Client ID",
+"Gemini API Key": "Gemini API Key",
+"Save Key & Start Using AI": "Key සුරකින්න සහ AI භාවිතය අරඹන්න",
+"Save & Sign In With Google": "සුරකින්න සහ Google මඟින් පිවිසෙන්න",
+"OAuth 2.0 Client ID": "OAuth 2.0 Client ID",
+"OAuth Client Secret (optional)": "OAuth Client Secret (අත්‍යවශ්‍ය නොවේ)",
 "Print Helper, Shop POS & PDF Studio — Live Web Preview": "Print Helper, Shop POS & PDF Studio — සජීවී වෙබ් පෙරදසුන",
 "Manual Duplex Paper Turn Assistant": "අතින් ද්විපාර්ශ්වික කඩදාසි හැරවීමේ සහායක",
 "Step 1 of 2": "2 න් 1 වන පියවර",

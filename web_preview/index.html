@@ -3188,9 +3188,84 @@
           <span class="material-symbols-rounded">cloud_off</span>
           <span id="lblContinueOffline">Continue without signing in (Offline tools only)</span>
         </button>
+        <div style="margin-top: 14px; text-align: center;">
+          <button id="btnOpenCredentialsSetup" type="button" class="btn-ghost btn-sm" style="color: var(--primary); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+            <span class="material-symbols-rounded" style="font-size:18px;">vpn_key</span>
+            <span id="lblOpenCredsSetup">Configure Client ID / Gemini API Key</span>
+          </button>
+        </div>
       </div>
       <div class="login-footer">
         <small id="lblLoginNotice">Offline tools (Print, Organize, Merge, etc.) remain 100% available without an account.</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Credentials / Client ID & Gemini Key Setup Modal -->
+  <div id="credentialsSetupModal" class="modal-overlay hidden">
+    <div class="modal-dialog" style="max-width: 540px;">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded" style="color:var(--primary);">vpn_key</span>
+          <h3 id="lblCredModalTitle">Connect Google Cloud / Gemini AI</h3>
+        </div>
+        <button class="btn-ghost btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="background:var(--bg-surface-highest); border-radius:8px; padding:12px; font-size:13px; line-height:1.5;">
+          <div style="font-weight:600; color:var(--text-main); margin-bottom:4px;" id="lblCredHelpTitle">Your Own Project & Keys</div>
+          <p style="margin:0; color:var(--text-muted);" id="lblCredHelpDesc">
+            There is no owner server. You connect directly using your free Gemini API key from Google AI Studio, or your own Google Cloud OAuth Desktop Client ID.
+          </p>
+        </div>
+
+        <div style="display:flex; gap:8px; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+          <button class="pill-btn active" id="tabCredModeApiKey" type="button">Gemini API Key (Quickest)</button>
+          <button class="pill-btn" id="tabCredModeOAuth" type="button">Google OAuth Client ID</button>
+        </div>
+
+        <!-- Panel 1: Gemini API Key -->
+        <div id="panelCredApiKey" style="display:flex; flex-direction:column; gap:12px;">
+          <p style="font-size:13px; color:var(--text-muted); margin:0;" id="lblCredApiKeyNote">
+            Get a free Gemini API key from Google AI Studio. It stores securely in your macOS Keychain and never leaves your computer.
+          </p>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;" id="lblTxtApiKey">Gemini API Key</label>
+            <input type="password" id="txtSetupApiKey" class="form-input" placeholder="AIzaSy..." style="width:100%; font-family:monospace;">
+            <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">
+              👉 Get your free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--primary); text-decoration:underline;">Google AI Studio</a>
+            </small>
+          </div>
+          <button class="btn btn-primary" id="btnSaveSetupApiKey" type="button" style="align-self:flex-end;">
+            <span class="material-symbols-rounded">check</span>
+            <span id="lblBtnSaveApiKey">Save Key & Start Using AI</span>
+          </button>
+        </div>
+
+        <!-- Panel 2: OAuth Client ID -->
+        <div id="panelCredOAuth" class="hidden" style="display:flex; flex-direction:column; gap:12px;">
+          <p style="font-size:13px; color:var(--text-muted); margin:0;" id="lblCredOAuthNote">
+            To use Google Sign-In with your Google Cloud project, enter your Desktop OAuth 2.0 Client ID.
+          </p>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;" id="lblTxtClientId">OAuth 2.0 Client ID</label>
+            <input type="text" id="txtSetupClientId" class="form-input" placeholder="123456789...apps.googleusercontent.com" style="width:100%; font-family:monospace;">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;" id="lblTxtClientSecret">OAuth Client Secret (optional)</label>
+            <input type="password" id="txtSetupClientSecret" class="form-input" placeholder="GOCSPX-..." style="width:100%; font-family:monospace;">
+            <small style="color:var(--text-muted); font-size:11px; margin-top:4px; display:block;">
+              👉 Create in Google Cloud Console: <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--primary); text-decoration:underline;">APIs & Credentials</a> (Choose "Desktop app")
+            </small>
+          </div>
+          <button class="btn btn-primary" id="btnSaveSetupClientId" type="button" style="align-self:flex-end;">
+            <span class="material-symbols-rounded">login</span>
+            <span id="lblBtnSaveClientId">Save & Sign In With Google</span>
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal" type="button">Cancel</button>
       </div>
     </div>
   </div>
