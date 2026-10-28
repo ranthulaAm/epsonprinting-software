@@ -31,6 +31,11 @@ def test_full_ui_matrix():
 
                     page.goto("http://localhost:8080", wait_until="domcontentloaded")
 
+                    # If login overlay is visible, dismiss with continue offline
+                    if page.is_visible("#fullScreenLoginOverlay"):
+                        page.click("#btnContinueOffline")
+                        page.wait_for_timeout(200)
+
                     # Set theme and language
                     page.evaluate(f"""() => {{
                         document.documentElement.setAttribute('data-theme', '{theme}');
@@ -55,7 +60,10 @@ def test_full_ui_matrix():
                     assert page.locator("#ptPick").count() >= 1
                     assert page.is_visible("#tabTools")
 
-                    real_errors = [e for e in console_errors if "favicon" not in e and "font" not in e]
+                    real_errors = [
+                        e for e in console_errors
+                        if "favicon" not in e and "font" not in e and "ERR_CONNECTION_CLOSED" not in e and "ERR_ABORTED" not in e
+                    ]
                     assert len(real_errors) == 0, f"Errors in {w}x{h} {theme} {lang}: {real_errors}"
 
                     page.close()

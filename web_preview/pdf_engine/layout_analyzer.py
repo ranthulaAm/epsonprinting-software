@@ -197,21 +197,32 @@ def detect_stamps_and_signatures(orig_bgr: np.ndarray, gray: np.ndarray, dpi: in
 
 def detect_tables(gray: np.ndarray, page_w: int, page_h: int, dpi: int = 300) -> List[Dict[str, Any]]:
     """Detects tables with enclosing horizontal and vertical grid lines."""
+    margin = mm_to_px(6.0, dpi)
+    inv = cv2.bitwise_not(gray)
+    # Zero out extreme page borders
+    if margin > 0:
+        inv[0:margin, :] = 0
+        inv[-margin:, :] = 0
+        inv[:, 0:margin] = 0
+        inv[:, -margin:] = 0
+
     min_line_len = mm_to_px(25.0, dpi)
     h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (min_line_len, 1))
     v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, min_line_len))
 
-    inv = cv2.bitwise_not(gray)
     h_lines = cv2.morphologyEx(inv, cv2.MORPH_OPEN, h_kernel)
     v_lines = cv2.morphologyEx(inv, cv2.MORPH_OPEN, v_kernel)
 
-    grid = cv2.bitwise_and(h_lines, v_lines)
-    cnts, _ = cv2.findContours(grid, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    table_mask = cv2.bitwise_or(h_lines, v_lines)
+    cnts, _ = cv2.findContours(table_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     tables = []
     for c in cnts:
         x, y, tw, th = cv2.boundingRect(c)
-        if tw > page_w * 0.35 and th > mm_to_px(15.0, dpi):
+        # Reject full page outline
+        if tw >= page_w * 0.90 or th >= page_h * 0.90:
+            continue
+        if tw > page_w * 0.25 and th > mm_to_px(15.0, dpi) and th <= page_h * 0.85:
             tables.append({
                 "id": "tbl_" + uuid.uuid4().hex[:6],
                 "type": "table",

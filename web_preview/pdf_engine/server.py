@@ -28,6 +28,7 @@ import ocr_engine
 import renderer
 import fidelity
 import review_manager
+from web_preview.pdf_engine import auth, config, gcp_wizard
 from PIL import Image, ImageSequence
 
 JOBS = {}       # job_id -> dict
@@ -248,8 +249,14 @@ def run_modernize_worker(job_id, fid, opts):
             JOBS[job_id]["total_pages"] = total_pages
 
         consent_cloud = opts.get("consent_cloud", False)
-        second_reader = ocr_engine.CloudVisionEngine(consent_granted=consent_cloud)
-        ensemble = ocr_engine.MultiEngineEnsemble(second_reader=second_reader)
+        # Check user consent level and daily cap
+        user_consent = auth.load_user_consent()
+        consent_level = user_consent.get("level", 0)
+        daily_cap = gcp_wizard.check_daily_cap()
+
+        allow_gemini = (consent_cloud and consent_level >= 1 and not daily_cap["exceeded"])
+        gemini_reader = ocr_engine.GeminiLineReader(consent_granted=allow_gemini)
+        ensemble = ocr_engine.MultiEngineEnsemble(second_reader=gemini_reader)
         doc_pages = []
         previews = []
 
@@ -318,6 +325,15 @@ def run_modernize_worker(job_id, fid, opts):
         }
         review_manager.REVIEW_MANAGER.get_or_create_session(job_id, doc_model=doc_model)
 
+        if allow_gemini and gemini_reader.is_enabled():
+            total_lines_read = sum(
+                len(blk.get("lines", []))
+                for p in doc_pages
+                for blk in p.get("blocks", [])
+                if blk["type"] in ("heading", "text")
+            )
+            gcp_wizard.record_usage(pages=total_pages, lines=total_lines_read, cost_usd=total_lines_read * 0.00003)
+
         with JOBS_LOCK:
             JOBS[job_id]["status"] = "done"
             JOBS[job_id]["progress"] = 100.0
@@ -351,6 +367,20 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path); path = unquote(u.path)
         try:
+            if path == "/api/auth/status":
+                return self._json(auth.get_public_auth_status())
+            if path == "/api/gcp/settings":
+                return self._json({
+                    "settings": gcp_wizard.load_gcp_settings(),
+                    "usage": gcp_wizard.check_daily_cap()
+                })
+            if path == "/api/gcp/projects":
+                return self._json(gcp_wizard.list_user_gcp_projects())
+            if path == "/api/gcp/cost-estimate":
+                q = parse_qs(u.query)
+                p_cnt = int(q.get("pages", [1])[0])
+                l_cnt = int(q.get("lines", [30])[0])
+                return self._json(gcp_wizard.estimate_job_cost(p_cnt, l_cnt))
             if path == "/api/health":
                 langs = engine.available_ocr_langs()
                 has_sin = "sin" in langs
@@ -494,6 +524,34 @@ class H(BaseHTTPRequestHandler):
             n = int(self.headers.get("Content-Length", 0))
             if n > MAX_UPLOAD: return self._json({"error": "File too large (max 300 MB)"}, 413)
             body = self.rfile.read(n)
+            if path == "/api/auth/login":
+                j = json.loads(body) if body else {}
+                extra_scopes = j.get("extra_scopes", [])
+                flow = auth.start_oauth_flow(extra_scopes=extra_scopes)
+                return self._json(flow)
+            if path == "/api/auth/bypass":
+                auth.set_offline_bypass(True)
+                return self._json({"ok": True, "offline_bypass": True})
+            if path == "/api/auth/logout":
+                auth.sign_out()
+                return self._json({"ok": True})
+            if path == "/api/auth/consent":
+                j = json.loads(body) if body else {}
+                level = int(j.get("level", 0))
+                rec = auth.save_user_consent(level)
+                return self._json(rec)
+            if path == "/api/gcp/settings":
+                j = json.loads(body) if body else {}
+                saved = gcp_wizard.save_gcp_settings(j)
+                return self._json(saved)
+            if path == "/api/gcp/verify":
+                j = json.loads(body) if body else {}
+                res = gcp_wizard.verify_gcp_setup(j.get("project_id"), j.get("location"))
+                return self._json(res)
+            if path == "/api/gcp/set-api-key":
+                j = json.loads(body) if body else {}
+                res = gcp_wizard.set_custom_api_key(j.get("api_key"))
+                return self._json(res)
             if path == "/api/upload":
                 name = unquote(self.headers.get("X-Filename", "file.pdf"))
                 fid = new_id(body, name)
@@ -632,6 +690,7 @@ class H(BaseHTTPRequestHandler):
         self.send_response(404); self.end_headers()
 
 def main():
+    auth.init_auth()
     port = int(os.environ.get("PORT", "8080"))
     srv = ThreadingHTTPServer(("127.0.0.1", port), H)
     print(f"Print Helper PDF engine running -> http://localhost:{port}   (Ctrl+C to stop)")

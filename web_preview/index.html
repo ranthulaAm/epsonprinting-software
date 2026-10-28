@@ -1355,9 +1355,9 @@
       <div class="app-branding">
         <span class="material-symbols-rounded app-icon">print</span>
         <span class="app-title" id="lblAppTitle">Print Helper</span>
-        <span class="offline-badge">
-          <span class="material-symbols-rounded badge-icon">shield</span>
-          <span id="lblOffline">100% Offline</span>
+        <span class="offline-badge mode-offline" id="headerPrivacyBadge" title="Data Privacy Status">
+          <span class="material-symbols-rounded badge-icon" id="headerPrivacyIcon">shield</span>
+          <span id="lblPrivacyStatus">Offline - nothing leaves this computer</span>
         </span>
       </div>
 
@@ -1380,6 +1380,49 @@
         <button id="btnThemeToggle" class="btn-ghost" title="Toggle Light / Dark theme">
           <span class="material-symbols-rounded" id="themeIcon">light_mode</span>
         </button>
+
+        <!-- User Profile & Account Menu -->
+        <div class="user-account-menu-wrap" id="userAccountMenuWrap">
+          <button id="btnUserMenu" class="user-avatar-btn" title="Google Account">
+            <img id="userAvatarImg" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28'><circle cx='14' cy='14' r='14' fill='%233b82f6'/><text x='14' y='18' text-anchor='middle' fill='%23fff' font-size='12' font-family='sans-serif'>G</text></svg>" alt="Avatar">
+            <span id="userDisplayName">Sign In</span>
+            <span class="material-symbols-rounded dropdown-arrow">arrow_drop_down</span>
+          </button>
+          <div class="user-menu-dropdown hidden" id="userMenuDropdown">
+            <div class="user-menu-header">
+              <img id="userMenuAvatar" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><circle cx='18' cy='18' r='18' fill='%233b82f6'/><text x='18' y='23' text-anchor='middle' fill='%23fff' font-size='16' font-family='sans-serif'>G</text></svg>" alt="Avatar">
+              <div class="user-menu-info">
+                <b id="userMenuName">Not Signed In</b>
+                <small id="userMenuEmail">Sign in with Google</small>
+              </div>
+            </div>
+            <div class="user-menu-divider"></div>
+            <div class="user-menu-stats">
+              <div class="stat-row">
+                <span>AI Usage Today:</span>
+                <b id="userUsageToday">0 pages</b>
+              </div>
+              <div class="stat-row">
+                <span>Connection:</span>
+                <span id="userConnectionStatus" class="conn-pill offline">Offline</span>
+              </div>
+            </div>
+            <div class="user-menu-divider"></div>
+            <button class="user-menu-item" id="btnMenuConnectGemini">
+              <span class="material-symbols-rounded">cloud_sync</span>
+              <span>Connect Gemini (Your Project)</span>
+            </button>
+            <button class="user-menu-item" id="btnMenuPrivacySettings">
+              <span class="material-symbols-rounded">security</span>
+              <span>Privacy & AI Consent</span>
+            </button>
+            <div class="user-menu-divider"></div>
+            <button class="user-menu-item text-danger" id="btnMenuSignOut">
+              <span class="material-symbols-rounded">logout</span>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -3106,8 +3149,206 @@
     </div>
   </div>
 
+  <!-- Full-Screen Login Modal on App Start -->
+  <div id="fullScreenLoginOverlay" class="login-fullscreen-overlay hidden">
+    <div class="login-modal-card">
+      <div class="login-header-controls">
+        <button id="btnLoginLangToggle" class="btn-ghost btn-sm" title="Switch Language">
+          <span class="material-symbols-rounded">translate</span>
+          <span id="loginLangLabel">English</span>
+        </button>
+        <button id="btnLoginThemeToggle" class="btn-ghost btn-sm" title="Toggle Light / Dark theme">
+          <span class="material-symbols-rounded" id="loginThemeIcon">light_mode</span>
+        </button>
+      </div>
+      <div class="login-branding">
+        <div class="login-icon-circle">
+          <span class="material-symbols-rounded">print</span>
+        </div>
+        <h1 id="lblLoginAppTitle">PDF Gear / Print Helper</h1>
+        <p id="lblLoginSubtitle">High-Fidelity Document Modernization & Printing Suite</p>
+      </div>
+      <div class="login-action-box">
+        <button id="btnGoogleSignIn" class="btn-google-signin">
+          <svg class="google-g-logo" viewBox="0 0 24 24" width="20" height="20">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span id="lblSignInGoogle">Sign in with Google</span>
+        </button>
+        <p class="login-privacy-note" id="lblLoginPrivacyNote">
+          Your documents are processed locally or in YOUR OWN Google Cloud project. We never store your files, API keys, or personal tokens.
+        </p>
+        <div class="login-divider">
+          <span>or</span>
+        </div>
+        <button id="btnContinueOffline" class="btn btn-outline btn-block">
+          <span class="material-symbols-rounded">cloud_off</span>
+          <span id="lblContinueOffline">Continue without signing in (Offline tools only)</span>
+        </button>
+      </div>
+      <div class="login-footer">
+        <small id="lblLoginNotice">Offline tools (Print, Organize, Merge, etc.) remain 100% available without an account.</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacy & AI Consent Settings Modal -->
+  <div id="privacyConsentModal" class="modal-overlay hidden">
+    <div class="modal-dialog" style="max-width: 520px;">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded" style="color:var(--primary);">security</span>
+          <h3 id="lblConsentModalTitle">Privacy & Cloud AI Consent</h3>
+        </div>
+        <button class="btn-ghost btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:14px;">
+          Choose how much data may be sent to Google Cloud Gemini. Gemini runs directly inside <b>YOUR OWN Google Cloud project</b> and is billed directly to you. The app owner never sees your documents.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label class="pt-mod-toggle-card" style="cursor:pointer; display:flex; gap:10px; align-items:flex-start;">
+            <input type="radio" name="aiConsentLevel" value="0" id="consentLevel0" style="margin-top:3px;">
+            <div>
+              <b id="lblConsent0Title">Level 0: Offline Only (Strict Zero Network)</b>
+              <p style="font-size:12px; margin:2px 0 0 0; color:var(--text-muted);">Zero requests leave this computer. Classical engines and Tesseract only. Cloud Gemini is disabled.</p>
+            </div>
+          </label>
+          <label class="pt-mod-toggle-card" style="cursor:pointer; display:flex; gap:10px; align-items:flex-start;">
+            <input type="radio" name="aiConsentLevel" value="1" id="consentLevel1" style="margin-top:3px;">
+            <div>
+              <b id="lblConsent1Title">Level 1: Cropped Line Images Only (Default Cloud)</b>
+              <p style="font-size:12px; margin:2px 0 0 0; color:var(--text-muted);">Only cropped uncertain text lines are sent to Gemini for transcription. Full document is never sent.</p>
+            </div>
+          </label>
+          <label class="pt-mod-toggle-card" style="cursor:pointer; display:flex; gap:10px; align-items:flex-start;">
+            <input type="radio" name="aiConsentLevel" value="2" id="consentLevel2" style="margin-top:3px;">
+            <div>
+              <b id="lblConsent2Title">Level 2: Full Page Scan for Structure & Layout</b>
+              <p style="font-size:12px; margin:2px 0 0 0; color:var(--text-muted);">Sends downscaled page image (~1500px) to Gemini for end-to-end document layout understanding.</p>
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveConsentPreferences">Save Consent Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connect Gemini (User GCP Project) Wizard Modal -->
+  <div id="gcpConnectModal" class="modal-overlay hidden">
+    <div class="modal-dialog" style="max-width: 600px;">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="material-symbols-rounded" style="color:var(--primary);">cloud_sync</span>
+          <h3 id="lblGcpModalTitle">Connect Gemini (Your Google Cloud Project)</h3>
+        </div>
+        <button class="btn-ghost btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="background:var(--bg-surface-highest); border-radius:8px; padding:12px; font-size:13px; line-height:1.5;">
+          <div style="font-weight:600; color:var(--text-main); margin-bottom:4px;" id="lblGcpBillingTitle">Direct User Billing Guarantee</div>
+          <p style="margin:0; color:var(--text-muted);" id="lblGcpBillingDesc">
+            Gemini runs directly in <b>YOUR OWN Google Cloud project</b> and Google bills you directly.
+            The app owner never sees your documents and pays nothing.
+          </p>
+        </div>
+
+        <div style="display:flex; gap:8px; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+          <button class="pill-btn active" id="tabGcpModeOAuth">Google Cloud Project (OAuth)</button>
+          <button class="pill-btn" id="tabGcpModeApiKey">Custom API Key (Keychain)</button>
+        </div>
+
+        <!-- Mode 1: GCP OAuth & Vertex AI -->
+        <div id="panelGcpOAuth" style="display:flex; flex-direction:column; gap:12px;">
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Google Cloud Project</label>
+            <div style="display:flex; gap:8px;">
+              <select id="selGcpProject" class="form-select" style="flex:1;">
+                <option value="">Select a project or enter ID below...</option>
+              </select>
+              <button class="btn btn-tonal btn-sm" id="btnRefreshProjects" title="Refresh project list">
+                <span class="material-symbols-rounded">refresh</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Project ID (or manual override)</label>
+            <input type="text" id="txtGcpProjectId" class="form-input" placeholder="e.g. my-gemini-ocr-project" style="width:100%;">
+            <small style="color:var(--text-muted); font-size:11px; margin-top:3px; display:block;">
+              Don't have a project yet? <a href="https://console.cloud.google.com/projectcreate" target="_blank" style="color:var(--primary); text-decoration:underline;">Create a Google Cloud Project</a>
+            </small>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div>
+              <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Location / Region</label>
+              <select id="selGcpLocation" class="form-select" style="width:100%;">
+                <option value="us-central1" selected>us-central1 (Iowa, USA)</option>
+                <option value="us-east4">us-east4 (N. Virginia, USA)</option>
+                <option value="europe-west1">europe-west1 (Belgium, EU)</option>
+                <option value="asia-southeast1">asia-southeast1 (Singapore)</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Daily Limit (Pages/Day)</label>
+              <input type="number" id="numGcpDailyLimit" class="form-input" value="100" min="1" max="5000" style="width:100%;">
+            </div>
+          </div>
+
+          <!-- Live Verification Checklist -->
+          <div id="gcpVerifyChecklist" style="background:var(--bg-surface-highest); border-radius:8px; padding:12px; display:none; flex-direction:column; gap:8px;">
+            <div style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:2px;">Project Readiness Checklist:</div>
+            <div class="gcp-chk-row" id="chkRowBilling" style="display:flex; align-items:center; gap:8px; font-size:12px;">
+              <span class="material-symbols-rounded status-icon" style="font-size:18px;">hourglass_empty</span>
+              <span class="chk-text">Cloud Billing enabled</span>
+              <a href="#" target="_blank" class="fix-link hidden" style="color:var(--primary); margin-left:auto;">Enable Billing</a>
+            </div>
+            <div class="gcp-chk-row" id="chkRowApi" style="display:flex; align-items:center; gap:8px; font-size:12px;">
+              <span class="material-symbols-rounded status-icon" style="font-size:18px;">hourglass_empty</span>
+              <span class="chk-text">Vertex AI API enabled</span>
+              <a href="#" target="_blank" class="fix-link hidden" style="color:var(--primary); margin-left:auto;">Enable API</a>
+            </div>
+            <div class="gcp-chk-row" id="chkRowPerm" style="display:flex; align-items:center; gap:8px; font-size:12px;">
+              <span class="material-symbols-rounded status-icon" style="font-size:18px;">hourglass_empty</span>
+              <span class="chk-text">User permissions verified</span>
+              <a href="#" target="_blank" class="fix-link hidden" style="color:var(--primary); margin-left:auto;">IAM Console</a>
+            </div>
+            <div class="gcp-chk-row" id="chkRowTest" style="display:flex; align-items:center; gap:8px; font-size:12px;">
+              <span class="material-symbols-rounded status-icon" style="font-size:18px;">hourglass_empty</span>
+              <span class="chk-text">Live test call & latency</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mode 2: Custom API Key -->
+        <div id="panelGcpApiKey" class="hidden" style="display:flex; flex-direction:column; gap:12px;">
+          <p style="font-size:13px; color:var(--text-muted); margin:0;">
+            If you already have a Gemini API key from Google AI Studio, enter it here. It is stored securely in your macOS Keychain and never leaves your computer.
+          </p>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Gemini API Key</label>
+            <input type="password" id="txtCustomApiKey" class="form-input" placeholder="AIzaSy..." style="width:100%;">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-close-modal">Cancel</button>
+        <button class="btn btn-primary" id="btnVerifyConnectGcp">
+          <span class="material-symbols-rounded">check_circle</span>
+          <span id="lblBtnVerifyGcp">Verify & Save Connection</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="preview_config.js"></script>
   <script src="app.js"></script>
+  <script src="auth_ui.js"></script>
   <script src="power_tools.js"></script>
   <script src="shop_live.js"></script>
   <script src="i18n_si.js"></script>

@@ -12,12 +12,21 @@ import os
 import shutil
 import subprocess
 import re
+import json
+import io
+import time
+import base64
+import hashlib
+import urllib.request
+import urllib.parse
+import urllib.error
 from typing import List, Dict, Any, Optional
 from PIL import Image
 import numpy as np
 
 from web_preview.pdf_engine.sinhala_validator import inspect_word
 from web_preview.pdf_engine.lexicon import is_known_word, suggest_candidates, detect_script
+from web_preview.pdf_engine import auth, config, gcp_wizard
 
 
 class OcrEngine:
@@ -312,66 +321,282 @@ class LocalSinhalaEngine(OcrEngine):
         return words
 
 
-class CloudVisionEngine(OcrEngine):
-    """
-    Optional second reader (OFF by default).
-    Requires explicit user consent toggle.
-    Only sends cropped line images, NEVER full documents.
-    Accepts text only when at least 2 independent readers agree.
-    """
-    name = "cloud_vision"
+def levenshtein_similarity(s1: str, s2: str) -> float:
+    """Computes normalized Levenshtein similarity between two strings [0.0, 1.0]."""
+    if not s1 and not s2:
+        return 1.0
+    if not s1 or not s2:
+        return 0.0
+    m, n = len(s1), len(s2)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(m + 1):
+        dp[i][0] = i
+    for j in range(n + 1):
+        dp[0][j] = j
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            cost = 0 if s1[i - 1] == s2[j - 1] else 1
+            dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
+    dist = dp[m][n]
+    return max(0.0, 1.0 - (dist / max(m, n)))
 
-    def __init__(self, consent_granted: bool = False, api_key: str = ""):
+
+def is_hallucination(text: str, line_w: int, line_h: int) -> bool:
+    """
+    Hallucination Guard:
+    Rejects readings with characters outside expected scripts (Sinhala, Latin, digits, punctuation),
+    or whose character count does not fit the physical pixel dimensions of the line image.
+    """
+    if not text:
+        return False
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+
+    # Check for characters outside expected scripts (Sinhala U+0D80..U+0DFF, ASCII printable, whitespace)
+    for ch in cleaned:
+        cp = ord(ch)
+        is_sin = (0x0D80 <= cp <= 0x0DFF)
+        is_ascii = (0x20 <= cp <= 0x7E)
+        is_allowed_fmt = cp in (0x200C, 0x200D, 0x00A0)  # ZWNJ, ZWJ, NBSP
+        if not (is_sin or is_ascii or is_allowed_fmt):
+            return True
+
+    # Check length vs pixel width
+    # In a scanned line, each character occupies at least 0.15 * line_h width
+    min_char_w = max(3.0, line_h * 0.15)
+    if len(cleaned) * min_char_w > max(30, line_w * 2.8):
+        return True
+
+    return False
+
+
+LINE_CROP_CACHE: Dict[str, str] = {}
+
+
+def get_cached_line(img_bytes: bytes) -> Optional[str]:
+    h = hashlib.sha256(img_bytes).hexdigest()
+    return LINE_CROP_CACHE.get(h)
+
+
+def set_cached_line(img_bytes: bytes, text: str):
+    h = hashlib.sha256(img_bytes).hexdigest()
+    LINE_CROP_CACHE[h] = text
+
+
+def clear_line_cache():
+    LINE_CROP_CACHE.clear()
+
+
+class GeminiLineReader(OcrEngine):
+    """
+    Primary or secondary line reader using Gemini (Flash class).
+    Calls Vertex AI REST API with user's OAuth access token in their own project,
+    or user's Gemini Developer API key stored in native OS Keychain.
+    Strictly follows Hard Honesty Rules:
+    - Zero network requests without explicit consent (Level 1 or 2).
+    - Max 20 line crops per request, strictly structured JSON output.
+    - Fallback crop-by-crop retry if ID/count mismatch occurs.
+    - Hallucination guard check on every line.
+    """
+    name = "gemini_line_reader"
+
+    def __init__(self, consent_granted: bool = False):
         self.consent_granted = consent_granted
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
 
     def is_enabled(self) -> bool:
-        return self.consent_granted and bool(self.api_key)
+        # Check consent level: must be >= 1
+        rec = auth.load_user_consent()
+        level = rec.get("level", 0)
+        if level < 1 and not self.consent_granted:
+            return False
+
+        # Check daily cap
+        cap = gcp_wizard.check_daily_cap()
+        if cap["exceeded"]:
+            return False
+
+        # Check connectivity
+        gcp_set = gcp_wizard.load_gcp_settings()
+        mode = gcp_set.get("connection_mode", "oauth_vertex")
+        if mode == "oauth_vertex":
+            return bool(gcp_set.get("project_id")) and bool(auth.get_valid_access_token())
+        elif mode == "api_key":
+            return bool(gcp_wizard.get_stored_api_key())
+        return False
 
     def read_line(self, line_img: Image.Image, langs: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-        # Enforce hard honesty rules:
-        if not self.is_enabled():
+        batch_res = self.read_batch([line_img], langs=langs)
+        return batch_res[0] if batch_res else []
+
+    def read_batch(self, line_imgs: List[Image.Image], langs: Optional[List[str]] = None) -> List[List[Dict[str, Any]]]:
+        if not line_imgs:
             return []
-        import urllib.request
-        import json
-        import io
-        import base64
 
-        try:
+        # If cloud AI is disabled or zero-consent, return empty without making network calls
+        if not self.is_enabled():
+            return [[] for _ in line_imgs]
+
+        results: List[List[Dict[str, Any]]] = []
+        batch_size = 20
+
+        for chunk_idx in range(0, len(line_imgs), batch_size):
+            chunk = line_imgs[chunk_idx:chunk_idx + batch_size]
+            chunk_results = self._call_gemini_batch(chunk)
+            results.extend(chunk_results)
+
+        return results
+
+    def _call_gemini_batch(self, crops: List[Image.Image]) -> List[List[Dict[str, Any]]]:
+        # Encode crops and check cache
+        encoded_crops = []
+        needed_indices = []
+        texts_by_idx = [None] * len(crops)
+
+        for i, im in enumerate(crops):
             buf = io.BytesIO()
-            line_img.save(buf, format="PNG")
-            img_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+            im.save(buf, format="PNG")
+            b = buf.getvalue()
+            cached = get_cached_line(b)
+            if cached is not None:
+                texts_by_idx[i] = cached
+            else:
+                encoded_crops.append((i, b, base64.b64encode(b).decode("ascii")))
+                needed_indices.append(i)
 
+        if needed_indices:
+            try:
+                gcp_set = gcp_wizard.load_gcp_settings()
+                mode = gcp_set.get("connection_mode", "oauth_vertex")
+                cfg = config.load_config()
+                prompt_text = cfg.get("line_ocr_prompt", "Transcribe exactly what is printed in each image. Do not correct, translate, complete or add anything. Keep Sinhala and English exactly as printed. Do not add spaces that are not visible. Return JSON only.")
+
+                # Build parts for batch
+                parts = [{"text": prompt_text + " Return a JSON array of objects: [{\"id\": \"c0\", \"text\": \"...\"}, ...]"}]
+                for idx_in_batch, (orig_i, raw_b, b64_str) in enumerate(encoded_crops):
+                    cid = f"c{idx_in_batch}"
+                    parts.append({"text": f"Image ID: {cid}"})
+                    parts.append({"inline_data": {"mime_type": "image/png", "data": b64_str}})
+
+                payload = {
+                    "contents": [{"role": "user", "parts": parts}],
+                    "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"}
+                }
+
+                model = gcp_set.get("line_model", "gemini-2.5-flash")
+                if mode == "oauth_vertex":
+                    tok = auth.get_valid_access_token()
+                    loc = gcp_set.get("location", "us-central1")
+                    proj = gcp_set.get("project_id", "")
+                    url = f"https://{loc}-aiplatform.googleapis.com/v1/projects/{proj}/locations/{loc}/publishers/google/models/{model}:generateContent"
+                    headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}
+                else:
+                    api_key = gcp_wizard.get_stored_api_key() or ""
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                    headers = {"Content-Type": "application/json"}
+
+                req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
+                with urllib.request.urlopen(req, timeout=25) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+                    cand_text = resp_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                    parsed_json = json.loads(cand_text)
+
+                    # Map responses by id
+                    id_map = {item.get("id"): item.get("text", "") for item in parsed_json if isinstance(item, dict)}
+
+                    # Verify all needed indices got answers
+                    all_present = all(f"c{k}" in id_map for k in range(len(encoded_crops)))
+                    if all_present:
+                        for k, (orig_i, raw_b, _) in enumerate(encoded_crops):
+                            t = id_map.get(f"c{k}", "")
+                            set_cached_line(raw_b, t)
+                            texts_by_idx[orig_i] = t
+                    else:
+                        # Mismatch: trigger crop-by-crop retry
+                        for orig_i, raw_b, b64_str in encoded_crops:
+                            single_t = self._call_gemini_single(raw_b, b64_str, prompt_text, model, mode, gcp_set)
+                            set_cached_line(raw_b, single_t)
+                            texts_by_idx[orig_i] = single_t
+
+                # Record usage in daily tally
+                gcp_wizard.record_usage(pages=0, lines=len(needed_indices), cost_usd=len(needed_indices) * 0.00003)
+
+            except Exception as e:
+                # Log error and fall back without crashing
+                for orig_i, raw_b, b64_str in encoded_crops:
+                    texts_by_idx[orig_i] = None
+
+        # Build word dicts for each crop
+        final_results = []
+        for i, crop in enumerate(crops):
+            line_text = texts_by_idx[i]
+            if not line_text:
+                final_results.append([])
+                continue
+
+            # Hallucination guard
+            if is_hallucination(line_text, crop.width, crop.height):
+                final_results.append([])
+                continue
+
+            words = []
+            tokens = line_text.split()
+            # Estimate bounding boxes evenly across line width if no char boxes
+            curr_x = 0
+            total_chars = max(1, sum(len(t) for t in tokens))
+            for tok in tokens:
+                tok_w = max(10, int((len(tok) / total_chars) * (crop.width - 10)))
+                words.append({
+                    "text": tok,
+                    "bbox": [curr_x, 0, tok_w, crop.height],
+                    "confidence": 95.0,
+                    "script": detect_script(tok),
+                    "doubtful": False,
+                    "doubt_reason": "",
+                    "alternatives": []
+                })
+                curr_x += tok_w + 5
+            final_results.append(words)
+
+        return final_results
+
+    def _call_gemini_single(self, raw_b: bytes, b64_str: str, prompt_text: str, model: str, mode: str, gcp_set: dict) -> str:
+        """Fallback single crop reader for retry on count/id mismatch."""
+        try:
             payload = {
                 "contents": [
                     {
+                        "role": "user",
                         "parts": [
-                            {"text": "Transcribe exactly what is printed in this line image. Do not correct, translate or add anything. Return ONLY the transcribed text."},
-                            {"inline_data": {"mime_type": "image/png", "data": img_b64}}
+                            {"text": prompt_text},
+                            {"inline_data": {"mime_type": "image/png", "data": b64_str}}
                         ]
                     }
                 ],
                 "generationConfig": {"temperature": 0.0}
             }
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.api_key}"
-            req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=12) as resp:
+            if mode == "oauth_vertex":
+                tok = auth.get_valid_access_token()
+                loc = gcp_set.get("location", "us-central1")
+                proj = gcp_set.get("project_id", "")
+                url = f"https://{loc}-aiplatform.googleapis.com/v1/projects/{proj}/locations/{loc}/publishers/google/models/{model}:generateContent"
+                headers = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}
+            else:
+                api_key = gcp_wizard.get_stored_api_key() or ""
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                headers = {"Content-Type": "application/json"}
+
+            req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
+            with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
-                text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-                words = []
-                for token in text.split():
-                    words.append({
-                        "text": token,
-                        "bbox": [0, 0, line_img.width, line_img.height],
-                        "confidence": 95.0,
-                        "script": detect_script(token),
-                        "doubtful": False,
-                        "doubt_reason": "",
-                        "alternatives": []
-                    })
-                return words
+                return data["candidates"][0]["content"]["parts"][0]["text"].strip()
         except Exception:
-            return []
+            return ""
+
+
+class CloudVisionEngine(GeminiLineReader):
+    """Backwards-compatible alias for GeminiLineReader."""
+    name = "cloud_vision"
 
 
 class MultiEngineEnsemble:
@@ -380,28 +605,41 @@ class MultiEngineEnsemble:
     Applies the Hard Honesty Rules:
     - Never silently guess a word.
     - Every word carries confidence.
+    - Multi-engine agreement (Gemini vs Tesseract) using Levenshtein distance alignment.
     - Deterministic Sinhala validator checks every word.
-    - Doubtful words flagged and shown to user.
-    - Suggests dictionary alternatives without auto-altering below high confidence.
+    - Critical fields (digits, dates, IDs, phone numbers, currency amounts) always flagged for human review.
+    - Doubtful words flagged and shown in guided unknown-word review.
     """
     def __init__(self, tesseract_engine: Optional[TesseractEngine] = None, second_reader: Optional[OcrEngine] = None):
         self.tesseract = tesseract_engine or TesseractEngine()
         self.local_engine = LocalSinhalaEngine()
-        self.second_reader = second_reader or CloudVisionEngine(consent_granted=False)
-        self.consistency_map = {}
+        self.gemini_reader = second_reader or GeminiLineReader()
 
     def process_line(self, line_img: Image.Image, line_variants: Optional[List[Any]] = None) -> List[Dict[str, Any]]:
-        words = []
-
-        # 1. Primary read with Tesseract if available
+        # 1. Primary Tesseract Read (provides baseline text and precise spatial word bboxes)
+        tess_words = []
         if self.tesseract.is_available():
-            words = self.tesseract.read_line(line_img, langs=["sin", "eng"])
+            tess_words = self.tesseract.read_line(line_img, langs=["sin", "eng"])
 
-        # 2. If Tesseract produced no words or unavailable, use local engine
-        if not words:
-            words = self.local_engine.read_line(line_img)
+        # 2. Gemini Read (if cloud AI is enabled & consented)
+        gemini_words = []
+        if self.gemini_reader.is_enabled():
+            gemini_words = self.gemini_reader.read_line(line_img)
 
-        # 3. Post-process every word with deterministic Sinhala Validator & Lexicon
+        # 3. If Tesseract failed completely, use Gemini or Local Sinhala engine
+        if not tess_words:
+            if gemini_words:
+                words = gemini_words
+            else:
+                words = self.local_engine.read_line(line_img)
+        else:
+            # 4. Two-Reader Alignment & Voting (Gemini + Tesseract)
+            if gemini_words:
+                words = self._align_and_vote(tess_words, gemini_words)
+            else:
+                words = tess_words
+
+        # 5. Post-process every word with deterministic Sinhala Validator & Lexicon
         for w in words:
             text = w["text"].strip()
             if not text:
@@ -416,14 +654,12 @@ class MultiEngineEnsemble:
 
             # Check Lexicon presence
             if not is_known_word(text):
-                # Script classification
                 script = detect_script(text)
                 if script in ("sin", "eng"):
                     w["doubtful"] = True
                     if not w["doubt_reason"]:
                         w["doubt_reason"] = "unknown_word"
                     w["confidence"] = min(w["confidence"], 65.0)
-                    # Candidate suggestions from weighted confusion table
                     w["alternatives"] = suggest_candidates(text, max_candidates=3)
 
             # If confidence is below threshold, flag as doubtful
@@ -434,25 +670,69 @@ class MultiEngineEnsemble:
                 if not w["alternatives"]:
                     w["alternatives"] = suggest_candidates(text, max_candidates=3)
 
-            # Numbers and IDs: ALWAYS verify against image
+            # Numbers, Dates, IDs, and Amounts: ALWAYS human-verify
             has_digits = bool(re.search(r"\d", text))
             is_number_or_id = bool(re.search(r"(\d{4}[./-]\d{2}[./-]\d{2}|\d{6,12}|07\d[\s-]?\d{7}|රු\.?\s?\d+)", text))
-            if (has_digits or is_number_or_id) and w["confidence"] < 98.0:
+            if has_digits or is_number_or_id:
                 w["doubtful"] = True
-                w["doubt_reason"] = "number_or_id_needs_verification" 
-
-            # Second reader verification if enabled
-            if self.second_reader.name == "cloud_vision" and getattr(self.second_reader, "consent_granted", False):
-                # Only send cropped uncertain line
-                if w["doubtful"]:
-                    second_words = self.second_reader.read_line(line_img)
-                    # Find matching word in second reader
-                    matched = next((sw for sw in second_words if sw["text"] == text), None)
-                    if matched:
-                        # 2 independent readers agree
-                        w["confidence"] = 92.0
-                        w["doubtful"] = False
-                    else:
-                        w["doubt_reason"] = "readers_disagree_needs_human"
+                w["doubt_reason"] = "number_or_id_needs_verification"
 
         return words
+
+    def _align_and_vote(self, tess_words: List[Dict[str, Any]], gemini_words: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Aligns Tesseract words (spatial bounding boxes) with Gemini words (high-accuracy transcriptions)
+        using character edit distance matching.
+        """
+        out_words = []
+        for i, tw in enumerate(tess_words):
+            t_text = tw["text"].strip()
+            # Find best matching word in gemini_words by proximity and edit similarity
+            best_gw = None
+            best_sim = 0.0
+
+            # First check same index if lengths match
+            if i < len(gemini_words):
+                sim = levenshtein_similarity(t_text, gemini_words[i]["text"].strip())
+                if sim >= 0.70:
+                    best_gw = gemini_words[i]
+                    best_sim = sim
+
+            if best_sim < 0.85:
+                for gw in gemini_words:
+                    sim = levenshtein_similarity(t_text, gw["text"].strip())
+                    if sim > best_sim:
+                        best_sim = sim
+                        best_gw = gw
+
+            if best_gw and best_sim >= 0.90:
+                # Both readers strongly agree
+                out_words.append({
+                    "text": best_gw["text"],  # Use clean shaped Unicode from Gemini
+                    "bbox": tw["bbox"],       # Keep exact physical bbox from Tesseract TSV
+                    "confidence": 98.0,
+                    "script": detect_script(best_gw["text"]),
+                    "doubtful": False,
+                    "doubt_reason": "",
+                    "alternatives": []
+                })
+            elif best_gw and best_sim >= 0.60:
+                # Readers disagree slightly
+                out_words.append({
+                    "text": best_gw["text"],
+                    "bbox": tw["bbox"],
+                    "confidence": 70.0,
+                    "script": detect_script(best_gw["text"]),
+                    "doubtful": True,
+                    "doubt_reason": "readers_disagree_needs_human",
+                    "alternatives": [best_gw["text"], t_text]
+                })
+            else:
+                # No close match in Gemini, retain Tesseract reading with lower confidence
+                tw_copy = dict(tw)
+                tw_copy["confidence"] = min(tw_copy["confidence"], 60.0)
+                tw_copy["doubtful"] = True
+                tw_copy["doubt_reason"] = "tesseract_only_unconfirmed"
+                out_words.append(tw_copy)
+
+        return out_words

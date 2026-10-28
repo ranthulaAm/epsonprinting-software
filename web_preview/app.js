@@ -506,11 +506,13 @@ function setupEventListeners() {
   // Modal Closures
   document.querySelectorAll(".btn-close-modal").forEach(btn => {
     btn.addEventListener("click", () => {
-      livePreviewModal.classList.add("hidden");
-      drawSigModal.classList.add("hidden");
-      manualDuplexModal.classList.add("hidden");
-      receiptModal.classList.add("hidden");
-      epsonDiagModal.classList.add("hidden");
+      const parentModal = btn.closest(".modal-overlay");
+      if (parentModal) parentModal.classList.add("hidden");
+      livePreviewModal?.classList.add("hidden");
+      drawSigModal?.classList.add("hidden");
+      manualDuplexModal?.classList.add("hidden");
+      receiptModal?.classList.add("hidden");
+      epsonDiagModal?.classList.add("hidden");
       const pMod = document.getElementById("addPrinterModal");
       if (pMod) pMod.classList.add("hidden");
     });
