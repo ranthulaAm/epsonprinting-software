@@ -37,8 +37,11 @@ __pycache__/
 *.zip
 
 # Engine runtime generated data
-web_preview/pdf_engine/data/jobs/
-web_preview/pdf_engine/data/sessions/
-web_preview/pdf_engine/data/training_data/
+web_preview/pdf_engine/data/jobs/*
+!web_preview/pdf_engine/data/jobs/.gitkeep
+web_preview/pdf_engine/data/sessions/*
+!web_preview/pdf_engine/data/sessions/.gitkeep
+web_preview/pdf_engine/data/training_data/*
+!web_preview/pdf_engine/data/training_data/.gitkeep
 web_preview/pdf_engine/data/tessdata_best/
 *.traineddata

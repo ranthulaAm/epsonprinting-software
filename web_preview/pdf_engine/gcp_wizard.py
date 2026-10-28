@@ -142,7 +142,7 @@ def list_user_gcp_projects() -> Dict[str, Any]:
     url = "https://cloudresourcemanager.googleapis.com/v1/projects"
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
     try:
-        with urllib.request.urlopen(req, timeout=12) as resp:
+        with urllib.request.urlopen(req, timeout=12, context=config.get_ssl_context()) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             projects = []
             for p in data.get("projects", []):
@@ -206,7 +206,7 @@ def verify_gcp_setup(project_id: str, location: Optional[str] = None) -> Dict[st
     billing_url = f"https://cloudbilling.googleapis.com/v1/projects/{project_id}/billingInfo"
     b_req = urllib.request.Request(billing_url, headers={"Authorization": f"Bearer {token}"})
     try:
-        with urllib.request.urlopen(b_req, timeout=10) as resp:
+        with urllib.request.urlopen(b_req, timeout=10, context=config.get_ssl_context()) as resp:
             b_data = json.loads(resp.read().decode("utf-8"))
             if b_data.get("billingEnabled"):
                 results["checks"]["billing"]["passed"] = True
@@ -225,7 +225,7 @@ def verify_gcp_setup(project_id: str, location: Optional[str] = None) -> Dict[st
     svc_url = f"https://serviceusage.googleapis.com/v1/projects/{project_id}/services/aiplatform.googleapis.com"
     s_req = urllib.request.Request(svc_url, headers={"Authorization": f"Bearer {token}"})
     try:
-        with urllib.request.urlopen(s_req, timeout=10) as resp:
+        with urllib.request.urlopen(s_req, timeout=10, context=config.get_ssl_context()) as resp:
             s_data = json.loads(resp.read().decode("utf-8"))
             if s_data.get("state") == "ENABLED":
                 results["checks"]["api_enabled"]["passed"] = True
@@ -267,7 +267,7 @@ def verify_gcp_setup(project_id: str, location: Optional[str] = None) -> Dict[st
 
     t0 = time.time()
     try:
-        with urllib.request.urlopen(t_req, timeout=15) as resp:
+        with urllib.request.urlopen(t_req, timeout=15, context=config.get_ssl_context()) as resp:
             latency = int((time.time() - t0) * 1000)
             t_data = json.loads(resp.read().decode("utf-8"))
             results["checks"]["permissions"]["passed"] = True
@@ -336,7 +336,7 @@ def set_custom_api_key(api_key: str) -> Dict[str, Any]:
     )
     t0 = time.time()
     try:
-        with urllib.request.urlopen(req, timeout=12) as resp:
+        with urllib.request.urlopen(req, timeout=12, context=config.get_ssl_context()) as resp:
             latency = int((time.time() - t0) * 1000)
             keyring.set_password(auth.SERVICE_NAME, KEYRING_GEMINI_KEY, api_key)
             save_gcp_settings({"connection_mode": "api_key", "verified": True})

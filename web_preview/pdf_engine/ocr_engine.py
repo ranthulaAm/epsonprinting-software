@@ -523,7 +523,7 @@ class GeminiLineReader(OcrEngine):
                     headers = {"Content-Type": "application/json"}
 
                 req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
-                with urllib.request.urlopen(req, timeout=25) as resp:
+                with urllib.request.urlopen(req, timeout=25, context=config.get_ssl_context()) as resp:
                     resp_data = json.loads(resp.read().decode("utf-8"))
                     cand_text = resp_data["candidates"][0]["content"]["parts"][0]["text"].strip()
                     parsed_json = json.loads(cand_text)
@@ -614,7 +614,7 @@ class GeminiLineReader(OcrEngine):
                 headers = {"Content-Type": "application/json"}
 
             req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15, context=config.get_ssl_context()) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 return data["candidates"][0]["content"]["parts"][0]["text"].strip()
         except Exception:
