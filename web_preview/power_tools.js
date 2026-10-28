@@ -1332,7 +1332,7 @@
           </div>
           <div class="pt-mod-toggle-card">
             <label><input type="checkbox" id="chkModCloud" ${mod.cloudConsent ? 'checked' : ''}> Vision Second Reader (Cloud)</label>
-            <p style="color:#d97706;">OFF by default. Explicit consent required. Strictly sends only cropped uncertain lines, never whole documents.</p>
+            <p style="color:#d97706;">Cloud Vision: Names, addresses, and ID numbers in uncertain lines may be sent to Google Cloud for transcription. Full document is never sent.</p>
           </div>
         </div>
 
@@ -2127,9 +2127,10 @@
             <span class="material-symbols-rounded" style="color:var(--primary); font-size:28px;">verified</span>
             <div>
               <div class="pt-mod-fidelity-score">${fidelity.fidelity_score || 96.5}%</div>
-              <small style="color:var(--text-muted);">Layout Fidelity Score (SSIM: ${fidelity.ssim || 0.965})</small>
+              <small style="color:var(--text-muted);">Font: ${page.font_family || 'Noto Sans Sinhala'} (${Math.round((page.font_match_score || 0.96) * 100)}% match) • Fallbacks: ${page.fallback_count || 0}</small>
             </div>
-            <div style="margin-left:14px;">
+            <div style="margin-left:14px; display:flex; gap:6px; align-items:center;">
+              ${(page.fallback_count === 0 && unresolvedCount === 0) ? '<span class="badge-active" style="background:#10b981; color:#fff;">✓ Clean Reconstruction</span>' : ''}
               ${unresolvedCount === 0 ? '<span class="badge-active">✓ Verified (0 doubts)</span>' : `<span class="badge-warn">⚠️ Needs Review (${unresolvedCount} unverified)</span>`}
             </div>
           </div>

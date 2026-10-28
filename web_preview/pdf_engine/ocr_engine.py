@@ -49,7 +49,13 @@ class TesseractEngine(OcrEngine):
     name = "tesseract"
 
     def __init__(self):
-        self.tesseract_cmd = shutil.which("tesseract")
+        cmd = shutil.which("tesseract")
+        if not cmd:
+            for cand in ["/opt/homebrew/bin/tesseract", "/usr/local/bin/tesseract", "/usr/bin/tesseract"]:
+                if os.path.exists(cand):
+                    cmd = cand
+                    break
+        self.tesseract_cmd = cmd
         self.available_langs = self._get_langs()
 
     def is_available(self) -> bool:
@@ -148,7 +154,94 @@ class TesseractEngine(OcrEngine):
             if os.path.exists(tmp_in_name):
                 os.remove(tmp_in_name)
 
-        return words
+        return self._restore_latin_spaces(line_img, words)
+
+    def _restore_latin_spaces(self, line_img: Image.Image, words: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Splits fused Latin uppercase words (e.g. RANTHULASENMITH) by measuring
+        horizontal pixel gaps (>= 8 px) between letter clusters.
+        """
+        out_words = []
+        gray_arr = np.array(line_img.convert("L"))
+        h_line, w_line = gray_arr.shape
+
+        for w in words:
+            text = w["text"].strip()
+            # If word is uppercase Latin and long enough to potentially be fused
+            if text.isupper() and len(text) >= 8 and w["bbox"][2] > 60:
+                lx, ly, lw, lh = w["bbox"]
+                bx1 = max(0, lx)
+                by1 = max(0, ly)
+                bx2 = min(w_line, lx + lw)
+                by2 = min(h_line, ly + lh)
+
+                w_crop = gray_arr[by1:by2, bx1:bx2]
+                if w_crop.size == 0:
+                    out_words.append(w)
+                    continue
+
+                bin_inv = (w_crop < 180).astype(np.uint8) * 255
+                col_proj = np.sum(bin_inv > 0, axis=0)
+
+                # Search for gap in middle region (avoid edges)
+                margin_check = 15
+                zero_runs = []
+                run_s = None
+                for idx in range(margin_check, len(col_proj) - margin_check):
+                    if col_proj[idx] == 0:
+                        if run_s is None: run_s = idx
+                    else:
+                        if run_s is not None:
+                            if idx - run_s >= 8:
+                                zero_runs.append((run_s, idx))
+                            run_s = None
+
+                if zero_runs and self.tesseract_cmd:
+                    split_points = [0]
+                    for s_gap, e_gap in zero_runs:
+                        split_points.append((s_gap + e_gap) // 2)
+                    split_points.append(lw)
+
+                    import tempfile
+                    for i in range(len(split_points) - 1):
+                        p_start = split_points[i]
+                        p_end = split_points[i+1]
+                        sub_crop = w_crop[:, p_start:p_end]
+                        if sub_crop.shape[1] < 10:
+                            continue
+                        sub_pil = Image.fromarray(sub_crop)
+                        sub_pil = sub_pil.resize((sub_pil.width * 2, sub_pil.height * 2), Image.Resampling.LANCZOS)
+                        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf_in:
+                            tf_in_name = tf_in.name
+                            sub_pil.save(tf_in_name)
+                        tf_out = tf_in_name + "_sub"
+                        try:
+                            cmd = [self.tesseract_cmd, tf_in_name, tf_out, "-l", "eng", "--psm", "8", "-c", "tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ."]
+                            subprocess.run(cmd, capture_output=True, timeout=8)
+                            txt_path = tf_out + ".txt"
+                            sub_text = ""
+                            if os.path.exists(txt_path):
+                                with open(txt_path, "r", encoding="utf-8", errors="replace") as f_sub:
+                                    sub_text = f_sub.read().strip()
+                                os.remove(txt_path)
+                            if sub_text:
+                                out_words.append({
+                                    "text": sub_text,
+                                    "bbox": [lx + p_start, ly, p_end - p_start, lh],
+                                    "confidence": w["confidence"],
+                                    "script": "eng",
+                                    "doubtful": False,
+                                    "doubt_reason": "",
+                                    "alternatives": []
+                                })
+                        except Exception:
+                            pass
+                        finally:
+                            if os.path.exists(tf_in_name): os.remove(tf_in_name)
+                    continue
+
+            out_words.append(w)
+        return out_words
 
 
 class LocalSinhalaEngine(OcrEngine):
@@ -239,10 +332,46 @@ class CloudVisionEngine(OcrEngine):
         # Enforce hard honesty rules:
         if not self.is_enabled():
             return []
-        # If enabled, call vision API with strict instruction:
-        # "Transcribe exactly what is visible in this cropped text line image, no corrections or guessing."
-        # Returns candidate words.
-        return []
+        import urllib.request
+        import json
+        import io
+        import base64
+
+        try:
+            buf = io.BytesIO()
+            line_img.save(buf, format="PNG")
+            img_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": "Transcribe exactly what is printed in this line image. Do not correct, translate or add anything. Return ONLY the transcribed text."},
+                            {"inline_data": {"mime_type": "image/png", "data": img_b64}}
+                        ]
+                    }
+                ],
+                "generationConfig": {"temperature": 0.0}
+            }
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.api_key}"
+            req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                words = []
+                for token in text.split():
+                    words.append({
+                        "text": token,
+                        "bbox": [0, 0, line_img.width, line_img.height],
+                        "confidence": 95.0,
+                        "script": detect_script(token),
+                        "doubtful": False,
+                        "doubt_reason": "",
+                        "alternatives": []
+                    })
+                return words
+        except Exception:
+            return []
 
 
 class MultiEngineEnsemble:
@@ -259,6 +388,7 @@ class MultiEngineEnsemble:
         self.tesseract = tesseract_engine or TesseractEngine()
         self.local_engine = LocalSinhalaEngine()
         self.second_reader = second_reader or CloudVisionEngine(consent_granted=False)
+        self.consistency_map = {}
 
     def process_line(self, line_img: Image.Image, line_variants: Optional[List[Any]] = None) -> List[Dict[str, Any]]:
         words = []
@@ -303,6 +433,13 @@ class MultiEngineEnsemble:
                     w["doubt_reason"] = f"low_confidence_{int(w['confidence'])}%"
                 if not w["alternatives"]:
                     w["alternatives"] = suggest_candidates(text, max_candidates=3)
+
+            # Numbers and IDs: ALWAYS verify against image
+            has_digits = bool(re.search(r"\d", text))
+            is_number_or_id = bool(re.search(r"(\d{4}[./-]\d{2}[./-]\d{2}|\d{6,12}|07\d[\s-]?\d{7}|රු\.?\s?\d+)", text))
+            if (has_digits or is_number_or_id) and w["confidence"] < 98.0:
+                w["doubtful"] = True
+                w["doubt_reason"] = "number_or_id_needs_verification" 
 
             # Second reader verification if enabled
             if self.second_reader.name == "cloud_vision" and getattr(self.second_reader, "consent_granted", False):

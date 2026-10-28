@@ -215,25 +215,41 @@ def run_modernize_worker(job_id, fid, opts):
         is_pdf = (raw_data[:4] == b"%PDF" or raw_data[:1024].find(b"%PDF") >= 0)
         page_images = []
 
+        WORKING_DPI = 300
+        page_sizes = []
+
         if is_pdf:
             import pypdfium2 as pdfium
             with PDFIUM_LOCK:
                 doc = pdfium.PdfDocument(raw_data, password=PWS.get(fid, "") or None)
                 n_pages = len(doc)
                 for i in range(n_pages):
-                    pil_img = doc[i].render(scale=150 / 72.0).to_pil().convert("RGB")
+                    pw_pt, ph_pt = doc[i].get_size()
+                    page_sizes.append((float(pw_pt), float(ph_pt)))
+                    pil_img = doc[i].render(scale=WORKING_DPI / 72.0).to_pil().convert("RGB")
                     page_images.append(pil_img)
                 doc.close()
         else:
             with Image.open(io.BytesIO(raw_data)) as img:
                 for frame in ImageSequence.Iterator(img):
-                    page_images.append(frame.convert("RGB"))
+                    fr = frame.convert("RGB")
+                    # If high res scan, downscale to working resolution
+                    max_dim = max(fr.width, fr.height)
+                    if max_dim > 3500:
+                        sc = 3500.0 / max_dim
+                        fr = fr.resize((int(fr.width * sc), int(fr.height * sc)), Image.Resampling.BILINEAR)
+                    w_pt = (fr.width * 72.0) / WORKING_DPI
+                    h_pt = (fr.height * 72.0) / WORKING_DPI
+                    page_sizes.append((round(w_pt, 2), round(h_pt, 2)))
+                    page_images.append(fr)
 
         total_pages = len(page_images)
         with JOBS_LOCK:
             JOBS[job_id]["total_pages"] = total_pages
 
-        ensemble = ocr_engine.MultiEngineEnsemble()
+        consent_cloud = opts.get("consent_cloud", False)
+        second_reader = ocr_engine.CloudVisionEngine(consent_granted=consent_cloud)
+        ensemble = ocr_engine.MultiEngineEnsemble(second_reader=second_reader)
         doc_pages = []
         previews = []
 
@@ -246,8 +262,8 @@ def run_modernize_worker(job_id, fid, opts):
                 JOBS[job_id]["step"] = f"Enhancing & deskewing page {p_idx + 1} of {total_pages}"
                 JOBS[job_id]["progress"] = round((p_idx / max(1, total_pages)) * 100, 1)
 
-            # 1. Preprocess
-            prep_res = preprocess.preprocess_document_page(pil_img)
+            # 1. Preprocess at working DPI
+            prep_res = preprocess.preprocess_document_page(pil_img, dpi=WORKING_DPI)
             clean_bgr = prep_res["clean_bgr"]
             review_manager.REVIEW_MANAGER.register_page_images(job_id, p_idx + 1, prep_res["orig_bgr"], clean_bgr)
 
@@ -264,7 +280,8 @@ def run_modernize_worker(job_id, fid, opts):
                 JOBS[job_id]["step"] = f"Analyzing layout & reading lines for page {p_idx + 1} of {total_pages}"
 
             # 2. Layout Analysis
-            page_layout = layout_analyzer.analyze_document_layout(clean_bgr, dpi=150)
+            pw_pt, ph_pt = page_sizes[p_idx] if p_idx < len(page_sizes) else (611.0, 840.0)
+            page_layout = layout_analyzer.analyze_document_layout(clean_bgr, dpi=WORKING_DPI, page_w_pt=pw_pt, page_h_pt=ph_pt)
             page_layout["page_num"] = p_idx + 1
 
             # 3. Line OCR & Word Verification
@@ -278,9 +295,19 @@ def run_modernize_worker(job_id, fid, opts):
                             words = ensemble.process_line(crop_pil)
                             ln["words"] = words
 
-            # 4. Evaluate fidelity
+            # 4. Evaluate fidelity & residual check
             eval_res = fidelity.evaluate_fidelity(prep_res["orig_bgr"], clean_bgr, page_layout["blocks"])
             page_layout["fidelity"] = eval_res
+            try:
+                res_check = renderer.compute_residual_check(clean_bgr, {"version": "1.0", "pages": [page_layout]}, page_idx=0, dpi=WORKING_DPI)
+                page_layout["fallback_count"] = res_check["fallback_count"]
+                page_layout["clean_reconstruction"] = res_check["clean_reconstruction"]
+                if res_check["fallback_blocks"]:
+                    page_layout["blocks"].extend(res_check["fallback_blocks"])
+            except Exception as err:
+                logger.warning(f"Residual check warning: {err}")
+                page_layout["fallback_count"] = 0
+                page_layout["clean_reconstruction"] = True
             doc_pages.append(page_layout)
 
         doc_model = {

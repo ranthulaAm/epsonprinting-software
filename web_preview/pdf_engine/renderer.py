@@ -8,8 +8,10 @@ Converts the internal document model into:
 
 import os
 import io
+import uuid
 import base64
 from typing import Dict, Any
+import pikepdf
 import docx
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -40,11 +42,14 @@ def generate_document_html(doc_model: Dict[str, Any], standalone: bool = True) -
     native embedded fonts, vector rules, and real table grids.
     """
     pages_html = []
+    first_page = doc_model.get("pages", [{}])[0] if doc_model.get("pages") else {}
+    doc_w_pt = first_page.get("width_pt", 611.0)
+    doc_h_pt = first_page.get("height_pt", 840.0)
 
     for page in doc_model.get("pages", []):
-        w_pt = page.get("width_pt", 595.28)
-        h_pt = page.get("height_pt", 841.89)
-        dpi = page.get("dpi", 150)
+        w_pt = page.get("width_pt", 611.0)
+        h_pt = page.get("height_pt", 840.0)
+        dpi = page.get("dpi", 300)
         px_to_pt = 72.0 / dpi
 
         blocks_html = []
@@ -57,40 +62,60 @@ def generate_document_html(doc_model: Dict[str, Any], standalone: bool = True) -
             height_pt = bh * px_to_pt
 
             if b_type in ("text", "heading"):
-                align = blk.get("alignment", "left")
-                font_size = blk.get("font_size_pt", 12.0)
-                font_weight = "bold" if blk.get("font_weight") == "bold" or b_type == "heading" else "normal"
+                lines = blk.get("lines", [])
+                if lines:
+                    for ln in lines:
+                        lx, ly, lw, lh = ln.get("bbox", [bx, by, bw, bh])
+                        l_left = lx * px_to_pt
+                        l_width = lw * px_to_pt
+                        base_y = ln.get("baseline_y", ly + int(lh * 0.75))
+                        f_size = ln.get("font_size_pt", blk.get("font_size_pt", 11.0))
+                        l_top = (base_y * px_to_pt) - (f_size * 0.82)
+                        f_weight = "bold" if ln.get("font_weight") == "bold" or b_type == "heading" else "normal"
+                        col = ln.get("color", blk.get("color", "#111827"))
+                        und = ln.get("underline", blk.get("underline", False))
+                        und_css = "text-decoration: underline; text-decoration-thickness: 1.2pt; text-underline-offset: 2.5pt;" if und else ""
+                        words = ln.get("words", [])
+                        if words:
+                            l_text = " ".join(w.get("text", "") for w in words if w.get("text"))
+                        else:
+                            l_text = ln.get("text", "")
+                        lid = ln.get("id", "ln_" + uuid.uuid4().hex[:6])
 
-                # Aggregate words across lines
-                line_strs = []
-                for ln in blk.get("lines", []):
-                    words = ln.get("words", [])
-                    if words:
-                        ln_text = " ".join(w.get("text", "") for w in words if w.get("text"))
-                    else:
-                        ln_text = ln.get("text", "")
-                    if ln_text:
-                        line_strs.append(f"<div>{ln_text}</div>")
-
-                content = "".join(line_strs) if line_strs else blk.get("text", "")
-                blocks_html.append(f"""
-                <div class="doc-block block-{b_type}" style="
-                    position: absolute;
-                    left: {left_pt:.2f}pt;
-                    top: {top_pt:.2f}pt;
-                    width: {width_pt:.2f}pt;
-                    text-align: {align};
-                    font-size: {font_size:.1f}pt;
-                    font-weight: {font_weight};
-                    line-height: 1.35;
-                ">{content}</div>
-                """)
+                        blocks_html.append(f"""
+                        <div id="{lid}" class="doc-line" data-target-width="{l_width:.2f}" style="
+                            position: absolute;
+                            left: {l_left:.2f}pt;
+                            top: {l_top:.2f}pt;
+                            font-size: {f_size:.1f}pt;
+                            font-weight: {f_weight};
+                            color: {col};
+                            white-space: nowrap;
+                            line-height: 1.0;
+                            {und_css}
+                        ">{l_text}</div>
+                        """)
+                else:
+                    f_size = blk.get("font_size_pt", 11.0)
+                    f_weight = "bold" if blk.get("font_weight") == "bold" or b_type == "heading" else "normal"
+                    col = blk.get("color", "#111827")
+                    txt = blk.get("text", "")
+                    blocks_html.append(f"""
+                    <div class="doc-line" data-target-width="{width_pt:.2f}" style="
+                        position: absolute;
+                        left: {left_pt:.2f}pt;
+                        top: {top_pt:.2f}pt;
+                        font-size: {f_size:.1f}pt;
+                        font-weight: {f_weight};
+                        color: {col};
+                        white-space: nowrap;
+                        line-height: 1.0;
+                    ">{txt}</div>
+                    """)
 
             elif b_type == "table":
-                cells = blk.get("cells", [])
                 rows_data = blk.get("rows", [])
                 if rows_data:
-                    # Formatted rows
                     tr_list = []
                     for r in rows_data:
                         tds = "".join(f"<td style='border:1px solid #000; padding:4pt 6pt;'>{c}</td>" for c in r)
@@ -114,17 +139,30 @@ def generate_document_html(doc_model: Dict[str, Any], standalone: bool = True) -
 
             elif b_type == "rule":
                 orientation = blk.get("orientation", "horizontal")
+                rule_style = blk.get("rule_style", "solid")
                 if orientation == "horizontal":
-                    blocks_html.append(f"""
-                    <div class="doc-block block-rule" style="
-                        position: absolute;
-                        left: {left_pt:.2f}pt;
-                        top: {top_pt:.2f}pt;
-                        width: {width_pt:.2f}pt;
-                        height: 1.2pt;
-                        background-color: #111827;
-                    "></div>
-                    """)
+                    if rule_style == "dotted":
+                        blocks_html.append(f"""
+                        <div class="doc-block block-rule" style="
+                            position: absolute;
+                            left: {left_pt:.2f}pt;
+                            top: {top_pt:.2f}pt;
+                            width: {width_pt:.2f}pt;
+                            height: 0px;
+                            border-bottom: 1.5pt dotted #111827;
+                        "></div>
+                        """)
+                    else:
+                        blocks_html.append(f"""
+                        <div class="doc-block block-rule" style="
+                            position: absolute;
+                            left: {left_pt:.2f}pt;
+                            top: {top_pt:.2f}pt;
+                            width: {width_pt:.2f}pt;
+                            height: 1.2pt;
+                            background-color: #111827;
+                        "></div>
+                        """)
                 else:
                     blocks_html.append(f"""
                     <div class="doc-block block-rule" style="
@@ -142,8 +180,6 @@ def generate_document_html(doc_model: Dict[str, Any], standalone: bool = True) -
                 labels = chart_data.get("labels", [])
                 values = chart_data.get("values", [])
                 max_val = max(values) if values else 1
-
-                # Generate clean inline SVG bar chart
                 bars_svg = []
                 bar_count = len(values)
                 if bar_count > 0:
@@ -173,7 +209,7 @@ def generate_document_html(doc_model: Dict[str, Any], standalone: bool = True) -
                 ">{svg_content}</div>
                 """)
 
-            elif b_type in ("photo", "stamp", "signature"):
+            elif b_type in ("photo", "stamp", "signature", "barcode"):
                 img_src = blk.get("image_data", "")
                 if img_src:
                     blocks_html.append(f"""
@@ -227,7 +263,7 @@ def generate_document_html(doc_model: Dict[str, Any], standalone: bool = True) -
     <style>
     {font_faces}
     @page {{
-        size: A4;
+        size: {doc_w_pt:.2f}pt {doc_h_pt:.2f}pt;
         margin: 0;
     }}
     body {{
@@ -246,29 +282,65 @@ def generate_document_html(doc_model: Dict[str, Any], standalone: bool = True) -
     </head>
     <body>
     {"".join(pages_html)}
+    <script>
+    function fitLines() {{
+        document.querySelectorAll('.doc-line').forEach(function(el) {{
+            var target = parseFloat(el.getAttribute('data-target-width'));
+            if (!target || target <= 0) return;
+            var cur = el.getBoundingClientRect().width;
+            if (Math.abs(cur - target) / target <= 0.01) return;
+            var low = -2.0, high = 6.0, bestSpacing = 0.0, bestDiff = 999999;
+            for (var i = 0; i < 15; i++) {{
+                var mid = (low + high) / 2.0;
+                el.style.letterSpacing = mid.toFixed(3) + 'pt';
+                var w = el.getBoundingClientRect().width;
+                var diff = Math.abs(w - target);
+                if (diff < bestDiff) {{
+                    bestDiff = diff;
+                    bestSpacing = mid;
+                }}
+                if (diff / target <= 0.008) break;
+                if (w < target) low = mid; else high = mid;
+            }}
+            el.style.letterSpacing = bestSpacing.toFixed(3) + 'pt';
+        }});
+    }}
+    if (document.readyState === 'loading') {{
+        document.addEventListener('DOMContentLoaded', fitLines);
+    }} else {{
+        fitLines();
+    }}
+    </script>
     </body>
     </html>"""
-
 
 def export_pdf(doc_model: Dict[str, Any]) -> bytes:
     """Generates vector PDF with native HarfBuzz text shaping using headless Chromium."""
     html_content = generate_document_html(doc_model, standalone=True)
+    first_page = doc_model.get("pages", [{}])[0]
+    w_pt = float(first_page.get("width_pt", 611.0))
+    h_pt = float(first_page.get("height_pt", 840.0))
+
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
-        page.set_content(html_content)
-        # First page format
-        first_page = doc_model.get("pages", [{}])[0]
-        w_pt = first_page.get("width_pt", 595.28)
-        h_pt = first_page.get("height_pt", 841.89)
-
+        page.set_content(html_content, wait_until="networkidle")
+        page.evaluate("if (typeof fitLines === 'function') fitLines();")
         pdf_bytes = page.pdf(
-            width=f"{w_pt / 72.0:.3f}in",
-            height=f"{h_pt / 72.0:.3f}in",
+            prefer_css_page_size=True,
             print_background=True,
             margin={"top": "0in", "bottom": "0in", "left": "0in", "right": "0in"}
         )
         browser.close()
+
+    # Exact MediaBox enforcement
+    with pikepdf.open(io.BytesIO(pdf_bytes)) as pdf:
+        for pg in pdf.pages:
+            pg.mediabox = [0, 0, w_pt, h_pt]
+        out_buf = io.BytesIO()
+        pdf.save(out_buf)
+        pdf_bytes = out_buf.getvalue()
+
     return pdf_bytes
 
 
@@ -352,3 +424,73 @@ def export_docx(doc_model: Dict[str, Any]) -> bytes:
     out = io.BytesIO()
     doc.save(out)
     return out.getvalue()
+
+
+def compute_residual_check(clean_bgr, doc_model: Dict[str, Any], page_idx: int = 0, dpi: int = 300) -> Dict[str, Any]:
+    """
+    Renders output page at working DPI, computes residual ink map against clean_bgr.
+    If any region > 12x12 mm has unexplained residual ink, creates fallback raster block.
+    """
+    import cv2
+    import numpy as np
+    from web_preview.pdf_engine.preprocess import mm_to_px
+
+    h, w = clean_bgr.shape[:2]
+    # Render PDF to image at working DPI
+    pdf_bytes = export_pdf(doc_model)
+    import pypdfium2 as pdfium
+    doc = pdfium.PdfDocument(pdf_bytes)
+    n_pages = len(doc)
+    p_num = min(page_idx, n_pages - 1)
+    rendered_pil = doc[p_num].render(scale=dpi / 72.0).to_pil().convert("RGB")
+    rendered_np = np.array(rendered_pil)
+    doc.close()
+
+    # Align size if difference is 1-2 px
+    if rendered_np.shape[:2] != (h, w):
+        rendered_np = cv2.resize(rendered_np, (w, h))
+
+    gray_clean = cv2.cvtColor(clean_bgr, cv2.COLOR_BGR2GRAY)
+    gray_rend = cv2.cvtColor(rendered_np, cv2.COLOR_RGB2GRAY)
+
+    # Ink in clean_bgr (dark) but missing in rendered (light)
+    clean_ink = (gray_clean < 180)
+    rend_ink = (gray_rend < 180)
+
+    # Dilate rendered ink slightly (2 mm) to account for slight stroke font differences
+    pad_ink = mm_to_px(2.0, dpi)
+    rend_dilated = cv2.dilate(rend_ink.astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_RECT, (pad_ink, pad_ink)))
+
+    # Missing residual ink
+    missing_ink = np.logical_and(clean_ink, rend_dilated == 0).astype(np.uint8) * 255
+
+    # Filter out outer scanner margin (5mm)
+    margin = mm_to_px(5.0, dpi)
+    missing_ink[:margin, :] = 0
+    missing_ink[-margin:, :] = 0
+    missing_ink[:, :margin] = 0
+    missing_ink[:, -margin:] = 0
+
+    # Find large unexplained regions (> 12x12 mm)
+    min_dim = mm_to_px(12.0, dpi)
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(missing_ink)
+    fallback_blocks = []
+
+    for i in range(1, num_labels):
+        rx, ry, rw, rh, area = stats[i]
+        if rw >= min_dim and rh >= min_dim and area > (min_dim * min_dim * 0.25):
+            crop_bgr = clean_bgr[ry:ry+rh, rx:rx+rw]
+            _, buf = cv2.imencode(".png", crop_bgr)
+            b64_crop = base64.b64encode(buf).decode("ascii")
+            fallback_blocks.append({
+                "id": "fallback_" + uuid.uuid4().hex[:6],
+                "type": "photo",
+                "bbox": [int(rx), int(ry), int(rw), int(rh)],
+                "image_data": f"data:image/png;base64,{b64_crop}"
+            })
+
+    return {
+        "fallback_count": len(fallback_blocks),
+        "fallback_blocks": fallback_blocks,
+        "clean_reconstruction": len(fallback_blocks) == 0
+    }
