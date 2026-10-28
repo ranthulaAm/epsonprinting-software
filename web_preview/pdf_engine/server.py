@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Print Helper local PDF server.  Run:  python3 pdf_engine/server.py   then open http://localhost:8080
 Serves the web preview and a JSON API. Everything stays on your computer."""
-import io, json, os, sys, threading, uuid, zipfile, mimetypes, traceback
+import io, json, os, sys, threading, uuid, zipfile, mimetypes, traceback, collections
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote
 
@@ -15,7 +15,7 @@ FILES = {}      # id -> bytes
 NAMES = {}      # id -> filename
 PWS = {}        # id -> password used to open (for thumbnails/ops)
 LOCK = threading.Lock()
-THUMBS = {}
+THUMBS = collections.OrderedDict()
 
 def new_id(data, name, pw=""):
     fid = uuid.uuid4().hex[:12]
@@ -28,7 +28,7 @@ def describe(fid):
     base = {"id": fid, "name": NAMES[fid], "size": len(d)}
     if d[:4] == b"%PDF" or d[:1024].find(b"%PDF") >= 0:
         try:
-            i = engine.info(d)
+            i = engine.info(d, password=PWS.get(fid, ""))
             base.update(i); base["kind"] = "pdf"
         except PdfError as e:
             base.update({"kind": "pdf", "pages": 0, "error": str(e)})
@@ -54,6 +54,8 @@ def run_op(op, fids, o):
     elif op == "assemble":
         items = o["items"]
         for it in items:
+            if it.get("blank"):
+                continue
             files.setdefault(it["file"], FILES[it["file"]]); pws.setdefault(it["file"], pw(it["file"]))
         res.append((o.get("name") or "organized.pdf", engine.assemble(items, files, pws)))
         msg = f"Built document with {len(items)} pages"
@@ -99,8 +101,26 @@ def run_op(op, fids, o):
     elif op == "images_to_pdf":
         res.append((o.get("name") or "images.pdf", engine.images_to_pdf([FILES[f] for f in fids])))
     elif op == "text":
-        t = engine.extract_text(f0, files, o.get("pages", "all"), pw(f0))
-        return {"text": t, "results": [], "message": f"Extracted {len(t)} characters"}
+        from text_intel import smart_text
+        res_dict = smart_text(
+            f0, files,
+            spec=o.get("pages", "all"),
+            password=pw(f0),
+            mode=o.get("mode", "auto"),
+            layout=o.get("layout", "smart"),
+            fmt=o.get("fmt", "txt"),
+            clean=bool(o.get("clean", True)),
+            dehyphenate=bool(o.get("dehyphenate", True)),
+            markers=bool(o.get("markers", True)),
+            lang=o.get("lang", "auto"),
+            dpi=int(o.get("dpi", 250))
+        )
+        ext = o.get("fmt", "txt")
+        download_name = out_name(f0, "extracted", ext)
+        fid = new_id(res_dict["text"].encode("utf-8"), download_name)
+        res_dict["results"] = [describe(fid)]
+        res_dict["message"] = f"Extracted {res_dict['summary']['words']} words across {res_dict['summary']['pages']} page(s)"
+        return res_dict
     elif op == "ocr":
         t, merged = engine.ocr(f0, files, o.get("lang", "eng"), int(o.get("dpi", 200)), o.get("pages", "all"), pw(f0), bool(o.get("searchable", True)))
         out = {"text": t, "results": [], "message": "OCR complete"}
@@ -143,24 +163,65 @@ class H(BaseHTTPRequestHandler):
             if path == "/api/health":
                 return self._json({"ok": True, "ocr_langs": engine.available_ocr_langs()})
             if path.startswith("/api/file/"):
-                fid = path.split("/")[3]
+                parts = path.split("/")
+                if len(parts) < 4: return self._json({"error": "File not found"}, 404)
+                fid = parts[3]
                 if fid not in FILES: return self._json({"error": "File not found"}, 404)
-                q = parse_qs(u.query); name = NAMES[fid]
-                ctype = "application/zip" if name.endswith(".zip") else "application/pdf"
+                q = parse_qs(u.query); name = NAMES.get(fid, "download.pdf")
+                guessed_type = mimetypes.guess_type(name)[0]
+                ctype = guessed_type or ("application/zip" if name.endswith(".zip") else "application/pdf")
                 return self._bytes(FILES[fid], ctype, name, q.get("download") == ["1"])
             if path.startswith("/api/thumb/"):
-                _, _, _, fid, page = path.split("/")[:5]
-                w = int(parse_qs(u.query).get("w", ["180"])[0])
-                key = (fid, int(page), w, PWS.get(fid, ""))
-                if key not in THUMBS:
-                    img = engine.render_page(FILES[fid], int(page) - 1, 1.0, PWS.get(fid, ""))
-                    img.thumbnail((w, w * 2))
-                    b = io.BytesIO(); img.save(b, "PNG"); THUMBS[key] = b.getvalue()
-                return self._bytes(THUMBS[key], "image/png")
+                parts = path.split("/")
+                if len(parts) < 5: return self._json({"error": "Invalid thumbnail URL"}, 400)
+                fid = parts[3]
+                page = parts[4]
+                if fid not in FILES: return self._json({"error": "File not found"}, 404)
+                try:
+                    w = int(parse_qs(u.query).get("w", ["240"])[0])
+                except (ValueError, TypeError):
+                    w = 240
+                w = max(60, min(900, w))
+                try:
+                    page_idx = int(page) - 1
+                except ValueError:
+                    return self._json({"error": "Invalid page number"}, 400)
+
+                key = (fid, page_idx, w, PWS.get(fid, ""))
+                with LOCK:
+                    if key in THUMBS:
+                        THUMBS.move_to_end(key)
+                        cached = THUMBS[key]
+                    else:
+                        cached = None
+                
+                if cached is None:
+                    pw = PWS.get(fid, "")
+                    img = engine.render_thumb((fid, pw), FILES[fid], page_idx, w, pw)
+                    b = io.BytesIO()
+                    img.save(b, "PNG")
+                    cached = b.getvalue()
+                    with LOCK:
+                        THUMBS[key] = cached
+                        while len(THUMBS) > 800:
+                            THUMBS.popitem(last=False)
+
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(cached)))
+                self.send_header("Cache-Control", "private, max-age=86400")
+                self.end_headers()
+                self.wfile.write(cached)
+                return
             if path.startswith("/api/pagepng/"):
-                _, _, _, fid, page = path.split("/")[:5]
+                parts = path.split("/")
+                if len(parts) < 5: return self._json({"error": "Invalid page URL"}, 400)
+                fid = parts[3]
+                page = parts[4]
+                if fid not in FILES: return self._json({"error": "File not found"}, 404)
                 zoom = float(parse_qs(u.query).get("zoom", ["1.4"])[0])
-                img = engine.render_page(FILES[fid], int(page) - 1, zoom, PWS.get(fid, ""))
+                pw = PWS.get(fid, "")
+                img = engine.render_page(FILES[fid], int(page) - 1, zoom, pw, key=(fid, pw))
                 b = io.BytesIO(); img.save(b, "PNG")
                 return self._bytes(b.getvalue(), "image/png")
         except (PdfError, ValueError, IndexError) as e:
@@ -189,23 +250,30 @@ class H(BaseHTTPRequestHandler):
                 return self._json(describe(fid))
             if path == "/api/unlock":
                 j = json.loads(body); fid = j["id"]
+                pw = j.get("password", "")
                 try:
-                    engine.info(FILES[fid])
-                except PdfError: pass
-                import pikepdf
-                try:
-                    with pikepdf.open(io.BytesIO(FILES[fid]), password=j.get("password", "")) as p:
-                        PWS[fid] = j.get("password", ""); d = {"id": fid, "name": NAMES[fid], "size": len(FILES[fid]), "kind": "pdf", "pages": len(p.pages), "encrypted": False, "meta": {}}
-                        return self._json(d)
+                    i = engine.info(FILES[fid], password=pw)
+                    if not i.get("encrypted"):
+                        with LOCK:
+                            PWS[fid] = pw
+                        return self._json(describe(fid))
+                    return self._json({"error": "Wrong password"}, 400)
                 except pikepdf.PasswordError:
                     return self._json({"error": "Wrong password"}, 400)
+                except Exception as e:
+                    return self._json({"error": str(e)}, 400)
             if path == "/api/op":
                 j = json.loads(body)
                 return self._json(run_op(j["op"], j.get("files", []), j.get("options", {})))
             if path == "/api/forget":
                 j = json.loads(body)
                 for f in j.get("ids", []):
-                    FILES.pop(f, None); NAMES.pop(f, None); PWS.pop(f, None)
+                    with LOCK:
+                        FILES.pop(f, None); NAMES.pop(f, None); PWS.pop(f, None)
+                        keys_to_del = [k for k in list(THUMBS.keys()) if k[0] == f]
+                        for k in keys_to_del:
+                            THUMBS.pop(k, None)
+                    engine.forget_doc(f)
                 return self._json({"ok": True})
         except PdfError as e:
             return self._json({"error": str(e)}, 400)

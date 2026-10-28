@@ -1,4 +1,5 @@
-/* English -> Sinhala dictionary used by i18n.js (generated; edit values freely). */\nwindow.I18N_SI = {
+/* English -> Sinhala dictionary used by i18n.js (generated; edit values freely). */
+window.I18N_SI = {
 "Print Helper, Shop POS & PDF Studio — Live Web Preview": "Print Helper, Shop POS & PDF Studio — සජීවී වෙබ් පෙරදසුන",
 "Manual Duplex Paper Turn Assistant": "අතින් ද්විපාර්ශ්වික කඩදාසි හැරවීමේ සහායක",
 "Step 1 of 2": "2 න් 1 වන පියවර",
@@ -1285,5 +1286,39 @@
 "Switch to Sinhala": "සිංහල භාෂාවට මාරු වන්න",
 "Switch to English": "ඉංග්‍රීසි භාෂාවට මාරු වන්න",
 "Ready to Print": "මුද්‍රණයට සූදානම්",
-"Loading document text...": "පෙළ ලේඛනය පූරණය වෙමින්..."
-};\n
+"Loading document text...": "පෙළ ලේඛනය පූරණය වෙමින්...",
+"Rotate Left": "වමට කරකවන්න",
+"Rotate Right": "දකුණට කරකවන්න",
+"Duplicate": "පිටපතක් ගන්න",
+"+ Blank Page": "+ හිස් පිටුවක්",
+"To Start": "ආරම්භයට",
+"To End": "අවසානයට",
+"Undo": "පෙර තත්වයට",
+"Redo": "යළි කරන්න",
+"Select:": "තෝරන්න:",
+"All": "සියල්ල",
+"Odd": "ඔත්තේ",
+"Even": "ඉරට්ටේ",
+"Invert": "ප්‍රතිලෝම",
+"Extraction Mode": "උපුටා ගැනීමේ ක්‍රමය",
+"Layout": "සැලැස්ම",
+"Auto (Native PDF text, OCR if scanned)": "ස්වයංක්‍රීය (PDF පෙළ, ස්කෑන් කර ඇත්නම් OCR)",
+"Text only (Fast, skips scanned images)": "පෙළ පමණි (වේගවත්, ස්කෑන් කළ රූප මගහරියි)",
+"Force OCR (Tesseract scan for all pages)": "OCR බල කරන්න (සියලු පිටු සඳහා Tesseract)",
+"Smart (Multi-column reading order & tables)": "ස්මාර්ට් (තීරු කියවීම සහ වගු සහිතව)",
+"Raw (Physical top-to-bottom stream)": "අමු පෙළ (ඉහළ සිට පහළට ගලා යාම)",
+"Plain Text (.txt)": "සරල පෙළ (.txt)",
+"Markdown (.md)": "මාක්ඩවුන් (.md)",
+"JSON (.json)": "JSON (.json)",
+"OCR Language": "OCR භාෂාව",
+"Used when pages need OCR": "පිටු සඳහා OCR අවශ්‍ය වූ විට භාවිත කෙරේ",
+"Remove headers, footers & page numbers": "ශීර්ෂක, පාදක සහ පිටු අංක ඉවත් කරන්න",
+"Fix line-end hyphenation": "පේළි අග හයිෆන් ගැටළු නිවැරදි කරන්න",
+"Add page markers (--- Page N ---)": "පිටු සලකුණු එක් කරන්න (--- පිටුව N ---)",
+"Click to select • Shift-click range • Drag to reorder • R to rotate • Del to delete": "තේරීමට ක්ලික් කරන්න • පරාසයට Shift-ක්ලික් • අනුපිළිවෙල මාරු කිරීමට Drag • කරකැවීමට R • මැකීමට Del",
+"Build PDF": "PDF එක සකසන්න",
+"Copy text": "පෙළ පිටපත් කරන්න",
+"Blank Page": "හිස් පිටුව",
+"Blank": "හිස්",
+"Retry": "නැවත උත්සාහ කරන්න"
+};

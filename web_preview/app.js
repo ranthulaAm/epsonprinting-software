@@ -883,17 +883,31 @@ function updatePreviewCanvas() {
       </div>
     `;
   } else if (isPdf) {
-    simulatedPaper.innerHTML = `
-      <div class="real-pdf-stage" style="width:100%; height:100%; display:flex; flex-direction:column; background:#ffffff; overflow:hidden;">
-        <div style="flex:1; width:100%; height:100%; position:relative; overflow:hidden;">
-          <iframe src="${item.previewUrl || ''}#toolbar=0&navpanes=0&page=${previewCurrentPage}" style="width:100%; height:100%; border:none; display:block;" title="PDF Preview"></iframe>
+    if (item.engineId) {
+      simulatedPaper.innerHTML = `
+        <div class="real-pdf-stage" style="width:100%; height:100%; display:flex; flex-direction:column; background:#ffffff; overflow:hidden;">
+          <div style="flex:1; width:100%; height:100%; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; padding:10px;">
+            <img src="/api/pagepng/${encodeURIComponent(item.engineId)}/${previewCurrentPage}?zoom=1.6" alt="Page ${previewCurrentPage}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:2px; box-shadow:0 1px 6px rgba(0,0,0,0.14);" />
+          </div>
+          <div style="padding:6px 12px; font-size:10px; color:#555; display:flex; justify-content:space-between; border-top:1px solid #eee; background:#fafafa;">
+            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%; font-weight:600;">${escapeHtml(item.name)}</span>
+            <span>${isSi ? 'පිටුව ' + previewCurrentPage + ' / ' + totalPages : 'Page ' + previewCurrentPage + ' of ' + totalPages}</span>
+          </div>
         </div>
-        <div style="padding:6px 12px; font-size:10px; color:#555; display:flex; justify-content:space-between; border-top:1px solid #eee; background:#fafafa;">
-          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%; font-weight:600;">${escapeHtml(item.name)}</span>
-          <span>${isSi ? 'පිටුව ' + previewCurrentPage + ' / ' + totalPages : 'Page ' + previewCurrentPage + ' of ' + totalPages}</span>
+      `;
+    } else {
+      simulatedPaper.innerHTML = `
+        <div class="real-pdf-stage" style="width:100%; height:100%; display:flex; flex-direction:column; background:#ffffff; overflow:hidden;">
+          <div style="flex:1; width:100%; height:100%; position:relative; overflow:hidden;">
+            <iframe src="${item.previewUrl || ''}#toolbar=0&navpanes=0&page=${previewCurrentPage}" style="width:100%; height:100%; border:none; display:block;" title="PDF Preview"></iframe>
+          </div>
+          <div style="padding:6px 12px; font-size:10px; color:#555; display:flex; justify-content:space-between; border-top:1px solid #eee; background:#fafafa;">
+            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%; font-weight:600;">${escapeHtml(item.name)}</span>
+            <span>${isSi ? 'පිටුව ' + previewCurrentPage + ' / ' + totalPages : 'Page ' + previewCurrentPage + ' of ' + totalPages}</span>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
   } else if (item.textContent || item.type === 'text') {
     simulatedPaper.innerHTML = `
       <div class="real-text-stage" style="width:100%; height:100%; display:flex; flex-direction:column; background:#ffffff; overflow:hidden;">
@@ -1909,6 +1923,25 @@ function addRealFiles(files) {
         updatePreviewCanvas();
       };
       reader.readAsText(f.slice(0, 50000));
+    } else if (isPdf) {
+      // POST to /api/upload to obtain real page count and engine ID
+      fetch("/api/upload", {
+        method: "POST",
+        headers: { "X-Filename": encodeURIComponent(f.name) },
+        body: f
+      }).then(r => r.ok ? r.json() : null).then(data => {
+        if (data && data.pages) {
+          item.pages = data.pages;
+          item.engineId = data.id;
+          item.duplex = data.pages > 1 ? "two-sided" : "one-sided";
+          updateQueueUI();
+          updatePreviewCanvas();
+          updateRightPanelSettings();
+          updateLivePricePanel();
+        }
+      }).catch(err => {
+        console.warn("PDF engine unreachable, using estimated pages", err);
+      });
     }
 
     queue.push(item);
@@ -2032,13 +2065,13 @@ function renderQueueCards() {
     const thumbIcon = item.type === 'pdf' ? 'picture_as_pdf' : (item.type === 'image' ? 'image' : 'article');
 
     card.innerHTML = `
-      <div class="card-main-row">
+      <div class="card-top-row">
         <span class="material-symbols-rounded drag-handle" title="Drag to reorder">drag_indicator</span>
         <div class="doc-thumb ${thumbClass}">
           <span class="material-symbols-rounded">${thumbIcon}</span>
         </div>
         <div class="doc-info">
-          <div class="doc-name" title="${item.name}">${item.name}</div>
+          <div class="doc-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
           <div class="doc-meta">
             <span class="meta-pill type-pdf">${item.ext}</span>
             <span class="meta-pill">${item.pages} ${item.pages === 1 ? t.page : t.pages}</span>
@@ -2048,22 +2081,21 @@ function renderQueueCards() {
             </span>
           </div>
         </div>
+        <button class="card-remove-btn" data-id="${item.id}" title="Remove file">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
 
-        <div class="card-controls">
-          <div class="stepper" title="Copies">
-            <button class="btn-step-minus" data-id="${item.id}">-</button>
-            <span class="stepper-value">${item.copies}</span>
-            <button class="btn-step-plus" data-id="${item.id}">+</button>
-          </div>
+      <div class="card-bottom-row">
+        <div class="stepper" title="Copies">
+          <button class="btn-step-minus" data-id="${item.id}">-</button>
+          <span class="stepper-value">${item.copies}</span>
+          <button class="btn-step-plus" data-id="${item.id}">+</button>
+        </div>
 
-          <div class="segmented-toggle">
-            <button class="seg-btn ${item.colorMode === 'bw' ? 'active' : ''}" data-action="set-bw" data-id="${item.id}">${t.bwOption || 'B&W'}</button>
-            <button class="seg-btn ${item.colorMode === 'color' ? 'active' : ''}" data-action="set-color" data-id="${item.id}">${t.colorOption || 'Color'}</button>
-          </div>
-
-          <button class="card-remove-btn" data-id="${item.id}" title="Remove file">
-            <span class="material-symbols-rounded">close</span>
-          </button>
+        <div class="segmented-toggle">
+          <button class="seg-btn ${item.colorMode === 'bw' ? 'active' : ''}" data-action="set-bw" data-id="${item.id}">${t.bwOption || 'B&W'}</button>
+          <button class="seg-btn ${item.colorMode === 'color' ? 'active' : ''}" data-action="set-color" data-id="${item.id}">${t.colorOption || 'Color'}</button>
         </div>
       </div>
     `;

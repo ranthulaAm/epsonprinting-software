@@ -8,8 +8,29 @@
   const toast = m => (window.showToast ? window.showToast(m) : alert(m));
   const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
 
-  const state = { files: [], selected: new Set(), tool: "merge", engine: null, ocrLangs: [], busy: false,
-                  org: [], redact: { file: null, page: 1, regions: [] }, results: [] };
+  const FILE_COLORS = [
+    "#2563eb", "#059669", "#d97706", "#7c3aed",
+    "#db2777", "#0891b2", "#ea580c", "#4f46e5"
+  ];
+  const genId = () => "p_" + Math.random().toString(36).slice(2, 10);
+
+  const state = {
+    files: [],
+    selected: new Set(),
+    tool: "merge",
+    engine: null,
+    ocrLangs: [],
+    busy: false,
+    org: [],
+    orgHistory: [],
+    orgRedo: [],
+    orgInitial: null,
+    orgThumbWidth: 200,
+    orgLastFocus: 0,
+    orgDropIndex: null,
+    redact: { file: null, page: 1, regions: [] },
+    results: []
+  };
 
   const TOOLS = [
     { id: "merge", icon: "call_merge", name: "Merge", desc: "Combine PDFs in the order shown", need: "2+" },
@@ -29,7 +50,7 @@
     { id: "flatten", icon: "layers_clear", name: "Flatten", desc: "Convert pages to images (kills hidden layers/forms)", need: "1" },
     { id: "pdf_to_images", icon: "image", name: "PDF → Images", desc: "PNG/JPG per page in a ZIP", need: "1" },
     { id: "images_to_pdf", icon: "photo_library", name: "Images → PDF", desc: "Turn JPG/PNG files into one PDF", need: "images" },
-    { id: "text", icon: "text_snippet", name: "Extract Text", desc: "Copy all text from a PDF", need: "1" },
+    { id: "text", icon: "text_snippet", name: "Extract Text", desc: "Copy all text with layout, columns & tables", need: "1" },
     { id: "ocr", icon: "document_scanner", name: "OCR", desc: "Make scans searchable (Tesseract)", need: "1" },
     { id: "compare", icon: "compare", name: "Compare", desc: "Text differences between 2 PDFs", need: "2" },
   ];
@@ -87,8 +108,8 @@
         <button class="btn-ghost pt-view" title="Open">👁</button><button class="btn-ghost pt-rm" title="Remove">✕</button>`;
       $("input", row).onchange = e => { e.target.checked ? state.selected.add(f.id) : state.selected.delete(f.id); renderFiles(); renderOptions(); };
       $(".pt-rm", row).onclick = () => { state.files.splice(i, 1); state.selected.delete(f.id); post("/api/forget", { ids: [f.id] }); renderFiles(); renderOptions(); };
-      $(".pt-up", row).onclick = () => { if (i > 0) { [state.files[i - 1], state.files[i]] = [state.files[i], state.files[i - 1]]; renderFiles(); } };
-      $(".pt-down", row).onclick = () => { if (i < state.files.length - 1) { [state.files[i + 1], state.files[i]] = [state.files[i], state.files[i + 1]]; renderFiles(); } };
+      $(".pt-up", row).onclick = () => { if (i > 0) { [state.files[i - 1], state.files[i]] = [state.files[i], state.files[i - 1]]; renderFiles(); renderOptions(); } };
+      $(".pt-down", row).onclick = () => { if (i < state.files.length - 1) { [state.files[i + 1], state.files[i]] = [state.files[i], state.files[i + 1]]; renderFiles(); renderOptions(); } };
       $(".pt-view", row).onclick = () => window.open(`/api/file/${f.id}`, "_blank");
       const ul = $(".pt-unlock", row);
       if (ul) ul.onclick = async () => {
@@ -99,7 +120,7 @@
       row.ondragstart = e => e.dataTransfer.setData("text/pt-index", String(i));
       row.ondragover = e => { if (e.dataTransfer.types.includes("text/pt-index")) e.preventDefault(); };
       row.ondrop = e => { const from = e.dataTransfer.getData("text/pt-index"); if (from === "") return; e.preventDefault(); e.stopPropagation();
-        const [m] = state.files.splice(+from, 1); state.files.splice(i, 0, m); renderFiles(); };
+        const [m] = state.files.splice(+from, 1); state.files.splice(i, 0, m); renderFiles(); renderOptions(); };
       box.appendChild(row);
     });
   }
@@ -112,7 +133,14 @@
     TOOLS.forEach(t => {
       const c = el("button", "pt-tool" + (state.tool === t.id ? " active" : ""),
         `<span class="material-symbols-rounded">${t.icon}</span><b>${t.name}</b><small>${t.desc}</small>`);
-      c.onclick = () => { state.tool = t.id; renderTools(); renderOptions(); };
+      c.dataset.tool = t.id;
+      c.onclick = () => {
+        state.tool = t.id;
+        renderTools();
+        renderOptions();
+        const opt = $("#ptOptions");
+        if (opt) opt.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
       g.appendChild(c);
     });
   }
@@ -123,11 +151,21 @@
 
   function renderOptions() {
     const box = $("#ptOptions"); const t = TOOLS.find(x => x.id === state.tool); const pdfs = selectedPdfs();
+    const work = $(".pt-work");
+    if (work) {
+      if (t.id === "organize") work.classList.add("pt-work-organize");
+      else work.classList.remove("pt-work-organize");
+    }
+
+    if (t.id === "organize") {
+      loadOrganizer();
+      return;
+    }
+
     let h = `<h3>${t.name}</h3><p class="pt-desc">${t.desc}</p>`;
-    const needOne = pdfs.length < 1 ? `<div class="pt-warn">Select a PDF in the file list.</div>` : (pdfs.length > 1 && !["merge", "organize", "compare", "images_to_pdf"].includes(t.id) ? `<div class="pt-note">Using the first selected PDF: <b>${esc(pdfs[0].name)}</b></div>` : "");
+    const needOne = pdfs.length < 1 ? `<div class="pt-warn">Select a PDF in the file list.</div>` : (pdfs.length > 1 && !["merge", "compare", "images_to_pdf"].includes(t.id) ? `<div class="pt-note">Using the first selected PDF: <b>${esc(pdfs[0].name)}</b></div>` : "");
     switch (t.id) {
       case "merge": h += field("Output name", `<input id="optName" class="form-input" value="merged.pdf">`, `Merges the ${pdfs.length} selected PDF(s) in list order.`) + (pdfs.length < 2 ? `<div class="pt-warn">Select at least 2 PDFs.</div>` : ""); break;
-      case "organize": h += `<p class="pt-note">Pages of the selected PDFs appear below. Click to select, then rotate/delete; drag to reorder.</p>`; break;
       case "split": h += needOne + field("Split mode", `<select id="optMode" class="form-select"><option value="every">Every N pages</option><option value="ranges">Custom ranges</option><option value="single">Every single page</option></select>`) +
         field("Value", `<input id="optValue" class="form-input" value="1" placeholder="N, or 1-3;4-6;7-">`, "N for 'every N pages'; ranges separated by semicolons."); break;
       case "extract": case "delete": h += needOne + pagesField("optPages", t.id === "delete" ? "1" : "1-3"); break;
@@ -149,48 +187,691 @@
       case "flatten": h += needOne + field("Quality (DPI)", `<select id="optDpi" class="form-select"><option>100</option><option selected>150</option><option>200</option><option>300</option></select>`); break;
       case "pdf_to_images": h += needOne + pagesField() + field("Format", `<select id="optFmt" class="form-select"><option value="png">PNG</option><option value="jpg">JPG</option></select>`) + field("DPI", `<select id="optDpi" class="form-select"><option>72</option><option selected>150</option><option>200</option><option>300</option></select>`); break;
       case "images_to_pdf": { const im = selectedFiles().filter(f => f.kind !== "pdf"); h += `<p class="pt-note">${im.length} image(s) selected, in list order.</p>` + field("Output name", `<input id="optName" class="form-input" value="images.pdf">`) + (im.length ? "" : `<div class="pt-warn">Add and tick image files (JPG/PNG).</div>`); break; }
-      case "text": h += needOne + pagesField(); break;
+      case "text": {
+        const langOpts = ["auto", ...(state.ocrLangs || [])].map(l => `<option value="${l}">${l}</option>`).join("");
+        h += needOne +
+          `<div class="pt-row">` +
+            field("Extraction Mode", `<select id="optTextMode" class="form-select"><option value="auto" selected>Auto (Native PDF text, OCR if scanned)</option><option value="text">Text only (Fast, skips scanned images)</option><option value="ocr">Force OCR (Tesseract scan for all pages)</option></select>`) +
+            field("Layout", `<select id="optTextLayout" class="form-select"><option value="smart" selected>Smart (Multi-column reading order & tables)</option><option value="raw">Raw (Physical top-to-bottom stream)</option></select>`) +
+            field("Format", `<select id="optTextFmt" class="form-select"><option value="txt" selected>Plain Text (.txt)</option><option value="md">Markdown (.md)</option><option value="json">JSON (.json)</option></select>`) +
+          `</div>` +
+          `<div class="pt-row">` +
+            pagesField("optPages", "all") +
+            field("OCR Language", `<select id="optTextLang" class="form-select">${langOpts}</select>`, "Used when pages need OCR") +
+          `</div>` +
+          `<div class="pt-row" style="margin-top:4px">` +
+            `<label class="pt-check"><input type="checkbox" id="optTextClean" checked> Remove headers, footers & page numbers</label>` +
+            `<label class="pt-check"><input type="checkbox" id="optTextDehyphen" checked> Fix line-end hyphenation</label>` +
+            `<label class="pt-check"><input type="checkbox" id="optTextMarkers" checked> Add page markers (--- Page N ---)</label>` +
+          `</div>`;
+        break;
+      }
       case "ocr": { const opts = (state.ocrLangs.length ? state.ocrLangs : ["eng"]).map(l => `<option>${l}</option>`).join("");
         h += needOne + field("Language", `<select id="optLang" class="form-select">${opts}</select>`, state.ocrLangs.includes("sin") ? "Use eng+sin for mixed Sinhala/English." : "Sinhala: brew install tesseract-lang (Mac) then restart the engine.") + pagesField() +
           `<label class="pt-check"><input type="checkbox" id="optSearchable" checked> Also create a searchable PDF</label>`; break; }
       case "compare": h += (pdfs.length === 2 ? `<p class="pt-note">Comparing <b>${esc(pdfs[0].name)}</b> ↔ <b>${esc(pdfs[1].name)}</b></p>` : `<div class="pt-warn">Select exactly 2 PDFs.</div>`); break;
     }
-    h += `<div class="pt-run"><button class="btn btn-primary" id="ptRun" ${state.engine ? "" : "disabled"}><span class="material-symbols-rounded">play_arrow</span><span>${t.id === "organize" ? "Build PDF" : "Run"}</span></button><span id="ptBusy" class="pt-busy hidden">Working…</span></div>`;
+    h += `<div class="pt-run"><button class="btn btn-primary" id="ptRun" ${state.engine ? "" : "disabled"}><span class="material-symbols-rounded">play_arrow</span><span>Run</span></button><span id="ptBusy" class="pt-busy hidden">Working…</span></div>`;
     box.innerHTML = h;
     $("#ptRun").onclick = run;
-    if (t.id === "organize") loadOrganizer();
     if (t.id === "redact") initRedact();
   }
 
-  // ---------------------------------------------------------------- organizer
-  async function loadOrganizer() {
+  // ---------------------------------------------------------------- organizer (Task 3)
+  function bucketThumbWidth(w) {
+    if (w <= 160) return 160;
+    if (w <= 240) return 240;
+    if (w <= 360) return 360;
+    return 540;
+  }
+
+  function pushOrgState() {
+    if (state.orgHistory.length > 50) state.orgHistory.shift();
+    state.orgHistory.push(JSON.parse(JSON.stringify(state.org)));
+    state.orgRedo = [];
+    updateOrgHistoryButtons();
+  }
+
+  function undoOrg() {
+    if (!state.orgHistory.length) return;
+    state.orgRedo.push(JSON.parse(JSON.stringify(state.org)));
+    state.org = state.orgHistory.pop();
+    drawOrganizer(false);
+  }
+
+  function redoOrg() {
+    if (!state.orgRedo.length) return;
+    state.orgHistory.push(JSON.parse(JSON.stringify(state.org)));
+    state.org = state.orgRedo.pop();
+    drawOrganizer(false);
+  }
+
+  function resetOrg() {
+    if (!state.orgInitial) return;
+    pushOrgState();
+    state.org = JSON.parse(JSON.stringify(state.orgInitial));
+    drawOrganizer(false);
+  }
+
+  function updateOrgHistoryButtons() {
+    const u = $("#ptOrgUndo"); if (u) u.disabled = (state.orgHistory.length === 0);
+    const r = $("#ptOrgRedo"); if (r) r.disabled = (state.orgRedo.length === 0);
+  }
+
+  function loadOrganizer() {
+    const pdfs = selectedPdfs();
     const items = [];
-    selectedPdfs().forEach(f => { for (let p = 1; p <= f.pages; p++) items.push({ file: f.id, name: f.name, page: p, rotate: 0, sel: false, del: false }); });
-    state.org = items; drawOrganizer();
-  }
-  function drawOrganizer() {
-    let g = $("#ptOrgGrid"); if (!g) { g = el("div", "pt-orggrid"); g.id = "ptOrgGrid"; $("#ptOptions").insertBefore(g, $(".pt-run")); const bar = el("div", "pt-orgbar",
-      `<button class="btn btn-tonal btn-sm" data-a="l">⟲ Rotate left</button><button class="btn btn-tonal btn-sm" data-a="r">⟳ Rotate right</button><button class="btn btn-tonal btn-sm" data-a="d">🗑 Delete</button><button class="btn btn-outline btn-sm" data-a="all">Select all</button><button class="btn btn-outline btn-sm" data-a="odd">Select odd</button>`);
-      bar.onclick = e => { const a = e.target.dataset.a; if (!a) return; const sel = state.org.filter(x => x.sel);
-        if (a === "l") sel.forEach(x => x.rotate = (x.rotate + 270) % 360);
-        if (a === "r") sel.forEach(x => x.rotate = (x.rotate + 90) % 360);
-        if (a === "d") state.org = state.org.filter(x => !x.sel);
-        if (a === "all") { const all = state.org.every(x => x.sel); state.org.forEach(x => x.sel = !all); }
-        if (a === "odd") state.org.forEach((x, i) => x.sel = i % 2 === 0);
-        drawOrganizer(); }; $("#ptOptions").insertBefore(bar, g); }
-    g.innerHTML = "";
-    if (!state.org.length) g.innerHTML = `<div class="pt-empty">Select PDFs on the left to see their pages.</div>`;
-    state.org.forEach((x, i) => {
-      const t = el("div", "pt-page" + (x.sel ? " sel" : ""));
-      t.draggable = true;
-      t.innerHTML = `<div class="pt-thumbwrap"><img loading="lazy" src="/api/thumb/${x.file}/${x.page}?w=160" style="transform:rotate(${x.rotate}deg)"></div><small>${i + 1} · ${esc(x.name.slice(0, 14))} p${x.page}${x.rotate ? " ↻" + x.rotate : ""}</small>`;
-      t.onclick = () => { x.sel = !x.sel; t.classList.toggle("sel", x.sel); };
-      t.ondragstart = e => e.dataTransfer.setData("text/pt-page", String(i));
-      t.ondragover = e => { if (e.dataTransfer.types.includes("text/pt-page")) e.preventDefault(); };
-      t.ondrop = e => { const from = e.dataTransfer.getData("text/pt-page"); if (from === "") return; e.preventDefault(); const [m] = state.org.splice(+from, 1); state.org.splice(i, 0, m); drawOrganizer(); };
-      g.appendChild(t);
+    pdfs.forEach(f => {
+      const pageSizes = f.page_sizes || [];
+      for (let p = 1; p <= f.pages; p++) {
+        const ps = pageSizes[p - 1] || [595.28, 841.89];
+        items.push({
+          id: genId(),
+          file: f.id,
+          name: f.name,
+          page: p,
+          rotate: 0,
+          width: ps[0] || 595.28,
+          height: ps[1] || 841.89,
+          blank: false,
+          sel: false
+        });
+      }
     });
+    state.org = items;
+    state.orgInitial = JSON.parse(JSON.stringify(items));
+    state.orgHistory = [];
+    state.orgRedo = [];
+    drawOrganizer(true);
   }
+
+  let thumbObserver = null;
+  function getThumbObserver() {
+    if (thumbObserver) {
+      thumbObserver.disconnect();
+    }
+    thumbObserver = new IntersectionObserver((entries, obs) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const wrap = entry.target;
+          obs.unobserve(wrap);
+          loadThumbImage(wrap);
+        }
+      });
+    }, { root: $("#ptOrgGrid"), rootMargin: "150px" });
+    return thumbObserver;
+  }
+
+  function loadThumbImage(wrap) {
+    const img = wrap.querySelector(".pt-thumb-img");
+    const shimmer = wrap.querySelector(".pt-thumb-placeholder");
+    const retry = wrap.querySelector(".pt-thumb-retry");
+    if (!img || !img.dataset.src) return;
+    img.src = img.dataset.src;
+    img.onload = () => {
+      if (shimmer) shimmer.classList.add("hidden");
+      img.classList.remove("hidden");
+    };
+    img.onerror = () => {
+      if (shimmer) shimmer.classList.add("hidden");
+      if (retry) {
+        retry.classList.remove("hidden");
+        retry.onclick = e => {
+          e.stopPropagation();
+          retry.classList.add("hidden");
+          if (shimmer) shimmer.classList.remove("hidden");
+          img.src = img.dataset.src + "&_t=" + Date.now();
+        };
+      }
+    };
+  }
+
+  function updateOrgSelectionUI() {
+    const g = $("#ptOrgGrid");
+    if (!g) return;
+    const cards = g.querySelectorAll(".pt-org-card");
+    cards.forEach((c, idx) => {
+      const it = state.org[idx];
+      if (it) c.classList.toggle("sel", !!it.sel);
+    });
+    const cnt = $("#ptOrgCounter");
+    if (cnt) {
+      const total = state.org.length;
+      const sel = state.org.filter(x => x.sel).length;
+      cnt.textContent = `${total} pages • ${sel} selected`;
+    }
+    const btnBuild = $("#ptOrgBuild");
+    if (btnBuild) {
+      btnBuild.innerHTML = `<span class="material-symbols-rounded">picture_as_pdf</span> <span>Build PDF (${state.org.length} pages)</span>`;
+    }
+  }
+
+  function drawOrganizer(fullRebuild = false) {
+    const box = $("#ptOptions");
+    const uniqueFiles = Array.from(new Set(state.org.filter(x => !x.blank).map(x => x.file)));
+    const hasMultipleFiles = uniqueFiles.length > 1;
+
+    let wrap = box.querySelector(".pt-org-wrap");
+    if (!wrap || fullRebuild) {
+      box.innerHTML = `
+        <div class="pt-org-wrap">
+          <div class="pt-org-toolbar">
+            <div class="pt-org-row">
+              <div class="pt-org-group">
+                <button class="btn btn-tonal btn-sm" id="ptOrgRotL" title="Rotate selected left 90° (Shift+R)"><span class="material-symbols-rounded">rotate_left</span> <span>Rotate Left</span></button>
+                <button class="btn btn-tonal btn-sm" id="ptOrgRotR" title="Rotate selected right 90° (R)"><span class="material-symbols-rounded">rotate_right</span> <span>Rotate Right</span></button>
+                <button class="btn btn-tonal btn-sm" id="ptOrgDup" title="Duplicate selected pages"><span class="material-symbols-rounded">content_copy</span> <span>Duplicate</span></button>
+                <button class="btn btn-tonal btn-sm" id="ptOrgDel" title="Delete selected pages (Del/Backspace)"><span class="material-symbols-rounded">delete</span> <span>Delete</span></button>
+                <button class="btn btn-tonal btn-sm" id="ptOrgBlank" title="Insert blank page"><span class="material-symbols-rounded">note_add</span> <span>+ Blank Page</span></button>
+                <button class="btn btn-tonal btn-sm" id="ptOrgToStart" title="Move selected to start"><span class="material-symbols-rounded">first_page</span> <span>To Start</span></button>
+                <button class="btn btn-tonal btn-sm" id="ptOrgToEnd" title="Move selected to end"><span class="material-symbols-rounded">last_page</span> <span>To End</span></button>
+              </div>
+              <div class="pt-org-group">
+                <button class="btn btn-ghost btn-sm" id="ptOrgUndo" title="Undo (Ctrl/Cmd+Z)"><span class="material-symbols-rounded">undo</span> <span>Undo</span></button>
+                <button class="btn btn-ghost btn-sm" id="ptOrgRedo" title="Redo (Ctrl/Cmd+Shift+Z)"><span class="material-symbols-rounded">redo</span> <span>Redo</span></button>
+                <button class="btn btn-ghost btn-sm" id="ptOrgReset" title="Reset all changes"><span class="material-symbols-rounded">restart_alt</span> <span>Reset</span></button>
+              </div>
+            </div>
+            <div class="pt-org-row">
+              <div class="pt-org-group">
+                <span style="font-size:12px;color:var(--text-muted)">Select:</span>
+                <button class="btn btn-outline btn-sm" id="ptOrgSelAll">All</button>
+                <button class="btn btn-outline btn-sm" id="ptOrgSelNone">None</button>
+                <button class="btn btn-outline btn-sm" id="ptOrgSelOdd">Odd</button>
+                <button class="btn btn-outline btn-sm" id="ptOrgSelEven">Even</button>
+                <button class="btn btn-outline btn-sm" id="ptOrgSelInv">Invert</button>
+              </div>
+              <div class="pt-org-group">
+                <div class="pt-org-zoom">
+                  <span class="material-symbols-rounded">zoom_in</span>
+                  <input type="range" id="ptOrgZoom" min="120" max="360" value="${state.orgThumbWidth}" step="10">
+                  <span id="ptOrgZoomLabel">${state.orgThumbWidth}px</span>
+                </div>
+                <div class="pt-org-counter" id="ptOrgCounter">0 pages • 0 selected</div>
+              </div>
+            </div>
+          </div>
+          <div id="ptOrgGrid" class="pt-orggrid" style="--org-card-w: ${state.orgThumbWidth}px"></div>
+          <div class="pt-sticky-bar">
+            <div style="font-size:12.5px;color:var(--text-muted)">
+              Click to select • Shift-click range • Drag to reorder • R to rotate • Del to delete
+            </div>
+            <div class="pt-org-group">
+              <button class="btn btn-primary" id="ptOrgBuild"><span class="material-symbols-rounded">picture_as_pdf</span> <span>Build PDF (${state.org.length} pages)</span></button>
+              <span id="ptBusy" class="pt-busy hidden">Working…</span>
+            </div>
+          </div>
+        </div>`;
+      wrap = box.querySelector(".pt-org-wrap");
+      bindOrgToolbar();
+    }
+
+    const g = $("#ptOrgGrid");
+    g.innerHTML = "";
+    if (!state.org.length) {
+      g.innerHTML = `<div class="pt-empty">No pages to display. Select PDFs in the left panel to load their pages.</div>`;
+      updateOrgSelectionUI();
+      updateOrgHistoryButtons();
+      return;
+    }
+
+    const obs = getThumbObserver();
+    const dpr = window.devicePixelRatio || 1;
+    const bucket = bucketThumbWidth(Math.round(state.orgThumbWidth * dpr));
+
+    state.org.forEach((it, i) => {
+      const card = el("div", "pt-org-card" + (it.sel ? " sel" : ""));
+      card.dataset.id = it.id;
+      card.dataset.idx = i;
+      card.draggable = true;
+      card.tabIndex = 0;
+
+      const rot = (it.rotate || 0) % 360;
+      const isSwapped = (rot === 90 || rot === 270);
+      const w = it.width || 595.28;
+      const h = it.height || 841.89;
+      const effW = isSwapped ? h : w;
+      const effH = isSwapped ? w : h;
+      const fileColor = hasMultipleFiles ? FILE_COLORS[uniqueFiles.indexOf(it.file) % FILE_COLORS.length] : "";
+
+      let thumbMarkup = "";
+      if (it.blank) {
+        thumbMarkup = `<div class="pt-org-blank"><span class="material-symbols-rounded">note_add</span><span>Blank Page</span></div>`;
+      } else {
+        const thumbUrl = `/api/thumb/${it.file}/${it.page}?w=${bucket}`;
+        let imgStyle = "";
+        if (!isSwapped) {
+          imgStyle = `transform:rotate(${rot}deg);width:100%;height:100%;object-fit:contain;`;
+        } else {
+          imgStyle = `position:absolute;left:50%;top:50%;width:calc(100% * ${(w / h).toFixed(4)});height:calc(100% * ${(h / w).toFixed(4)});transform:translate(-50%,-50%) rotate(${rot}deg);object-fit:contain;`;
+        }
+        thumbMarkup = `
+          <div class="pt-thumb-placeholder"><div class="pt-shimmer"></div></div>
+          <img class="pt-thumb-img hidden" data-src="${thumbUrl}" style="${imgStyle}" alt="Page ${it.page}">
+          <button class="pt-thumb-retry hidden" title="Retry"><span class="material-symbols-rounded">refresh</span><span>Retry</span></button>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="pt-org-card-header">
+          <span class="pt-org-badge pt-org-page-num">${i + 1}</span>
+          ${hasMultipleFiles && !it.blank ? `<span class="pt-org-file-tag" style="background:${fileColor}" title="${esc(it.name)}">${esc(it.name)}</span>` : ""}
+          <div class="pt-org-check"><span class="material-symbols-rounded">check</span></div>
+        </div>
+        <div class="pt-org-thumbwrap" style="aspect-ratio:${effW}/${effH}">
+          ${thumbMarkup}
+        </div>
+        <div class="pt-org-card-footer">
+          ${it.blank ? "Blank" : `p.${it.page}`}${it.rotate ? ` • ↻${it.rotate}°` : ""}
+        </div>
+        <div class="pt-org-card-actions">
+          <button type="button" class="pt-action-btn pt-act-rot-l" title="Rotate Left 90°"><span class="material-symbols-rounded">rotate_left</span></button>
+          <button type="button" class="pt-action-btn pt-act-rot-r" title="Rotate Right 90°"><span class="material-symbols-rounded">rotate_right</span></button>
+          <button type="button" class="pt-action-btn pt-act-dup" title="Duplicate"><span class="material-symbols-rounded">content_copy</span></button>
+          <button type="button" class="pt-action-btn pt-act-del" title="Delete"><span class="material-symbols-rounded">delete</span></button>
+        </div>
+      `;
+
+      // Click selection
+      card.onclick = e => {
+        if (e.target.closest(".pt-org-card-actions") || e.target.closest(".pt-thumb-retry")) return;
+        if (e.metaKey || e.ctrlKey) {
+          it.sel = !it.sel;
+          state.orgLastFocus = i;
+        } else if (e.shiftKey) {
+          const from = state.orgLastFocus ?? 0;
+          const min = Math.min(from, i), max = Math.max(from, i);
+          state.org.forEach((x, idx) => { if (idx >= min && idx <= max) x.sel = true; });
+        } else {
+          state.org.forEach((x, idx) => { x.sel = (idx === i); });
+          state.orgLastFocus = i;
+        }
+        updateOrgSelectionUI();
+      };
+
+      // Card hover action buttons
+      $(".pt-act-rot-l", card).onclick = e => { e.stopPropagation(); pushOrgState(); it.rotate = (it.rotate + 270) % 360; drawOrganizer(); };
+      $(".pt-act-rot-r", card).onclick = e => { e.stopPropagation(); pushOrgState(); it.rotate = (it.rotate + 90) % 360; drawOrganizer(); };
+      $(".pt-act-dup", card).onclick = e => {
+        e.stopPropagation();
+        pushOrgState();
+        const clone = { ...it, id: genId(), sel: false };
+        state.org.splice(i + 1, 0, clone);
+        drawOrganizer();
+      };
+      $(".pt-act-del", card).onclick = e => { e.stopPropagation(); pushOrgState(); state.org.splice(i, 1); drawOrganizer(); };
+
+      // Drag and drop
+      card.ondragstart = e => {
+        if (!it.sel) {
+          state.org.forEach((x, idx) => { x.sel = (idx === i); });
+          state.orgLastFocus = i;
+          updateOrgSelectionUI();
+        }
+        const selIndices = state.org.map((x, idx) => x.sel ? idx : -1).filter(idx => idx !== -1);
+        e.dataTransfer.setData("text/pt-org-drag", JSON.stringify(selIndices));
+        e.dataTransfer.effectAllowed = "move";
+
+        const ghost = el("div", "pt-drag-ghost");
+        ghost.innerHTML = `<span class="material-symbols-rounded">filter_none</span> <span>${selIndices.length} page${selIndices.length > 1 ? "s" : ""}</span>`;
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, 20, 20);
+        setTimeout(() => ghost.remove(), 0);
+      };
+
+      g.appendChild(card);
+      const wrapEl = card.querySelector(".pt-org-thumbwrap");
+      if (wrapEl && !it.blank) obs.observe(wrapEl);
+    });
+
+    updateOrgSelectionUI();
+    updateOrgHistoryButtons();
+  }
+
+  function bindOrgToolbar() {
+    const rotL = $("#ptOrgRotL"), rotR = $("#ptOrgRotR"), dup = $("#ptOrgDup"), del = $("#ptOrgDel");
+    const blank = $("#ptOrgBlank"), start = $("#ptOrgToStart"), end = $("#ptOrgToEnd");
+    const undo = $("#ptOrgUndo"), redo = $("#ptOrgRedo"), reset = $("#ptOrgReset");
+    const selAll = $("#ptOrgSelAll"), selNone = $("#ptOrgSelNone"), selOdd = $("#ptOrgSelOdd"), selEven = $("#ptOrgSelEven"), selInv = $("#ptOrgSelInv");
+    const zoom = $("#ptOrgZoom"), zoomLabel = $("#ptOrgZoomLabel"), build = $("#ptOrgBuild");
+
+    if (rotL) rotL.onclick = () => {
+      const sel = state.org.filter(x => x.sel);
+      if (!sel.length) return;
+      pushOrgState();
+      sel.forEach(x => x.rotate = (x.rotate + 270) % 360);
+      drawOrganizer();
+    };
+    if (rotR) rotR.onclick = () => {
+      const sel = state.org.filter(x => x.sel);
+      if (!sel.length) return;
+      pushOrgState();
+      sel.forEach(x => x.rotate = (x.rotate + 90) % 360);
+      drawOrganizer();
+    };
+    if (dup) dup.onclick = () => {
+      let sel = state.org.filter(x => x.sel);
+      if (!sel.length && state.org.length) sel = [state.org[state.org.length - 1]];
+      if (!sel.length) return;
+      pushOrgState();
+      const newItems = [];
+      state.org.forEach(x => {
+        newItems.push(x);
+        if (x.sel) newItems.push({ ...x, id: genId(), sel: false });
+      });
+      state.org = newItems;
+      drawOrganizer();
+    };
+    if (del) del.onclick = () => {
+      const sel = state.org.filter(x => x.sel);
+      if (!sel.length) return;
+      pushOrgState();
+      state.org = state.org.filter(x => !x.sel);
+      drawOrganizer();
+    };
+    if (blank) blank.onclick = () => {
+      pushOrgState();
+      const blankItem = {
+        id: genId(),
+        file: null,
+        name: "Blank Page",
+        page: 1,
+        rotate: 0,
+        width: 595.28,
+        height: 841.89,
+        blank: true,
+        sel: false
+      };
+      const lastSel = state.org.reduce((acc, x, idx) => x.sel ? idx : acc, -1);
+      if (lastSel >= 0) {
+        state.org.splice(lastSel + 1, 0, blankItem);
+      } else {
+        state.org.push(blankItem);
+      }
+      drawOrganizer();
+    };
+    if (start) start.onclick = () => {
+      const sel = state.org.filter(x => x.sel);
+      if (!sel.length) return;
+      pushOrgState();
+      const rest = state.org.filter(x => !x.sel);
+      state.org = [...sel, ...rest];
+      drawOrganizer();
+    };
+    if (end) end.onclick = () => {
+      const sel = state.org.filter(x => x.sel);
+      if (!sel.length) return;
+      pushOrgState();
+      const rest = state.org.filter(x => !x.sel);
+      state.org = [...rest, ...sel];
+      drawOrganizer();
+    };
+    if (undo) undo.onclick = undoOrg;
+    if (redo) redo.onclick = redoOrg;
+    if (reset) reset.onclick = resetOrg;
+
+    if (selAll) selAll.onclick = () => { state.org.forEach(x => x.sel = true); updateOrgSelectionUI(); };
+    if (selNone) selNone.onclick = () => { state.org.forEach(x => x.sel = false); updateOrgSelectionUI(); };
+    if (selOdd) selOdd.onclick = () => { state.org.forEach((x, i) => x.sel = (i % 2 === 0)); updateOrgSelectionUI(); };
+    if (selEven) selEven.onclick = () => { state.org.forEach((x, i) => x.sel = (i % 2 === 1)); updateOrgSelectionUI(); };
+    if (selInv) selInv.onclick = () => { state.org.forEach(x => x.sel = !x.sel); updateOrgSelectionUI(); };
+
+    if (zoom) zoom.oninput = () => {
+      state.orgThumbWidth = +zoom.value;
+      if (zoomLabel) zoomLabel.textContent = state.orgThumbWidth + "px";
+      const g = $("#ptOrgGrid");
+      if (g) g.style.setProperty("--org-card-w", state.orgThumbWidth + "px");
+    };
+
+    if (build) build.onclick = run;
+
+    // Grid Drag & Drop and Marquee
+    const g = $("#ptOrgGrid");
+    if (!g) return;
+
+    g.ondragover = e => {
+      if (!e.dataTransfer.types.includes("text/pt-org-drag")) return;
+      e.preventDefault();
+      // Auto-scroll
+      const scrollParent = $("#subviewPower") || g;
+      const rect = scrollParent.getBoundingClientRect();
+      if (e.clientY < rect.top + 55) scrollParent.scrollTop -= 14;
+      else if (e.clientY > rect.bottom - 55) scrollParent.scrollTop += 14;
+
+      // Insertion indicator calculation against cards midpoints
+      const cards = Array.from(g.querySelectorAll(".pt-org-card"));
+      let targetIdx = cards.length;
+      let lineX = 0, lineY = 0, lineH = 120;
+      const gRect = g.getBoundingClientRect();
+
+      for (let idx = 0; idx < cards.length; idx++) {
+        const cRect = cards[idx].getBoundingClientRect();
+        const midX = cRect.left + cRect.width / 2;
+        if (e.clientY >= cRect.top && e.clientY <= cRect.bottom) {
+          if (e.clientX < midX) {
+            targetIdx = idx;
+            lineX = cRect.left - gRect.left - 6 + g.scrollLeft;
+            lineY = cRect.top - gRect.top + g.scrollTop;
+            lineH = cRect.height;
+            break;
+          }
+        } else if (e.clientY < cRect.top) {
+          targetIdx = idx;
+          lineX = cRect.left - gRect.left - 6 + g.scrollLeft;
+          lineY = cRect.top - gRect.top + g.scrollTop;
+          lineH = cRect.height;
+          break;
+        }
+      }
+      if (targetIdx === cards.length && cards.length > 0) {
+        const last = cards[cards.length - 1].getBoundingClientRect();
+        lineX = last.right - gRect.left + 6 + g.scrollLeft;
+        lineY = last.top - gRect.top + g.scrollTop;
+        lineH = last.height;
+      }
+
+      let ind = $("#ptOrgInsertLine");
+      if (!ind) {
+        ind = el("div", "pt-org-insert-line");
+        ind.id = "ptOrgInsertLine";
+        g.appendChild(ind);
+      }
+      ind.style.display = "block";
+      ind.style.left = lineX + "px";
+      ind.style.top = lineY + "px";
+      ind.style.height = lineH + "px";
+      state.orgDropIndex = targetIdx;
+    };
+
+    g.ondragleave = e => {
+      if (e.relatedTarget && g.contains(e.relatedTarget)) return;
+      const ind = $("#ptOrgInsertLine");
+      if (ind) ind.style.display = "none";
+    };
+
+    g.ondrop = e => {
+      const data = e.dataTransfer.getData("text/pt-org-drag");
+      const ind = $("#ptOrgInsertLine");
+      if (ind) ind.style.display = "none";
+      if (!data || state.orgDropIndex == null) return;
+      e.preventDefault();
+
+      pushOrgState();
+      // Record FLIP first positions
+      const firstPositions = new Map();
+      g.querySelectorAll(".pt-org-card").forEach(c => {
+        firstPositions.set(c.dataset.id, c.getBoundingClientRect());
+      });
+
+      const selected = state.org.filter(x => x.sel);
+      let countBefore = 0;
+      for (let i = 0; i < state.orgDropIndex; i++) {
+        if (state.org[i].sel) countBefore++;
+      }
+      const nonSelected = state.org.filter(x => !x.sel);
+      const insertAt = Math.max(0, Math.min(nonSelected.length, state.orgDropIndex - countBefore));
+      nonSelected.splice(insertAt, 0, ...selected);
+      state.org = nonSelected;
+
+      drawOrganizer();
+
+      // Execute FLIP
+      requestAnimationFrame(() => {
+        g.querySelectorAll(".pt-org-card").forEach(c => {
+          const first = firstPositions.get(c.dataset.id);
+          if (!first) return;
+          const last = c.getBoundingClientRect();
+          const dx = first.left - last.left;
+          const dy = first.top - last.top;
+          if (dx !== 0 || dy !== 0) {
+            c.style.transform = `translate(${dx}px, ${dy}px)`;
+            c.style.transition = "none";
+            requestAnimationFrame(() => {
+              c.style.transition = "transform 240ms cubic-bezier(0.2, 0, 0, 1)";
+              c.style.transform = "";
+            });
+          }
+        });
+      });
+    };
+
+    // Marquee selection on empty grid space
+    g.onmousedown = e => {
+      if (e.target.closest(".pt-org-card") || e.target.closest(".pt-org-toolbar") || e.target.closest(".pt-sticky-bar")) return;
+      const gRect = g.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+      const marquee = el("div", "pt-marquee");
+      g.appendChild(marquee);
+
+      const onMouseMove = ev => {
+        const x1 = Math.min(startX, ev.clientX), y1 = Math.min(startY, ev.clientY);
+        const x2 = Math.max(startX, ev.clientX), y2 = Math.max(startY, ev.clientY);
+        marquee.style.left = (x1 - gRect.left + g.scrollLeft) + "px";
+        marquee.style.top = (y1 - gRect.top + g.scrollTop) + "px";
+        marquee.style.width = (x2 - x1) + "px";
+        marquee.style.height = (y2 - y1) + "px";
+
+        const mRect = { left: x1, top: y1, right: x2, bottom: y2 };
+        const cards = g.querySelectorAll(".pt-org-card");
+        cards.forEach((c, idx) => {
+          const it = state.org[idx];
+          if (!it) return;
+          const cRect = c.getBoundingClientRect();
+          const hits = !(mRect.right < cRect.left || mRect.left > cRect.right || mRect.bottom < cRect.top || mRect.top > cRect.bottom);
+          if (ev.metaKey || ev.ctrlKey) {
+            if (hits) it.sel = true;
+          } else {
+            it.sel = hits;
+          }
+        });
+        updateOrgSelectionUI();
+      };
+
+      const onMouseUp = () => {
+        marquee.remove();
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      };
+
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    };
+  }
+
+  // Global Keyboard Shortcuts for Organizer
+  window.addEventListener("keydown", e => {
+    if (state.tool !== "organize") return;
+    const active = document.activeElement;
+    if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) return;
+
+    // Delete / Backspace
+    if (e.key === "Delete" || e.key === "Backspace") {
+      const sel = state.org.filter(x => x.sel);
+      if (!sel.length) return;
+      e.preventDefault();
+      pushOrgState();
+      state.org = state.org.filter(x => !x.sel);
+      drawOrganizer();
+      return;
+    }
+
+    // Rotate: R (clockwise), Shift+R (counter-clockwise)
+    if (e.key === "r" || e.key === "R") {
+      const sel = state.org.filter(x => x.sel);
+      if (!sel.length) return;
+      e.preventDefault();
+      pushOrgState();
+      const deg = e.shiftKey ? 270 : 90;
+      sel.forEach(x => x.rotate = (x.rotate + deg) % 360);
+      drawOrganizer();
+      return;
+    }
+
+    // Undo / Redo
+    if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
+      e.preventDefault();
+      if (e.shiftKey) redoOrg();
+      else undoOrg();
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && (e.key === "y" || e.key === "Y")) {
+      e.preventDefault();
+      redoOrg();
+      return;
+    }
+
+    // Select all / clear
+    if ((e.metaKey || e.ctrlKey) && (e.key === "a" || e.key === "A")) {
+      e.preventDefault();
+      state.org.forEach(x => x.sel = true);
+      updateOrgSelectionUI();
+      return;
+    }
+    if (e.key === "Escape") {
+      state.org.forEach(x => x.sel = false);
+      updateOrgSelectionUI();
+      return;
+    }
+
+    // Alt + Left/Right arrow to shift selected items
+    if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      e.preventDefault();
+      const sel = state.org.filter(x => x.sel);
+      if (!sel.length) return;
+      pushOrgState();
+      if (e.key === "ArrowLeft") {
+        for (let i = 1; i < state.org.length; i++) {
+          if (state.org[i].sel && !state.org[i - 1].sel) {
+            [state.org[i - 1], state.org[i]] = [state.org[i], state.org[i - 1]];
+          }
+        }
+      } else {
+        for (let i = state.org.length - 2; i >= 0; i--) {
+          if (state.org[i].sel && !state.org[i + 1].sel) {
+            [state.org[i], state.org[i + 1]] = [state.org[i + 1], state.org[i]];
+          }
+        }
+      }
+      drawOrganizer();
+      return;
+    }
+
+    // Normal Arrow keys to navigate focus
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      let cur = state.orgLastFocus ?? 0;
+      if (e.key === "ArrowLeft") cur = Math.max(0, cur - 1);
+      else cur = Math.min(state.org.length - 1, cur + 1);
+      state.orgLastFocus = cur;
+      if (!e.shiftKey) {
+        state.org.forEach((x, idx) => { x.sel = (idx === cur); });
+      } else {
+        state.org[cur].sel = true;
+      }
+      updateOrgSelectionUI();
+      const cards = document.querySelectorAll(".pt-org-card");
+      if (cards[cur]) cards[cur].focus();
+    }
+  });
 
   // ---------------------------------------------------------------- redact stage
   function initRedact() {
@@ -223,15 +904,27 @@
   // ---------------------------------------------------------------- run
   const v = id => { const e = $("#" + id); return e ? e.value : ""; };
   const chk = id => { const e = $("#" + id); return !!(e && e.checked); };
+
   function buildRequest() {
     const t = state.tool, pdfs = selectedPdfs(), f0 = pdfs[0] && pdfs[0].id, ids = pdfs.map(f => f.id);
-    if (t === "images_to_pdf") { const im = selectedFiles().filter(f => f.kind !== "pdf"); if (!im.length) throw new Error("Select at least one image"); return { op: t, files: im.map(f => f.id), options: { name: v("optName") } }; }
+    if (t === "images_to_pdf") {
+      const im = selectedFiles().filter(f => f.kind !== "pdf");
+      if (!im.length) throw new Error("Select at least one image");
+      return { op: t, files: im.map(f => f.id), options: { name: v("optName") } };
+    }
     if (!pdfs.length && t !== "organize") throw new Error("Select a PDF first");
+
     switch (t) {
-      case "merge": if (ids.length < 2) throw new Error("Select at least 2 PDFs"); return { op: t, files: ids, options: { name: v("optName") } };
-      case "organize": { if (!state.org.length) throw new Error("No pages to build — select PDFs first (or you deleted every page)"); return { op: "assemble", files: [], options: { name: "organized.pdf", items: state.org.map(x => ({ file: x.file, page: x.page, rotate: x.rotate })) } }; }
+      case "merge":
+        if (ids.length < 2) throw new Error("Select at least 2 PDFs");
+        return { op: t, files: ids, options: { name: v("optName") } };
+      case "organize": {
+        if (!state.org.length) throw new Error("No pages to build — select PDFs first (or you deleted every page)");
+        const items = state.org.map(x => (x.blank ? { blank: true, width: x.width || 595.28, height: x.height || 841.89, rotate: x.rotate || 0 } : { file: x.file, page: x.page, rotate: x.rotate || 0 }));
+        return { op: "assemble", files: [], options: { name: "organized.pdf", items } };
+      }
       case "split": return { op: t, files: [f0], options: { mode: v("optMode"), value: v("optValue") } };
-      case "extract": case "delete": case "text": return { op: t, files: [f0], options: { pages: v("optPages") } };
+      case "extract": case "delete": return { op: t, files: [f0], options: { pages: v("optPages") } };
       case "rotate": return { op: t, files: [f0], options: { pages: v("optPages"), degrees: +v("optDeg") } };
       case "crop": return { op: t, files: [f0], options: { pages: v("optPages"), top: +v("crop_top"), right: +v("crop_right"), bottom: +v("crop_bottom"), left: +v("crop_left") } };
       case "compress": return { op: t, files: [f0], options: { level: v("optLevel") } };
@@ -243,6 +936,21 @@
       case "redact": return { op: t, files: [f0], options: { regions: state.redact.regions, terms: v("optTerms").split("\n").map(s => s.trim()).filter(Boolean) } };
       case "flatten": return { op: t, files: [f0], options: { dpi: +v("optDpi") } };
       case "pdf_to_images": return { op: t, files: [f0], options: { pages: v("optPages"), format: v("optFmt"), dpi: +v("optDpi") } };
+      case "text":
+        return {
+          op: "text",
+          files: [f0],
+          options: {
+            pages: v("optPages") || "all",
+            mode: v("optTextMode") || "auto",
+            layout: v("optTextLayout") || "smart",
+            fmt: v("optTextFmt") || "txt",
+            clean: chk("optTextClean"),
+            dehyphenate: chk("optTextDehyphen"),
+            markers: chk("optTextMarkers"),
+            lang: v("optTextLang") || "auto"
+          }
+        };
       case "ocr": return { op: t, files: [f0], options: { lang: v("optLang"), pages: v("optPages"), searchable: chk("optSearchable") } };
       case "compare": if (ids.length !== 2) throw new Error("Select exactly 2 PDFs"); return { op: t, files: ids, options: {} };
     }
@@ -251,32 +959,117 @@
   async function run() {
     if (state.busy) return;
     let req; try { req = buildRequest(); } catch (e) { toast("⚠️ " + e.message); return; }
-    state.busy = true; $("#ptRun").disabled = true; $("#ptBusy").classList.remove("hidden");
+    state.busy = true;
+    const btn = $("#ptRun") || $("#ptOrgBuild");
+    if (btn) btn.disabled = true;
+    const busyEl = $("#ptBusy");
+    if (busyEl) busyEl.classList.remove("hidden");
+
     try {
       const res = await post("/api/op", req);
       showResult(res);
       toast("✅ " + (res.message || "Done"));
-    } catch (e) { showResult({ error: e.message }); toast("❌ " + e.message); }
-    finally { state.busy = false; const b = $("#ptRun"); if (b) b.disabled = false; const bb = $("#ptBusy"); if (bb) bb.classList.add("hidden"); }
+      const resBox = $("#ptResults");
+      if (resBox) resBox.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+      showResult({ error: e.message });
+      toast("❌ " + e.message);
+    } finally {
+      state.busy = false;
+      if (btn) btn.disabled = false;
+      if (busyEl) busyEl.classList.add("hidden");
+    }
   }
 
   function showResult(res) {
     const box = $("#ptResults"); box.innerHTML = "";
-    if (res.error) { box.innerHTML = `<div class="pt-result err"><span class="material-symbols-rounded">error</span> ${esc(res.error)}</div>`; return; }
+    if (res.error) {
+      box.innerHTML = `<div class="pt-result err"><span class="material-symbols-rounded">error</span> ${esc(res.error)}</div>`;
+      return;
+    }
     box.appendChild(el("div", "pt-result ok", `<span class="material-symbols-rounded">check_circle</span> ${esc(res.message || "Done")}`));
+
+    // Summary chips for text extraction
+    if (res.summary) {
+      const s = res.summary;
+      const chips = el("div", "pt-summary-chips");
+      chips.innerHTML = `
+        <span class="pt-chip"><span class="material-symbols-rounded">article</span> ${s.pages} Page${s.pages > 1 ? "s" : ""}</span>
+        <span class="pt-chip"><span class="material-symbols-rounded">notes</span> ${s.words} Words</span>
+        <span class="pt-chip"><span class="material-symbols-rounded">text_format</span> ${s.chars} Characters</span>
+        ${s.ocr_pages > 0 ? `<span class="pt-chip ocr"><span class="material-symbols-rounded">document_scanner</span> ${s.ocr_pages} OCR Page${s.ocr_pages > 1 ? "s" : ""}</span>` : ""}
+      `;
+      box.appendChild(chips);
+    }
+
+    // Per-page quality and method report table
+    if (res.report && res.report.length > 1) {
+      const wrap = el("div", "pt-report-table-wrap");
+      const rows = res.report.map(r => `
+        <tr>
+          <td><b>Page ${r.page}</b></td>
+          <td><span class="pt-badge method-${r.method}">${r.method}</span></td>
+          <td>${r.words} words</td>
+          <td>${r.confidence != null ? r.confidence + "%" : "—"}</td>
+          <td>${(r.issues || []).map(iss => `<span class="pt-badge warn">${esc(iss)}</span>`).join("") || '<span style="color:var(--text-muted)">Clean</span>'}</td>
+        </tr>
+      `).join("");
+      wrap.innerHTML = `<table class="pt-report-table">
+        <thead><tr><th>Page</th><th>Method</th><th>Words</th><th>Confidence</th><th>Status</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+      box.appendChild(wrap);
+    }
+
+    // Output files
     (res.results || []).forEach(r => {
-      const row = el("div", "pt-outfile", `<span class="material-symbols-rounded">${r.name.endsWith(".zip") ? "folder_zip" : "picture_as_pdf"}</span><div class="pt-fmeta"><b>${esc(r.name)}</b><small>${r.pages ? r.pages + " pages • " : ""}${fmtSize(r.size)}</small></div>
+      const row = el("div", "pt-outfile", `<span class="material-symbols-rounded">${r.name.endsWith(".zip") ? "folder_zip" : (r.name.endsWith(".txt") || r.name.endsWith(".md") || r.name.endsWith(".json")) ? "description" : "picture_as_pdf"}</span><div class="pt-fmeta"><b>${esc(r.name)}</b><small>${r.pages ? r.pages + " pages • " : ""}${fmtSize(r.size)}</small></div>
         <a class="btn btn-primary btn-sm" href="/api/file/${r.id}?download=1" download="${esc(r.name)}">Download</a>
         ${r.name.endsWith(".pdf") ? `<button class="btn btn-outline btn-sm pt-open">Open</button><button class="btn btn-tonal btn-sm pt-use">Use as input</button>` : ""}`);
       const op = $(".pt-open", row); if (op) op.onclick = () => window.open(`/api/file/${r.id}`, "_blank");
       const us = $(".pt-use", row); if (us) us.onclick = () => { if (!state.files.find(f => f.id === r.id)) state.files.push(r); state.selected = new Set([r.id]); renderFiles(); renderOptions(); toast("Added to file list"); };
       box.appendChild(row);
     });
-    if ((res.results || []).length > 1) { const all = el("button", "btn btn-tonal btn-sm", "⬇ Download all"); all.onclick = () => res.results.forEach((r, i) => setTimeout(() => { const a = document.createElement("a"); a.href = `/api/file/${r.id}?download=1`; a.download = r.name; a.click(); }, i * 350)); box.appendChild(all); }
-    if (res.text !== undefined) { const ta = el("textarea", "form-input pt-text"); ta.value = res.text; ta.rows = 12; box.appendChild(ta);
-      const cp = el("button", "btn btn-tonal btn-sm", "Copy text"); cp.onclick = () => (window.copyTextSafe ? window.copyTextSafe(ta.value) : navigator.clipboard.writeText(ta.value)).then?.(() => toast("📋 Copied")); box.appendChild(cp); }
-    if (res.compare) { const pre = el("pre", "pt-diff"); pre.innerHTML = esc(res.compare.diff || "(no differences)").split("\n").map(l => l.startsWith("+") ? `<span class="add">${l}</span>` : l.startsWith("-") ? `<span class="del">${l}</span>` : l).join("\n"); box.appendChild(pre); }
-    (res.results || []).forEach(r => { if (!state.files.find(f => f.id === r.id) && false) state.files.push(r); });
+
+    if ((res.results || []).length > 1) {
+      const all = el("button", "btn btn-tonal btn-sm", "⬇ Download all");
+      all.onclick = () => res.results.forEach((r, i) => setTimeout(() => {
+        const a = document.createElement("a");
+        a.href = `/api/file/${r.id}?download=1`;
+        a.download = r.name;
+        a.click();
+      }, i * 350));
+      box.appendChild(all);
+    }
+
+    // Extracted text preview
+    if (res.text !== undefined) {
+      const ta = el("textarea", "form-input pt-text");
+      ta.value = res.text;
+      ta.rows = 14;
+      ta.readOnly = true;
+      box.appendChild(ta);
+
+      const actRow = el("div", "pt-actions-row");
+      const cp = el("button", "btn btn-tonal btn-sm", `<span class="material-symbols-rounded">content_copy</span> <span>Copy text</span>`);
+      cp.onclick = () => (window.copyTextSafe ? window.copyTextSafe(ta.value) : navigator.clipboard.writeText(ta.value)).then?.(() => toast("📋 Copied to clipboard"));
+      actRow.appendChild(cp);
+
+      if (res.results && res.results[0]) {
+        const dl = el("a", "btn btn-primary btn-sm", `<span class="material-symbols-rounded">download</span> <span>Download ${res.results[0].name}</span>`);
+        dl.href = `/api/file/${res.results[0].id}?download=1`;
+        dl.download = res.results[0].name;
+        actRow.appendChild(dl);
+      }
+      box.appendChild(actRow);
+    }
+
+    // Diff preview for compare
+    if (res.compare) {
+      const pre = el("pre", "pt-diff");
+      pre.innerHTML = esc(res.compare.diff || "(no differences)").split("\n").map(l => l.startsWith("+") ? `<span class="add">${l}</span>` : l.startsWith("-") ? `<span class="del">${l}</span>` : l).join("\n");
+      box.appendChild(pre);
+    }
   }
 
   // ---------------------------------------------------------------- mount

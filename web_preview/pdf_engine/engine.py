@@ -2,7 +2,7 @@
 
 Dependencies: pikepdf, pypdfium2, pillow, reportlab.  Optional: tesseract (OCR).
 """
-import io, os, re, shutil, subprocess, tempfile, zipfile, difflib
+import io, os, re, shutil, subprocess, tempfile, zipfile, difflib, threading, collections
 import pikepdf
 import pypdfium2 as pdfium
 from PIL import Image, ImageDraw
@@ -11,6 +11,38 @@ from reportlab.lib.colors import Color
 
 class PdfError(Exception):
     pass
+
+PDFIUM_LOCK = threading.RLock()
+_PDFIUM_DOC_CACHE = collections.OrderedDict()
+
+def get_pdfium_doc(key, data, password=""):
+    """Thread-safe cached or one-off PdfDocument. Must be called under PDFIUM_LOCK."""
+    if key and key in _PDFIUM_DOC_CACHE:
+        _PDFIUM_DOC_CACHE.move_to_end(key)
+        return _PDFIUM_DOC_CACHE[key], False
+    doc = pdfium.PdfDocument(data, password=password or None)
+    if key:
+        _PDFIUM_DOC_CACHE[key] = doc
+        while len(_PDFIUM_DOC_CACHE) > 6:
+            _, old_doc = _PDFIUM_DOC_CACHE.popitem(last=False)
+            try:
+                old_doc.close()
+            except Exception:
+                pass
+        return doc, False
+    return doc, True
+
+def forget_doc(fid):
+    """Evict any cached pdfium doc belonging to fid."""
+    with PDFIUM_LOCK:
+        keys_to_del = [k for k in _PDFIUM_DOC_CACHE if k[0] == fid]
+        for k in keys_to_del:
+            old_doc = _PDFIUM_DOC_CACHE.pop(k, None)
+            if old_doc:
+                try:
+                    old_doc.close()
+                except Exception:
+                    pass
 
 def parse_ranges(spec, total):
     """'1-3,5,8-' / 'odd' / 'even' / 'all' -> sorted unique 0-based list (order kept)."""
@@ -57,28 +89,46 @@ def _save(pdf, **kw):
     pdf.save(buf, **kw)
     return buf.getvalue()
 
-def info(data):
+def info(data, password=""):
     try:
-        with pikepdf.open(io.BytesIO(data)) as pdf:
+        kw = {"password": password} if password else {}
+        with pikepdf.open(io.BytesIO(data), **kw) as pdf:
             meta = {}
             with pdf.open_metadata() as m:
                 pass
             for k, v in (pdf.docinfo or {}).items():
                 meta[str(k).lstrip("/")] = str(v)
+            page_sizes = []
+            for p in pdf.pages:
+                box = p.CropBox if "/CropBox" in p else p.MediaBox
+                w = float(abs(box[2] - box[0]))
+                h = float(abs(box[3] - box[1]))
+                rot = int(p.get("/Rotate", 0)) % 360
+                if rot % 180 != 0:
+                    w, h = h, w
+                page_sizes.append([round(w, 2), round(h, 2)])
             return {"pages": len(pdf.pages), "encrypted": False, "meta": meta,
-                    "version": str(pdf.pdf_version)}
+                    "version": str(pdf.pdf_version), "page_sizes": page_sizes}
     except pikepdf.PasswordError:
-        return {"pages": 0, "encrypted": True, "meta": {}, "version": ""}
+        return {"pages": 0, "encrypted": True, "meta": {}, "version": "", "page_sizes": []}
     except pikepdf.PdfError as e:
         raise PdfError(f"Not a valid PDF: {e}")
 
 # ---------------------------------------------------------------- page ops
 def assemble(items, files, passwords=None):
-    """items: [{file, page(1-based), rotate(deg, optional)}] -> new PDF (merge/reorder/extract/delete/rotate)."""
+    """items: [{file, page(1-based), rotate(deg, optional), blank(bool, optional), width, height}] -> new PDF."""
     passwords = passwords or {}
     out = pikepdf.new()
     cache = {}
     for it in items:
+        if it.get("blank"):
+            w = float(it.get("width", 595.28))
+            h = float(it.get("height", 841.89))
+            out.add_blank_page(page_size=(w, h))
+            rot = int(it.get("rotate", 0)) % 360
+            if rot:
+                out.pages[-1].rotate(rot, relative=True)
+            continue
         fid = it["file"]
         if fid not in cache:
             cache[fid] = _open(files[fid], passwords.get(fid, ""))
@@ -249,12 +299,36 @@ def set_metadata(fid, files, meta, strip=False, password=""):
         return _save(p)
 
 # ---------------------------------------------------------------- rendering based
-def render_page(data, page_idx, scale=1.0, password=""):
-    doc = pdfium.PdfDocument(data, password=password or None)
-    try:
-        return doc[page_idx].render(scale=scale).to_pil().convert("RGB")
-    finally:
-        doc.close()
+def render_thumb(key, data, page_idx, width_px, password=""):
+    with PDFIUM_LOCK:
+        doc, should_close = get_pdfium_doc(key, data, password)
+        try:
+            page = doc[page_idx]
+            try:
+                pw_pt, _ = page.get_size()
+                if pw_pt <= 0:
+                    pw_pt = 595.28
+                scale = float(width_px) / float(pw_pt)
+                scale = max(0.05, min(6.0, scale))
+                return page.render(scale=scale).to_pil().convert("RGB")
+            finally:
+                page.close()
+        finally:
+            if should_close:
+                doc.close()
+
+def render_page(data, page_idx, scale=1.0, password="", key=None):
+    with PDFIUM_LOCK:
+        doc, should_close = get_pdfium_doc(key, data, password)
+        try:
+            page = doc[page_idx]
+            try:
+                return page.render(scale=scale).to_pil().convert("RGB")
+            finally:
+                page.close()
+        finally:
+            if should_close:
+                doc.close()
 
 def _images_to_pdf(images, dpi=150):
     buf = io.BytesIO()
@@ -266,85 +340,97 @@ def redact(fid, files, regions=None, terms=None, dpi=150, password=""):
     regions = regions or []
     terms = [t for t in (terms or []) if t.strip()]
     data = files[fid]
-    doc = pdfium.PdfDocument(data, password=password or None)
-    n = len(doc)
-    boxes = {i: [] for i in range(n)}   # fractional boxes (x, y, w, h) from top-left
-    for r in regions:
-        pg = int(r["page"]) - 1
-        if 0 <= pg < n:
-            boxes[pg].append((float(r["x"]), float(r["y"]), float(r["w"]), float(r["h"])))
-    hits = 0
-    if terms:
-        for i in range(n):
-            page = doc[i]
-            W, H = page.get_size()
-            tp = page.get_textpage()
-            for term in terms:
-                srch = tp.search(term, match_case=False)
-                while True:
-                    m = srch.get_next()
-                    if not m:
-                        break
-                    idx, cnt = m
-                    xs = []
-                    for k in range(idx, idx + cnt):
-                        l, b, r_, t = tp.get_charbox(k)
-                        xs.append((l, b, r_, t))
-                    l = min(x[0] for x in xs); r_ = max(x[2] for x in xs)
-                    b = min(x[1] for x in xs); t = max(x[3] for x in xs)
-                    boxes[i].append((l / W, 1 - t / H, (r_ - l) / W, (t - b) / H))
-                    hits += 1
-    touched = [i for i in range(n) if boxes[i]]
-    if not touched:
-        raise PdfError("Nothing to redact: no regions drawn and no search term matched")
-    out_items = []
-    tmp_pdfs = {}
-    with pikepdf.new() as out:
-        src = _open(data, password)
-        for i in range(n):
-            if i in touched:
-                img = doc[i].render(scale=dpi / 72).to_pil().convert("RGB")
-                d = ImageDraw.Draw(img)
-                W, H = img.size
-                pad = 2
-                for (x, y, w, h) in boxes[i]:
-                    d.rectangle([x * W - pad, y * H - pad, (x + w) * W + pad, (y + h) * H + pad], fill=(0, 0, 0))
-                pw, ph = doc[i].get_size()
-                b = io.BytesIO()
-                img.save(b, "PDF", resolution=dpi)
-                tmp = pikepdf.open(io.BytesIO(b.getvalue()))
-                out.pages.append(tmp.pages[0])
-                tmp_pdfs[i] = tmp
-            else:
-                out.pages.append(src.pages[i])
-        result = _save(out)
-        src.close()
-    for t in tmp_pdfs.values():
-        t.close()
-    doc.close()
-    return result, hits, len(touched)
+    with PDFIUM_LOCK:
+        doc, should_close = get_pdfium_doc((fid, password), data, password)
+        try:
+            n = len(doc)
+            boxes = {i: [] for i in range(n)}   # fractional boxes (x, y, w, h) from top-left
+            for r in regions:
+                pg = int(r["page"]) - 1
+                if 0 <= pg < n:
+                    boxes[pg].append((float(r["x"]), float(r["y"]), float(r["w"]), float(r["h"])))
+            hits = 0
+            if terms:
+                for i in range(n):
+                    page = doc[i]
+                    W, H = page.get_size()
+                    tp = page.get_textpage()
+                    for term in terms:
+                        srch = tp.search(term, match_case=False)
+                        while True:
+                            m = srch.get_next()
+                            if not m:
+                                break
+                            idx, cnt = m
+                            xs = []
+                            for k in range(idx, idx + cnt):
+                                l, b, r_, t = tp.get_charbox(k)
+                                xs.append((l, b, r_, t))
+                            l = min(x[0] for x in xs); r_ = max(x[2] for x in xs)
+                            b = min(x[1] for x in xs); t = max(x[3] for x in xs)
+                            boxes[i].append((l / W, 1 - t / H, (r_ - l) / W, (t - b) / H))
+                            hits += 1
+            touched = [i for i in range(n) if boxes[i]]
+            if not touched:
+                raise PdfError("Nothing to redact: no regions drawn and no search term matched")
+            out_items = []
+            tmp_pdfs = {}
+            with pikepdf.new() as out:
+                src = _open(data, password)
+                for i in range(n):
+                    if i in touched:
+                        img = doc[i].render(scale=dpi / 72).to_pil().convert("RGB")
+                        d = ImageDraw.Draw(img)
+                        W, H = img.size
+                        pad = 2
+                        for (x, y, w, h) in boxes[i]:
+                            d.rectangle([x * W - pad, y * H - pad, (x + w) * W + pad, (y + h) * H + pad], fill=(0, 0, 0))
+                        pw, ph = doc[i].get_size()
+                        b = io.BytesIO()
+                        img.save(b, "PDF", resolution=dpi)
+                        tmp = pikepdf.open(io.BytesIO(b.getvalue()))
+                        out.pages.append(tmp.pages[0])
+                        tmp_pdfs[i] = tmp
+                    else:
+                        out.pages.append(src.pages[i])
+                result = _save(out)
+                src.close()
+            for t in tmp_pdfs.values():
+                t.close()
+            return result, hits, len(touched)
+        finally:
+            if should_close:
+                doc.close()
 
 def flatten(fid, files, dpi=150, password=""):
-    doc = pdfium.PdfDocument(files[fid], password=password or None)
-    imgs = [doc[i].render(scale=dpi / 72).to_pil().convert("RGB") for i in range(len(doc))]
-    doc.close()
+    with PDFIUM_LOCK:
+        doc, should_close = get_pdfium_doc((fid, password), files[fid], password)
+        try:
+            imgs = [doc[i].render(scale=dpi / 72).to_pil().convert("RGB") for i in range(len(doc))]
+        finally:
+            if should_close:
+                doc.close()
     return _images_to_pdf(imgs, dpi)
 
 def pdf_to_images(fid, files, fmt="png", dpi=150, spec="all", password=""):
-    doc = pdfium.PdfDocument(files[fid], password=password or None)
-    idx = parse_ranges(spec, len(doc))
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for i in idx:
-            img = doc[i].render(scale=float(dpi) / 72).to_pil().convert("RGB")
-            b = io.BytesIO()
-            if fmt == "jpg":
-                img.save(b, "JPEG", quality=90)
-            else:
-                img.save(b, "PNG")
-            z.writestr(f"page_{i+1:03d}.{fmt}", b.getvalue())
-    doc.close()
-    return buf.getvalue()
+    with PDFIUM_LOCK:
+        doc, should_close = get_pdfium_doc((fid, password), files[fid], password)
+        try:
+            idx = parse_ranges(spec, len(doc))
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+                for i in idx:
+                    img = doc[i].render(scale=float(dpi) / 72).to_pil().convert("RGB")
+                    b = io.BytesIO()
+                    if fmt == "jpg":
+                        img.save(b, "JPEG", quality=90)
+                    else:
+                        img.save(b, "PNG")
+                    z.writestr(f"page_{i+1:03d}.{fmt}", b.getvalue())
+            return buf.getvalue()
+        finally:
+            if should_close:
+                doc.close()
 
 def images_to_pdf(blobs, page="fit"):
     imgs = []
@@ -390,12 +476,17 @@ def ocr(fid, files, lang="eng", dpi=200, spec="all", password="", as_pdf=True):
     for l in lang.split("+"):
         if l not in langs:
             raise PdfError(f"OCR language '{l}' is not installed. Installed: {', '.join(langs)}. On Mac: brew install tesseract-lang")
-    doc = pdfium.PdfDocument(files[fid], password=password or None)
-    idx = parse_ranges(spec, len(doc))
+    with PDFIUM_LOCK:
+        doc, should_close = get_pdfium_doc((fid, password), files[fid], password)
+        try:
+            idx = parse_ranges(spec, len(doc))
+            page_imgs = [doc[i].render(scale=dpi / 72).to_pil().convert("RGB") for i in idx]
+        finally:
+            if should_close:
+                doc.close()
     texts, pdfs = [], []
     with tempfile.TemporaryDirectory() as td:
-        for n, i in enumerate(idx):
-            img = doc[i].render(scale=dpi / 72).to_pil().convert("RGB")
+        for n, img in enumerate(page_imgs):
             ip = os.path.join(td, f"p{n}.png")
             img.save(ip)
             base = os.path.join(td, f"o{n}")
@@ -403,9 +494,8 @@ def ocr(fid, files, lang="eng", dpi=200, spec="all", password="", as_pdf=True):
                                capture_output=True, text=True, timeout=300)
             if r.returncode != 0:
                 raise PdfError("OCR failed: " + r.stderr[-200:])
-            texts.append(f"--- Page {i+1} ---\n" + open(base + ".txt", encoding="utf8").read().strip())
+            texts.append(f"--- Page {idx[n]+1} ---\n" + open(base + ".txt", encoding="utf8").read().strip())
             pdfs.append(open(base + ".pdf", "rb").read())
-    doc.close()
     merged = None
     if as_pdf:
         out = pikepdf.new()
@@ -418,8 +508,9 @@ def ocr(fid, files, lang="eng", dpi=200, spec="all", password="", as_pdf=True):
     return "\n\n".join(texts), merged
 
 def compare(a, b, files, pa="", pb=""):
-    ta = extract_text(a, files, "all", pa).splitlines()
-    tb = extract_text(b, files, "all", pb).splitlines()
+    from text_intel import smart_text
+    ta = smart_text(a, files, "all", password=pa, mode="auto", markers=False)["text"].splitlines()
+    tb = smart_text(b, files, "all", password=pb, mode="auto", markers=False)["text"].splitlines()
     diff = list(difflib.unified_diff(ta, tb, "A", "B", lineterm="", n=1))
     added = sum(1 for l in diff if l.startswith("+") and not l.startswith("+++"))
     removed = sum(1 for l in diff if l.startswith("-") and not l.startswith("---"))
