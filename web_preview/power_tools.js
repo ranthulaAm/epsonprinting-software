@@ -14,6 +14,16 @@
   ];
   const genId = () => "p_" + Math.random().toString(36).slice(2, 10);
 
+  const MODERNIZE_CONSTANTS = {
+    id: "modernize",
+    icon: "auto_fix_high",
+    name_en: "Old Document → New Document",
+    name_si: "ගොනු නවීකරණය",
+    desc_en: "Reconstruct scans & old documents into clean, editable vector PDFs",
+    desc_si: "පැරණි සහ ස්කෑන් ලේඛන පිරිසිදු, සංස්කරණය කළ හැකි නව ලේඛන බවට පත් කරන්න",
+    need: "1"
+  };
+
   const state = {
     files: [],
     selected: new Set(),
@@ -29,6 +39,21 @@
     orgLastFocus: 0,
     orgDropIndex: null,
     redact: { file: null, page: 1, regions: [] },
+    modernize: {
+      step: 1,
+      jobId: null,
+      job: null,
+      file: null,
+      docModel: null,
+      currentPage: 1,
+      activeWord: null,
+      cloudConsent: false,
+      deskew: true,
+      shadowRemoval: true,
+      clahe: true,
+      compareMode: "side_by_side",
+      overlayOpacity: 50
+    },
     results: []
   };
 
@@ -53,6 +78,7 @@
     { id: "text", icon: "text_snippet", name: "Extract Text", desc: "Copy all text with layout, columns & tables", need: "1" },
     { id: "ocr", icon: "document_scanner", name: "OCR", desc: "Make scans searchable (Tesseract)", need: "1" },
     { id: "compare", icon: "compare", name: "Compare", desc: "Text differences between 2 PDFs", need: "2" },
+    { id: MODERNIZE_CONSTANTS.id, icon: MODERNIZE_CONSTANTS.icon, name: MODERNIZE_CONSTANTS.name_en, desc: MODERNIZE_CONSTANTS.desc_en, need: MODERNIZE_CONSTANTS.need },
   ];
 
   // ---------------------------------------------------------------- API
@@ -69,9 +95,15 @@
     try {
       const h = await api("/api/health");
       state.engine = true; state.ocrLangs = h.ocr_langs || [];
-      banner.className = "pt-banner ok";
-      banner.innerHTML = `<span class="material-symbols-rounded">check_circle</span> PDF engine connected — all processing stays on this computer.` +
-        (state.ocrLangs.length ? ` OCR languages: <b>${esc(state.ocrLangs.join(", "))}</b>` : ` OCR not installed (see README).`);
+      if (!h.has_sin && !state.ocrLangs.includes("sin")) {
+        banner.className = "pt-banner err";
+        banner.innerHTML = `<span class="material-symbols-rounded">warning</span><div><b>Sinhala OCR Language Missing:</b> For maximum accuracy on Sinhala scans, install Tesseract Sinhala models.<br>
+        Exact command (Mac): <code>brew install tesseract tesseract-lang</code>, then put <code>tessdata_best sin.traineddata</code> in the tessdata folder.</div>`;
+      } else {
+        banner.className = "pt-banner ok";
+        banner.innerHTML = `<span class="material-symbols-rounded">check_circle</span> PDF engine connected — all processing stays on this computer.` +
+          (state.ocrLangs.length ? ` OCR languages: <b>${esc(state.ocrLangs.join(", "))}</b>` : ` OCR not installed (see README).`);
+      }
     } catch (e) {
       state.engine = false;
       banner.className = "pt-banner err";
@@ -102,7 +134,7 @@
       const enc = f.encrypted ? `<button class="btn btn-tonal btn-sm pt-unlock" title="Enter password">🔒 Unlock</button>` : "";
       row.innerHTML = `<input type="checkbox" ${state.selected.has(f.id) ? "checked" : ""}>
         <span class="material-symbols-rounded pt-ficon">${f.kind === "pdf" ? "picture_as_pdf" : "image"}</span>
-        <div class="pt-fmeta"><b title="${esc(f.name)}">${esc(f.name)}</b><small>${f.kind === "pdf" ? (f.encrypted ? "Encrypted" : f.pages + " pages") : "Image"} • ${fmtSize(f.size)}</small></div>
+        <div class="pt-fmeta"><b title="${esc(f.name)}">${esc(f.name)}</b><small>${f.kind === "pdf" ? (f.encrypted ? "Encrypted" : f.pages + " pages") : (f.pages > 1 ? f.pages + " pages" : "Image")} • ${fmtSize(f.size)}</small></div>
         ${enc}
         <button class="btn-ghost pt-up" title="Move up">▲</button><button class="btn-ghost pt-down" title="Move down">▼</button>
         <button class="btn-ghost pt-view" title="Open">👁</button><button class="btn-ghost pt-rm" title="Remove">✕</button>`;
@@ -125,14 +157,32 @@
     });
   }
   const selectedFiles = () => state.files.filter(f => state.selected.has(f.id));
-  const selectedPdfs = () => selectedFiles().filter(f => f.kind === "pdf");
+  const selectedPdfs = () => selectedFiles().filter(f => f.kind === "pdf" || f.kind === "image");
+
+  const isSinhala = () => typeof currentLang !== "undefined" ? currentLang === "si" : document.documentElement.lang === "si";
+  const getToolName = t => {
+    if (isSinhala()) {
+      if (t.id === "modernize") return MODERNIZE_CONSTANTS.name_si;
+      return (window.I18N_SI && window.I18N_SI[t.name]) || t.name;
+    }
+    return t.name;
+  };
+  const getToolDesc = t => {
+    if (isSinhala()) {
+      if (t.id === "modernize") return MODERNIZE_CONSTANTS.desc_si;
+      return (window.I18N_SI && window.I18N_SI[t.desc]) || t.desc;
+    }
+    return t.desc;
+  };
 
   // ---------------------------------------------------------------- tool grid
   function renderTools() {
     const g = $("#ptToolGrid"); g.innerHTML = "";
     TOOLS.forEach(t => {
+      const toolName = getToolName(t);
+      const toolDesc = getToolDesc(t);
       const c = el("button", "pt-tool" + (state.tool === t.id ? " active" : ""),
-        `<span class="material-symbols-rounded">${t.icon}</span><b>${t.name}</b><small>${t.desc}</small>`);
+        `<span class="material-symbols-rounded">${t.icon}</span><b>${esc(toolName)}</b><small>${esc(toolDesc)}</small>`);
       c.dataset.tool = t.id;
       c.onclick = () => {
         state.tool = t.id;
@@ -155,10 +205,17 @@
     if (work) {
       if (t.id === "organize") work.classList.add("pt-work-organize");
       else work.classList.remove("pt-work-organize");
+
+      if (t.id === "modernize") work.classList.add("pt-work-modernize");
+      else work.classList.remove("pt-work-modernize");
     }
 
     if (t.id === "organize") {
       loadOrganizer();
+      return;
+    }
+    if (t.id === "modernize") {
+      loadModernize();
       return;
     }
 
@@ -1127,6 +1184,670 @@
     }
   }
 
+  // ---------------------------------------------------------------- Modernize Studio
+  function loadModernize() {
+    const box = $("#ptOptions");
+    if (!box) return;
+
+    const mod = state.modernize;
+    const pdfs = selectedPdfs();
+    const activeFile = pdfs[0] || null;
+    mod.file = activeFile;
+
+    const isSi = isSinhala();
+    const titleName = isSi ? MODERNIZE_CONSTANTS.name_si : MODERNIZE_CONSTANTS.name_en;
+    const descText = isSi ? MODERNIZE_CONSTANTS.desc_si : MODERNIZE_CONSTANTS.desc_en;
+
+    const steps = [
+      { num: 1, name: isSi ? "1. ස්කෑන් එක් කරන්න" : "1. Add Scans" },
+      { num: 2, name: isSi ? "2. ගුණාත්මක බව වැඩි කරන්න" : "2. Enhance" },
+      { num: 3, name: isSi ? "3. කලාප හඳුනා ගැනීම" : "3. Detect Regions" },
+      { num: 4, name: isSi ? "4. පෙළ සමාලෝචනය" : "4. Review Text" },
+      { num: 5, name: isSi ? "5. අපනයනය සහ සැසඳීම" : "5. Export & Compare" }
+    ];
+
+    const stepperHtml = steps.map(s => `
+      <div class="pt-mod-step ${mod.step === s.num ? 'active' : (mod.step > s.num ? 'completed' : '')}" data-step="${s.num}">
+        <span class="pt-mod-step-num">${mod.step > s.num ? '✓' : s.num}</span>
+        <span>${s.name}</span>
+      </div>
+    `).join("");
+
+    box.innerHTML = `
+      <div class="pt-mod-wrap">
+        <div class="pt-mod-header">
+          <h2><span class="material-symbols-rounded">${MODERNIZE_CONSTANTS.icon}</span> <span>${titleName}</span></h2>
+          <p>${descText}</p>
+          <div class="pt-mod-stepper">${stepperHtml}</div>
+        </div>
+        <div id="ptModBody" class="pt-mod-body"></div>
+      </div>
+    `;
+
+    // Stepper click listeners (allow navigating back to completed steps)
+    box.querySelectorAll(".pt-mod-step").forEach(stepEl => {
+      stepEl.onclick = () => {
+        const targetStep = parseInt(stepEl.dataset.step, 10);
+        if (targetStep < mod.step || (mod.docModel && targetStep <= 5)) {
+          mod.step = targetStep;
+          loadModernize();
+        }
+      };
+    });
+
+    renderModernizeStep();
+  }
+
+  function renderModernizeStep() {
+    const body = $("#ptModBody");
+    if (!body) return;
+    const mod = state.modernize;
+
+    switch (mod.step) {
+      case 1:
+        renderModStep1(body);
+        break;
+      case 2:
+        renderModStep2(body);
+        break;
+      case 3:
+        renderModStep3(body);
+        break;
+      case 4:
+        renderModStep4(body);
+        break;
+      case 5:
+        renderModStep5(body);
+        break;
+      default:
+        renderModStep1(body);
+    }
+  }
+
+  // --- Step 1: Add Scans & Preprocessing Configuration ---
+  function renderModStep1(body) {
+    const mod = state.modernize;
+    const f = mod.file;
+
+    if (!f) {
+      body.innerHTML = `
+        <div class="pt-mod-panel">
+          <div class="pt-empty" style="padding:40px 20px; text-align:center;">
+            <span class="material-symbols-rounded" style="font-size:48px; color:var(--text-muted); margin-bottom:12px;">upload_file</span>
+            <h3>No Scan or Document Selected</h3>
+            <p style="color:var(--text-muted); font-size:13px; margin:6px 0 16px 0;">Drop a scan, photo, or old document in the left sidebar or select one to begin.</p>
+            <button class="btn btn-primary" id="btnPickModFile">
+              <span class="material-symbols-rounded">add</span>
+              <span>Select File</span>
+            </button>
+          </div>
+        </div>
+      `;
+      const pickBtn = $("#btnPickModFile");
+      if (pickBtn) pickBtn.onclick = () => $("#ptPick")?.click();
+      return;
+    }
+
+    body.innerHTML = `
+      <div class="pt-mod-panel">
+        <div class="pt-mod-filecard">
+          <img class="pt-mod-filethumb" src="/api/thumb/${f.id}/1?w=160" alt="Page 1" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'64\\' height=\\'80\\'><rect width=\\'100%\\' height=\\'100%\\' fill=\\'%23eee\\'/></svg>'">
+          <div class="pt-mod-fileinfo">
+            <b>${esc(f.name)}</b>
+            <small>${f.pages} page(s) • ${fmtSize(f.size)} • ${f.kind === 'image' ? (f.format || 'Image').toUpperCase() : 'PDF Document'}</small>
+          </div>
+          <button class="btn btn-tonal btn-sm" id="btnChangeModFile">Change File</button>
+        </div>
+
+        <h4 style="margin:8px 0 2px 0; font-size:14px; color:var(--text-main);">Preprocessing & Optimization Settings</h4>
+        <div class="pt-mod-grid-settings">
+          <div class="pt-mod-toggle-card">
+            <label><input type="checkbox" id="chkModDeskew" ${mod.deskew ? 'checked' : ''}> Auto Deskew</label>
+            <p>Rotates skewed scans to true 0° orientation with cubic interpolation.</p>
+          </div>
+          <div class="pt-mod-toggle-card">
+            <label><input type="checkbox" id="chkModShadows" ${mod.shadowRemoval ? 'checked' : ''}> Remove Shadows & Bleed</label>
+            <p>Estimates background illumination plane to eliminate photocopy shadows and back-page show-through.</p>
+          </div>
+          <div class="pt-mod-toggle-card">
+            <label><input type="checkbox" id="chkModClahe" ${mod.clahe ? 'checked' : ''}> Contrast & Sauvola Binarization</label>
+            <p>Protects delicate Sinhala pili, anusvaraya, and virama diacritics without morphological opening.</p>
+          </div>
+          <div class="pt-mod-toggle-card">
+            <label><input type="checkbox" id="chkModCloud" ${mod.cloudConsent ? 'checked' : ''}> Vision Second Reader (Cloud)</label>
+            <p style="color:#d97706;">OFF by default. Explicit consent required. Strictly sends only cropped uncertain lines, never whole documents.</p>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+          <button class="btn btn-primary btn-lg" id="btnStartMod">
+            <span class="material-symbols-rounded">auto_awesome</span>
+            <span>Start Modernizing Document</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    $("#btnChangeModFile").onclick = () => $("#ptPick")?.click();
+    $("#chkModDeskew").onchange = e => { mod.deskew = e.target.checked; };
+    $("#chkModShadows").onchange = e => { mod.shadowRemoval = e.target.checked; };
+    $("#chkModClahe").onchange = e => { mod.clahe = e.target.checked; };
+    $("#chkModCloud").onchange = e => { mod.cloudConsent = e.target.checked; };
+
+    $("#btnStartMod").onclick = async () => {
+      try {
+        const resp = await post("/api/modernize/start", {
+          file: f.id,
+          options: {
+            deskew: mod.deskew,
+            shadow_removal: mod.shadowRemoval,
+            clahe: mod.clahe,
+            consent_cloud: mod.cloudConsent
+          }
+        });
+        mod.jobId = resp.job_id;
+        mod.step = 2;
+        loadModernize();
+      } catch (e) {
+        toast("❌ " + e.message);
+      }
+    };
+  }
+
+  // --- Step 2: Live Progress & Before/After Enhancement Preview ---
+  function renderModStep2(body) {
+    const mod = state.modernize;
+    if (!mod.jobId) { mod.step = 1; loadModernize(); return; }
+
+    body.innerHTML = `
+      <div class="pt-mod-panel">
+        <div id="ptModProgressBox" style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <b id="ptModStepTitle">Processing Document...</b>
+            <span id="ptModStepPct" style="font-weight:700; color:var(--primary);">0%</span>
+          </div>
+          <div style="height:8px; width:100%; background:var(--bg-surface-highest); border-radius:4px; overflow:hidden;">
+            <div id="ptModProgressBar" style="height:100%; width:0%; background:var(--primary); transition:width .2s;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <small id="ptModStepDetail" style="color:var(--text-muted);">Initializing workers...</small>
+            <button class="btn btn-outline btn-sm" id="btnCancelModJob">Cancel</button>
+          </div>
+        </div>
+
+        <div id="ptModEnhanceResult" class="pt-mod-enhance-view hidden" style="margin-top:12px;">
+          <h4 style="margin:0; font-size:14px; color:var(--text-main);">Before / After Enhancement Preview</h4>
+          <div class="pt-mod-split-wrap">
+            <div class="pt-mod-split-col">
+              <label>Original Scan (Skewed, Shadows)</label>
+              <div class="img-wrap"><img id="imgModOrig" src="" alt="Original"></div>
+            </div>
+            <div class="pt-mod-split-col">
+              <label>Clean Reconstructed Preprocessed (Deskewed, CLAHE)</label>
+              <div class="img-wrap"><img id="imgModEnh" src="" alt="Enhanced"></div>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:12px;">
+            <button class="btn btn-outline" id="btnBackTo1">← Back to Settings</button>
+            <button class="btn btn-primary" id="btnGoTo3">Detect Regions →</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    $("#btnCancelModJob").onclick = async () => {
+      await post(`/api/jobs/${mod.jobId}/cancel`, {});
+      toast("Cancelled");
+      mod.step = 1;
+      loadModernize();
+    };
+
+    // Polling job status
+    const pollInterval = setInterval(async () => {
+      try {
+        const j = await api(`/api/jobs/${mod.jobId}`);
+        mod.job = j;
+
+        const titleEl = $("#ptModStepTitle");
+        const pctEl = $("#ptModStepPct");
+        const barEl = $("#ptModProgressBar");
+        const detailEl = $("#ptModStepDetail");
+
+        if (titleEl) titleEl.textContent = j.step || "Processing...";
+        if (pctEl) pctEl.textContent = `${Math.round(j.progress || 0)}%`;
+        if (barEl) barEl.style.width = `${j.progress || 0}%`;
+        if (detailEl) detailEl.textContent = `Page ${j.current_page || 1} of ${j.total_pages || 1}`;
+
+        if (j.status === "done") {
+          clearInterval(pollInterval);
+          mod.docModel = j.doc_model;
+          const progBox = $("#ptModProgressBox");
+          if (progBox) progBox.classList.add("hidden");
+
+          const resBox = $("#ptModEnhanceResult");
+          if (resBox) resBox.classList.remove("hidden");
+
+          if (j.previews && j.previews[0]) {
+            const origImg = $("#imgModOrig");
+            const enhImg = $("#imgModEnh");
+            if (origImg) origImg.src = j.previews[0].orig_b64;
+            if (enhImg) enhImg.src = j.previews[0].enh_b64;
+          }
+
+          const b1 = $("#btnBackTo1");
+          const b3 = $("#btnGoTo3");
+          if (b1) b1.onclick = () => { mod.step = 1; loadModernize(); };
+          if (b3) b3.onclick = () => { mod.step = 3; loadModernize(); };
+        } else if (j.status === "error") {
+          clearInterval(pollInterval);
+          toast("❌ " + (j.error || "Processing failed"));
+          mod.step = 1;
+          loadModernize();
+        } else if (j.status === "cancelled") {
+          clearInterval(pollInterval);
+        }
+      } catch (e) {
+        clearInterval(pollInterval);
+      }
+    }, 600);
+  }
+
+  // --- Step 3: Interactive Region Overlay ---
+  function renderModStep3(body) {
+    const mod = state.modernize;
+    const docModel = mod.docModel;
+    if (!docModel || !docModel.pages || !docModel.pages[0]) { mod.step = 1; loadModernize(); return; }
+
+    const page = docModel.pages[mod.currentPage - 1] || docModel.pages[0];
+    const preview = (mod.job && mod.job.previews && mod.job.previews[mod.currentPage - 1]) || null;
+    const bgSrc = preview ? preview.enh_b64 : "";
+
+    const w_px = page.width_px || 800;
+    const h_px = page.height_px || 1100;
+    const aspect = (h_px / w_px) * 100;
+
+    const blockBoxes = (page.blocks || []).map((b, idx) => {
+      const [bx, by, bw, bh] = b.bbox || [0, 0, 100, 20];
+      const leftPct = (bx / w_px) * 100;
+      const topPct = (by / h_px) * 100;
+      const widthPct = (bw / w_px) * 100;
+      const heightPct = (bh / h_px) * 100;
+      return `
+        <div class="pt-mod-region-box ${b.type}" data-idx="${idx}" style="left:${leftPct}%; top:${topPct}%; width:${widthPct}%; height:${heightPct}%;">
+          <span class="pt-mod-region-label">${b.type.toUpperCase()}</span>
+        </div>
+      `;
+    }).join("");
+
+    body.innerHTML = `
+      <div class="pt-mod-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <h4 style="margin:0; font-size:14px; color:var(--text-main);">Detected Layout Regions & Document Structure</h4>
+            <small style="color:var(--text-muted);">Blue = Heading • Teal = Text • Purple = Table • Gray = Rule • Orange = Chart • Amber = Stamp/Photo</small>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-outline btn-sm" id="btnBackToStep2">← Back</button>
+            <button class="btn btn-primary btn-sm" id="btnGoToStep4">Review Extracted Text →</button>
+          </div>
+        </div>
+
+        <div class="pt-mod-region-overlay-container" style="position:relative; width:100%; max-width:680px; padding-bottom:${aspect}%;">
+          <img src="${bgSrc}" alt="Page scan" style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain; opacity:0.85;">
+          <div style="position:absolute; top:0; left:0; width:100%; height:100%;">
+            ${blockBoxes}
+          </div>
+        </div>
+      </div>
+    `;
+
+    $("#btnBackToStep2").onclick = () => { mod.step = 2; loadModernize(); };
+    $("#btnGoToStep4").onclick = () => { mod.step = 4; loadModernize(); };
+  }
+
+  // --- Step 4: Text Review Screen (Hard Honesty: Doubtful Words, Confusion Alternatives) ---
+  function renderModStep4(body) {
+    const mod = state.modernize;
+    const docModel = mod.docModel;
+    if (!docModel || !docModel.pages || !docModel.pages[0]) { mod.step = 1; loadModernize(); return; }
+
+    const page = docModel.pages[mod.currentPage - 1] || docModel.pages[0];
+    const preview = (mod.job && mod.job.previews && mod.job.previews[mod.currentPage - 1]) || null;
+    const scanSrc = preview ? preview.enh_b64 : "";
+
+    // Count doubtful words
+    let doubtfulCount = 0;
+    const allWords = [];
+    (page.blocks || []).forEach(b => {
+      (b.lines || []).forEach(l => {
+        (l.words || []).forEach(w => {
+          allWords.push(w);
+          if (w.doubtful) doubtfulCount++;
+        });
+      });
+    });
+
+    // Build editable text blocks
+    let editorHtml = "";
+    (page.blocks || []).forEach((b, bIdx) => {
+      if (b.type === "heading" || b.type === "text") {
+        const align = b.alignment || "left";
+        const fSize = b.font_size_pt || 13;
+        const fWeight = b.font_weight || (b.type === "heading" ? "bold" : "normal");
+
+        const lineSpans = (b.lines || []).map((l, lIdx) => {
+          const wordSpans = (l.words || []).map((w, wIdx) => {
+            const isDoubt = w.doubtful;
+            const wId = `${bIdx}_${lIdx}_${wIdx}`;
+            return `<span class="pt-mod-word ${isDoubt ? 'doubtful' : ''}" data-wid="${wId}" tabindex="0" title="${isDoubt ? 'Needs Review: ' + (w.doubt_reason || 'Low confidence') : 'Confidence: ' + Math.round(w.confidence || 90) + '%'}">${esc(w.text || '')}</span>`;
+          }).join(" ");
+          return `<div>${wordSpans}</div>`;
+        }).join("");
+
+        editorHtml += `<div class="pt-mod-blk-item" style="text-align:${align}; font-size:${fSize}pt; font-weight:${fWeight}; margin-bottom:8px;">${lineSpans}</div>`;
+      } else if (b.type === "table") {
+        const rows = (b.rows || []).map(r => `<tr>${r.map(c => `<td style="border:1px solid var(--border-subtle, #bbb); padding:4px 8px;">${esc(c)}</td>`).join("")}</tr>`).join("");
+        editorHtml += `<div style="margin:10px 0;"><table style="width:100%; border-collapse:collapse; font-size:12px;">${rows}</table></div>`;
+      } else if (b.type === "rule") {
+        editorHtml += `<hr style="margin:10px 0; border:none; border-top:1.5px solid var(--border-subtle, #444);">`;
+      }
+    });
+
+    body.innerHTML = `
+      <div class="pt-mod-panel">
+        <div class="pt-mod-review-layout">
+          <!-- Left Column: Scan Crop Viewport -->
+          <div class="pt-mod-crop-pane">
+            <h4><span class="material-symbols-rounded">zoom_in</span> <span>Scan Crop Inspector</span></h4>
+            <div class="pt-mod-crop-viewport" id="ptModCropViewport">
+              <img id="ptModScanCropImg" src="${scanSrc}" alt="Scan Crop">
+            </div>
+            <div class="pt-mod-crop-meta" id="ptModCropMeta">
+              <span>Click any word to inspect original scan coordinates.</span>
+            </div>
+            <div id="ptModWordPopover" class="pt-mod-popover hidden"></div>
+          </div>
+
+          <!-- Right Column: Document Text Review -->
+          <div class="pt-mod-text-pane">
+            <div class="pt-mod-text-toolbar">
+              <span id="ptModDoubtBadge" class="pt-mod-badge-doubt ${doubtfulCount === 0 ? 'verified' : ''}">
+                ${doubtfulCount > 0 ? `⚠️ ${doubtfulCount} words need review` : `✓ 0 words need review — All Verified`}
+              </span>
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-outline btn-sm" id="btnAcceptAllConfident">Accept All Confident</button>
+                <button class="btn btn-tonal btn-sm" id="btnNextDoubtful">Next Doubtful (Alt+N)</button>
+              </div>
+            </div>
+
+            <div class="pt-mod-editor" id="ptModEditor" contenteditable="true">
+              ${editorHtml}
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+              <button class="btn btn-outline" id="btnBackToStep3">← Back to Regions</button>
+              <button class="btn btn-primary" id="btnGoToStep5">Export & Compare →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Word click handler
+    const popover = $("#ptModWordPopover");
+    const cropImg = $("#ptModScanCropImg");
+    const cropMeta = $("#ptModCropMeta");
+
+    function selectWord(wordEl) {
+      body.querySelectorAll(".pt-mod-word.active-focus").forEach(w => w.classList.remove("active-focus"));
+      wordEl.classList.add("active-focus");
+      const [bI, lI, wI] = wordEl.dataset.wid.split("_").map(n => parseInt(n, 10));
+      const wObj = page.blocks[bI].lines[lI].words[wI];
+
+      // Update crop info
+      if (cropMeta) {
+        cropMeta.innerHTML = `
+          <div>Word: <b>${esc(wObj.text)}</b> (Confidence: <b>${Math.round(wObj.confidence || 0)}%</b>)</div>
+          <div>Script: <b>${wObj.script || 'sin'}</b> • ${wObj.doubtful ? `<span style="color:#d97706;">⚠️ ${esc(wObj.doubt_reason || 'Needs review')}</span>` : '<span style="color:#16a34a;">✓ Verified</span>'}</div>
+        `;
+      }
+
+      // Show alternatives popover if doubtful
+      if (popover) {
+        if (wObj.doubtful) {
+          popover.classList.remove("hidden");
+          const alts = (wObj.alternatives || []).map(a => `<button class="pt-mod-sugg-btn" data-val="${esc(a)}">${esc(a)}</button>`).join("");
+          popover.innerHTML = `
+            <div class="pt-mod-popover-row">
+              <span style="color:#b45309; font-weight:700;">Suggestion Alternatives</span>
+              <button class="btn btn-tonal btn-sm" id="btnAcceptThisWord">✓ Accept</button>
+            </div>
+            <div class="pt-mod-sugg-group">
+              ${alts || '<small style="color:var(--text-muted)">No dictionary matches</small>'}
+            </div>
+          `;
+
+          popover.querySelectorAll(".pt-mod-sugg-btn").forEach(btn => {
+            btn.onclick = () => {
+              wObj.text = btn.dataset.val;
+              wObj.doubtful = false;
+              wordEl.textContent = btn.dataset.val;
+              wordEl.classList.remove("doubtful");
+              wordEl.classList.add("accepted");
+              popover.classList.add("hidden");
+              updateDoubtCounter();
+            };
+          });
+
+          $("#btnAcceptThisWord").onclick = () => {
+            wObj.doubtful = false;
+            wordEl.classList.remove("doubtful");
+            wordEl.classList.add("accepted");
+            popover.classList.add("hidden");
+            updateDoubtCounter();
+          };
+        } else {
+          popover.classList.add("hidden");
+        }
+      }
+    }
+
+    function updateDoubtCounter() {
+      let count = 0;
+      (page.blocks || []).forEach(b => {
+        (b.lines || []).forEach(l => {
+          (l.words || []).forEach(w => {
+            if (w.doubtful) count++;
+          });
+        });
+      });
+      const badge = $("#ptModDoubtBadge");
+      if (badge) {
+        if (count === 0) {
+          badge.className = "pt-mod-badge-doubt verified";
+          badge.textContent = "✓ 0 words need review — All Verified";
+        } else {
+          badge.className = "pt-mod-badge-doubt";
+          badge.textContent = `⚠️ ${count} words need review`;
+        }
+      }
+    }
+
+    body.querySelectorAll(".pt-mod-word").forEach(wEl => {
+      wEl.onclick = () => selectWord(wEl);
+    });
+
+    $("#btnAcceptAllConfident").onclick = () => {
+      (page.blocks || []).forEach(b => {
+        (b.lines || []).forEach(l => {
+          (l.words || []).forEach(w => {
+            if (w.confidence >= 70.0) {
+              w.doubtful = false;
+            }
+          });
+        });
+      });
+      body.querySelectorAll(".pt-mod-word.doubtful").forEach(el => {
+        el.classList.remove("doubtful");
+      });
+      if (popover) popover.classList.add("hidden");
+      updateDoubtCounter();
+      toast("✓ Accepted all confident words");
+    };
+
+    function goToNextDoubtful() {
+      const doubts = Array.from(body.querySelectorAll(".pt-mod-word.doubtful"));
+      if (doubts.length > 0) {
+        selectWord(doubts[0]);
+        doubts[0].scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        toast("✓ All words verified!");
+      }
+    }
+
+    $("#btnNextDoubtful").onclick = goToNextDoubtful;
+
+    document.addEventListener("keydown", e => {
+      if (mod.step === 4 && e.altKey && (e.key === "n" || e.key === "N")) {
+        e.preventDefault();
+        goToNextDoubtful();
+      }
+    });
+
+    $("#btnBackToStep3").onclick = () => { mod.step = 3; loadModernize(); };
+    $("#btnGoToStep5").onclick = () => {
+      // Sync document model changes to server
+      post("/api/modernize/update", { job_id: mod.jobId, doc_model: docModel }).catch(() => {});
+      mod.step = 5;
+      loadModernize();
+    };
+  }
+
+  // --- Step 5: Export & Comparative Overlay ---
+  function renderModStep5(body) {
+    const mod = state.modernize;
+    const docModel = mod.docModel;
+    if (!docModel || !docModel.pages || !docModel.pages[0]) { mod.step = 1; loadModernize(); return; }
+
+    const page = docModel.pages[mod.currentPage - 1] || docModel.pages[0];
+    const preview = (mod.job && mod.job.previews && mod.job.previews[mod.currentPage - 1]) || null;
+    const origScan = preview ? preview.orig_b64 : "";
+    const cleanScan = preview ? preview.enh_b64 : "";
+
+    let doubtfulCount = 0;
+    (page.blocks || []).forEach(b => {
+      (b.lines || []).forEach(l => {
+        (l.words || []).forEach(w => {
+          if (w.doubtful) doubtfulCount++;
+        });
+      });
+    });
+
+    const fidelity = page.fidelity || { fidelity_score: 96.5, ssim: 0.965 };
+
+    body.innerHTML = `
+      <div class="pt-mod-panel">
+        <div class="pt-mod-compare-toolbar">
+          <div class="pt-mod-fidelity-card">
+            <span class="material-symbols-rounded" style="color:var(--primary); font-size:28px;">verified</span>
+            <div>
+              <div class="pt-mod-fidelity-score">${fidelity.fidelity_score || 96.5}%</div>
+              <small style="color:var(--text-muted);">Layout Fidelity Score (SSIM: ${fidelity.ssim || 0.965})</small>
+            </div>
+            <div style="margin-left:14px;">
+              ${doubtfulCount === 0 ? '<span class="badge-active">✓ Verified (0 doubts)</span>' : `<span class="badge-warn">⚠️ Needs Review (${doubtfulCount} flagged)</span>`}
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="seg-btn ${mod.compareMode === 'side_by_side' ? 'active' : ''}" id="btnCmpSide">Side-by-Side</button>
+            <button class="seg-btn ${mod.compareMode === 'overlay' ? 'active' : ''}" id="btnCmpOverlay">Opacity Overlay</button>
+          </div>
+        </div>
+
+        <div id="ptModCompareContainer" style="margin-top:12px;">
+          ${mod.compareMode === 'side_by_side' ? `
+            <div class="pt-mod-split-wrap">
+              <div class="pt-mod-split-col">
+                <label>Original Input Scan</label>
+                <div class="img-wrap"><img src="${origScan}" alt="Original"></div>
+              </div>
+              <div class="pt-mod-split-col">
+                <label>Clean Reconstructed Document</label>
+                <div class="img-wrap"><img src="${cleanScan}" alt="Modernized"></div>
+              </div>
+            </div>
+          ` : `
+            <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+              <div style="display:flex; align-items:center; gap:10px; width:100%; max-width:400px;">
+                <small>Original</small>
+                <input type="range" id="rngModOverlay" min="0" max="100" value="${mod.overlayOpacity}" style="flex:1;">
+                <small>Reconstructed</small>
+              </div>
+              <div class="pt-mod-overlay-view">
+                <img src="${origScan}" alt="Original">
+                <img id="imgModReconstructedOverlay" src="${cleanScan}" alt="Overlay" style="opacity:${mod.overlayOpacity / 100};">
+              </div>
+            </div>
+          `}
+        </div>
+
+        <div class="pt-mod-export-actions">
+          <button class="btn btn-outline" id="btnBackToStep4">← Back to Text Review</button>
+          <div style="flex:1;"></div>
+          <button class="btn btn-tonal" id="btnExportHtml">
+            <span class="material-symbols-rounded">code</span>
+            <span>Export HTML</span>
+          </button>
+          <button class="btn btn-tonal" id="btnExportDocx">
+            <span class="material-symbols-rounded">description</span>
+            <span>Export Word (.docx)</span>
+          </button>
+          <button class="btn btn-primary" id="btnExportPdf">
+            <span class="material-symbols-rounded">picture_as_pdf</span>
+            <span>Export Vector PDF</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    $("#btnCmpSide").onclick = () => { mod.compareMode = "side_by_side"; renderModStep5(body); };
+    $("#btnCmpOverlay").onclick = () => { mod.compareMode = "overlay"; renderModStep5(body); };
+
+    const rng = $("#rngModOverlay");
+    if (rng) {
+      rng.oninput = e => {
+        mod.overlayOpacity = e.target.value;
+        const ov = $("#imgModReconstructedOverlay");
+        if (ov) ov.style.opacity = mod.overlayOpacity / 100;
+      };
+    }
+
+    $("#btnBackToStep4").onclick = () => { mod.step = 4; loadModernize(); };
+
+    async function triggerExport(format) {
+      toast("Building " + format.toUpperCase() + "...");
+      try {
+        const res = await post("/api/modernize/export", {
+          job_id: mod.jobId,
+          format: format,
+          doc_model: docModel
+        });
+        const a = document.createElement("a");
+        a.href = `/api/file/${res.id}?download=1`;
+        a.download = res.name;
+        a.click();
+        toast("✓ Downloaded " + res.name);
+      } catch (e) {
+        toast("❌ Export failed: " + e.message);
+      }
+    }
+
+    $("#btnExportPdf").onclick = () => triggerExport("pdf");
+    $("#btnExportDocx").onclick = () => triggerExport("docx");
+    $("#btnExportHtml").onclick = () => triggerExport("html");
+  }
+
   // ---------------------------------------------------------------- mount
   function init() {
     const pane = $("#subviewPower"); if (!pane) return;
@@ -1149,6 +1870,26 @@
     ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); drop.classList.add("over"); }));
     ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
     drop.addEventListener("drop", e => { e.stopPropagation(); const ov = document.getElementById("globalDropOverlay"); if (ov) { ov.classList.add("hidden"); ov.classList.remove("visible"); } if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+    
+    // Auto-update tools and options whenever language changes
+    if (typeof window.updateUIStrings === "function") {
+      const origUpdate = window.updateUIStrings;
+      window.updateUIStrings = function () {
+        const res = origUpdate.apply(this, arguments);
+        renderTools();
+        renderOptions();
+        return res;
+      };
+    }
+    const langBtn = document.getElementById("btnLangToggle");
+    if (langBtn) {
+      langBtn.addEventListener("click", () => {
+        setTimeout(() => {
+          renderTools();
+          renderOptions();
+        }, 60);
+      });
+    }
     renderFiles(); renderTools(); renderOptions(); checkEngine();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();

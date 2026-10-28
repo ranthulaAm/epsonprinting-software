@@ -1,13 +1,31 @@
 #!/usr/bin/env python3
 """Print Helper local PDF server.  Run:  python3 pdf_engine/server.py   then open http://localhost:8080
 Serves the web preview and a JSON API. Everything stays on your computer."""
-import io, json, os, sys, threading, uuid, zipfile, mimetypes, traceback, collections
+import io, json, os, sys, threading, uuid, zipfile, mimetypes, traceback, collections, base64
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Ensure workspace root is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 import engine
-from engine import PdfError
+from engine import PdfError, PDFIUM_LOCK
+
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception:
+    pass
+
+import preprocess
+import layout_analyzer
+import ocr_engine
+import renderer
+import fidelity
+from PIL import Image, ImageSequence
+
+JOBS = {}       # job_id -> dict
+JOBS_LOCK = threading.Lock()
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAX_UPLOAD = 300 * 1024 * 1024
@@ -33,8 +51,46 @@ def describe(fid):
         except PdfError as e:
             base.update({"kind": "pdf", "pages": 0, "error": str(e)})
     else:
-        base.update({"kind": "other", "pages": 0})
+        try:
+            with Image.open(io.BytesIO(d)) as img:
+                n_frames = getattr(img, "n_frames", 1)
+                page_sizes = []
+                for idx in range(min(50, n_frames)):
+                    try:
+                        img.seek(idx)
+                        page_sizes.append([round(img.width * 72 / 150, 2), round(img.height * 72 / 150, 2)])
+                    except Exception:
+                        page_sizes.append([595.28, 841.89])
+                base.update({
+                    "kind": "image",
+                    "format": (img.format or "image").lower(),
+                    "pages": n_frames,
+                    "page_sizes": page_sizes
+                })
+        except Exception:
+            base.update({"kind": "other", "pages": 0})
     return base
+
+def ensure_pdf(fid, files_dict=None):
+    """Wraps an uploaded image (or multi-frame image) as a PDF in memory."""
+    d = FILES[fid]
+    if d[:4] == b"%PDF" or d[:1024].find(b"%PDF") >= 0:
+        return d
+    try:
+        with Image.open(io.BytesIO(d)) as img:
+            frames = []
+            for frame in ImageSequence.Iterator(img):
+                frames.append(frame.convert("RGB"))
+            if frames:
+                buf = io.BytesIO()
+                frames[0].save(buf, format="PDF", save_all=True, append_images=frames[1:])
+                pdf_data = buf.getvalue()
+                if files_dict is not None:
+                    files_dict[fid] = pdf_data
+                return pdf_data
+    except Exception as e:
+        print(f"Error wrapping image {fid} as PDF: {e}")
+    return d
 
 def out_name(src_id, suffix, ext="pdf"):
     stem = os.path.splitext(NAMES.get(src_id, "document"))[0]
@@ -43,7 +99,7 @@ def out_name(src_id, suffix, ext="pdf"):
 def run_op(op, fids, o):
     pw = lambda f: PWS.get(f, "")
     pws = {f: pw(f) for f in fids}
-    files = {f: FILES[f] for f in fids}
+    files = {f: ensure_pdf(f) for f in fids}
     f0 = fids[0] if fids else None
     res = []   # list of (name, bytes, msg)
     msg = ""
@@ -140,6 +196,106 @@ def run_op(op, fids, o):
         results.append(describe(fid))
     return {"results": results, "message": msg or "Done"}
 
+def run_modernize_worker(job_id, fid, opts):
+    import cv2
+    try:
+        raw_data = FILES.get(fid)
+        if not raw_data:
+            with JOBS_LOCK:
+                JOBS[job_id]["status"] = "error"
+                JOBS[job_id]["error"] = "Input file not found"
+            return
+
+        is_pdf = (raw_data[:4] == b"%PDF" or raw_data[:1024].find(b"%PDF") >= 0)
+        page_images = []
+
+        if is_pdf:
+            import pypdfium2 as pdfium
+            with PDFIUM_LOCK:
+                doc = pdfium.PdfDocument(raw_data, password=PWS.get(fid, "") or None)
+                n_pages = len(doc)
+                for i in range(n_pages):
+                    pil_img = doc[i].render(scale=150 / 72.0).to_pil().convert("RGB")
+                    page_images.append(pil_img)
+                doc.close()
+        else:
+            with Image.open(io.BytesIO(raw_data)) as img:
+                for frame in ImageSequence.Iterator(img):
+                    page_images.append(frame.convert("RGB"))
+
+        total_pages = len(page_images)
+        with JOBS_LOCK:
+            JOBS[job_id]["total_pages"] = total_pages
+
+        ensemble = ocr_engine.MultiEngineEnsemble()
+        doc_pages = []
+        previews = []
+
+        for p_idx, pil_img in enumerate(page_images):
+            with JOBS_LOCK:
+                if JOBS[job_id].get("cancelled"):
+                    JOBS[job_id]["status"] = "cancelled"
+                    return
+                JOBS[job_id]["current_page"] = p_idx + 1
+                JOBS[job_id]["step"] = f"Enhancing & deskewing page {p_idx + 1} of {total_pages}"
+                JOBS[job_id]["progress"] = round((p_idx / max(1, total_pages)) * 100, 1)
+
+            # 1. Preprocess
+            prep_res = preprocess.preprocess_document_page(pil_img)
+            clean_bgr = prep_res["clean_bgr"]
+
+            # Save preview before/after
+            _, orig_buf = cv2.imencode(".jpg", prep_res["orig_bgr"], [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+            _, enh_buf = cv2.imencode(".jpg", clean_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+            previews.append({
+                "page": p_idx + 1,
+                "orig_b64": f"data:image/jpeg;base64,{base64.b64encode(orig_buf).decode('ascii')}",
+                "enh_b64": f"data:image/jpeg;base64,{base64.b64encode(enh_buf).decode('ascii')}"
+            })
+
+            with JOBS_LOCK:
+                JOBS[job_id]["step"] = f"Analyzing layout & reading lines for page {p_idx + 1} of {total_pages}"
+
+            # 2. Layout Analysis
+            page_layout = layout_analyzer.analyze_document_layout(clean_bgr, dpi=150)
+            page_layout["page_num"] = p_idx + 1
+
+            # 3. Line OCR & Word Verification
+            for blk in page_layout["blocks"]:
+                if blk["type"] in ("heading", "text"):
+                    for ln in blk.get("lines", []):
+                        lx, ly, lw, lh = ln["bbox"]
+                        line_crop = clean_bgr[ly:ly+lh, lx:lx+lw]
+                        if line_crop.size > 0:
+                            crop_pil = Image.fromarray(cv2.cvtColor(line_crop, cv2.COLOR_BGR2RGB))
+                            words = ensemble.process_line(crop_pil)
+                            ln["words"] = words
+
+            # 4. Evaluate fidelity
+            eval_res = fidelity.evaluate_fidelity(prep_res["orig_bgr"], clean_bgr, page_layout["blocks"])
+            page_layout["fidelity"] = eval_res
+            doc_pages.append(page_layout)
+
+        doc_model = {
+            "version": "1.0",
+            "doc_id": "mod_" + uuid.uuid4().hex[:8],
+            "file_name": NAMES.get(fid, "document.pdf"),
+            "pages": doc_pages
+        }
+
+        with JOBS_LOCK:
+            JOBS[job_id]["status"] = "done"
+            JOBS[job_id]["progress"] = 100.0
+            JOBS[job_id]["doc_model"] = doc_model
+            JOBS[job_id]["previews"] = previews
+            JOBS[job_id]["step"] = "Complete"
+
+    except Exception as e:
+        traceback.print_exc()
+        with JOBS_LOCK:
+            JOBS[job_id]["status"] = "error"
+            JOBS[job_id]["error"] = str(e)
+
 class H(BaseHTTPRequestHandler):
     server_version = "PrintHelperPDF/1.0"
     def log_message(self, fmt, *a):
@@ -161,7 +317,22 @@ class H(BaseHTTPRequestHandler):
         u = urlparse(self.path); path = unquote(u.path)
         try:
             if path == "/api/health":
-                return self._json({"ok": True, "ocr_langs": engine.available_ocr_langs()})
+                langs = engine.available_ocr_langs()
+                has_sin = "sin" in langs
+                return self._json({
+                    "ok": True,
+                    "installed_engines": ["tesseract", "local_sinhala", "cloud_vision"],
+                    "ocr_langs": langs,
+                    "has_sin": has_sin,
+                    "setup_cmd_mac": "brew install tesseract tesseract-lang, then put tessdata_best sin.traineddata in the tessdata folder"
+                })
+            if path.startswith("/api/jobs/"):
+                job_id = path.split("/")[3]
+                with JOBS_LOCK:
+                    job = JOBS.get(job_id)
+                if not job:
+                    return self._json({"error": "Job not found"}, 404)
+                return self._json(job)
             if path.startswith("/api/file/"):
                 parts = path.split("/")
                 if len(parts) < 4: return self._json({"error": "File not found"}, 404)
@@ -196,11 +367,26 @@ class H(BaseHTTPRequestHandler):
                         cached = None
                 
                 if cached is None:
-                    pw = PWS.get(fid, "")
-                    img = engine.render_thumb((fid, pw), FILES[fid], page_idx, w, pw)
-                    b = io.BytesIO()
-                    img.save(b, "PNG")
-                    cached = b.getvalue()
+                    raw_d = FILES[fid]
+                    if not (raw_d[:4] == b"%PDF" or raw_d[:1024].find(b"%PDF") >= 0):
+                        with Image.open(io.BytesIO(raw_d)) as im:
+                            n_fr = getattr(im, "n_frames", 1)
+                            if page_idx < 0 or page_idx >= n_fr:
+                                page_idx = 0
+                            im.seek(page_idx)
+                            im_rgb = im.convert("RGB")
+                            scale = w / max(1, im_rgb.width)
+                            new_h = max(1, int(im_rgb.height * scale))
+                            thumb_im = im_rgb.resize((w, new_h), Image.Resampling.BILINEAR)
+                            b = io.BytesIO()
+                            thumb_im.save(b, "PNG")
+                            cached = b.getvalue()
+                    else:
+                        pw = PWS.get(fid, "")
+                        img = engine.render_thumb((fid, pw), FILES[fid], page_idx, w, pw)
+                        b = io.BytesIO()
+                        img.save(b, "PNG")
+                        cached = b.getvalue()
                     with LOCK:
                         THUMBS[key] = cached
                         while len(THUMBS) > 800:
@@ -265,6 +451,74 @@ class H(BaseHTTPRequestHandler):
             if path == "/api/op":
                 j = json.loads(body)
                 return self._json(run_op(j["op"], j.get("files", []), j.get("options", {})))
+            if path.startswith("/api/jobs/") and path.endswith("/cancel"):
+                job_id = path.split("/")[3]
+                with JOBS_LOCK:
+                    if job_id in JOBS:
+                        JOBS[job_id]["cancelled"] = True
+                return self._json({"ok": True})
+            if path == "/api/modernize/start":
+                j = json.loads(body)
+                fid = j.get("file")
+                if not fid or fid not in FILES:
+                    return self._json({"error": "Invalid file"}, 400)
+                opts = j.get("options", {})
+                job_id = "job_" + uuid.uuid4().hex[:10]
+                with JOBS_LOCK:
+                    JOBS[job_id] = {
+                        "id": job_id,
+                        "file_id": fid,
+                        "status": "processing",
+                        "progress": 0.0,
+                        "step": "Starting modernization...",
+                        "current_page": 1,
+                        "total_pages": 1,
+                        "doc_model": None,
+                        "previews": [],
+                        "error": None,
+                        "cancelled": False
+                    }
+                t = threading.Thread(target=run_modernize_worker, args=(job_id, fid, opts), daemon=True)
+                t.start()
+                return self._json({"job_id": job_id, "status": "processing"})
+            if path == "/api/modernize/update":
+                j = json.loads(body)
+                job_id = j.get("job_id")
+                new_model = j.get("doc_model")
+                with JOBS_LOCK:
+                    if job_id in JOBS and new_model:
+                        JOBS[job_id]["doc_model"] = new_model
+                        return self._json({"ok": True})
+                return self._json({"error": "Job or model not found"}, 404)
+            if path == "/api/modernize/export":
+                j = json.loads(body)
+                job_id = j.get("job_id")
+                fmt = j.get("format", "pdf").lower()
+                doc_m = j.get("doc_model")
+                if not doc_m:
+                    with JOBS_LOCK:
+                        job = JOBS.get(job_id)
+                        if job:
+                            doc_m = job.get("doc_model")
+                if not doc_m:
+                    return self._json({"error": "Document model not found"}, 404)
+
+                src_name = doc_m.get("file_name", "document.pdf")
+                stem = os.path.splitext(src_name)[0]
+
+                if fmt == "docx":
+                    out_bytes = renderer.export_docx(doc_m)
+                    out_filename = f"{stem}_modernized.docx"
+                elif fmt == "html":
+                    out_html = renderer.generate_document_html(doc_m, standalone=True)
+                    out_bytes = out_html.encode("utf-8")
+                    out_filename = f"{stem}_modernized.html"
+                else: # pdf
+                    out_bytes = renderer.export_pdf(doc_m)
+                    out_filename = f"{stem}_modernized.pdf"
+
+                new_fid = new_id(out_bytes, out_filename)
+                return self._json(describe(new_fid))
             if path == "/api/forget":
                 j = json.loads(body)
                 for f in j.get("ids", []):

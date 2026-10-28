@@ -5165,7 +5165,93 @@ body {
 .pt-outfile{display:flex;gap:8px;align-items:center;padding:8px;border-radius:10px;background:var(--bg-surface);margin-bottom:6px;flex-wrap:wrap}
 
 /* ---- Organize Pages (Full-width, large thumbnails, multi-selection, drag/drop) ---- */
-.pt-work.pt-work-organize{grid-template-columns:1fr !important}
+.pt-work.pt-work-organize, .pt-work.pt-work-modernize{grid-template-columns:1fr !important}
+
+/* ---- Modernize Studio (Old Document -> New Document) ---- */
+.pt-mod-wrap{display:flex;flex-direction:column;gap:14px;width:100%}
+.pt-mod-header{display:flex;flex-direction:column;gap:6px;padding:14px 18px;background:var(--bg-surface);border:1px solid var(--border-subtle, rgba(128,128,128,0.2));border-radius:12px}
+.pt-mod-header h2{font-size:18px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px;color:var(--text-main)}
+.pt-mod-header p{font-size:13px;color:var(--text-muted);margin:0}
+
+/* Wizard Stepper */
+.pt-mod-stepper{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle, rgba(128,128,128,0.15));overflow-x:auto}
+.pt-mod-step{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text-muted);padding:6px 10px;border-radius:8px;background:var(--bg-surface-highest, rgba(128,128,128,0.08));cursor:pointer;white-space:nowrap;transition:all .15s}
+.pt-mod-step.active{color:var(--primary);background:rgba(11,87,208,.12);box-shadow:inset 0 0 0 1px var(--primary)}
+.pt-mod-step.completed{color:var(--text-main);background:rgba(46,160,67,.1)}
+.pt-mod-step-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:currentColor;color:var(--bg-surface);font-size:11px;font-weight:700}
+.pt-mod-step.active .pt-mod-step-num{background:var(--primary);color:#fff}
+.pt-mod-step.completed .pt-mod-step-num{background:#16a34a;color:#fff}
+
+/* Step 1: Add Scans & Settings */
+.pt-mod-panel{display:flex;flex-direction:column;gap:14px;padding:16px;background:var(--bg-surface);border:1px solid var(--border-subtle, rgba(128,128,128,0.2));border-radius:12px}
+.pt-mod-filecard{display:flex;align-items:center;gap:16px;padding:12px 14px;border-radius:10px;background:var(--bg-surface-container, rgba(128,128,128,0.06));border:1px solid var(--border-subtle, rgba(128,128,128,0.15))}
+.pt-mod-filethumb{width:64px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border-subtle, rgba(128,128,128,0.2))}
+.pt-mod-fileinfo{display:flex;flex-direction:column;gap:4px;flex:1}
+.pt-mod-fileinfo b{font-size:14px;color:var(--text-main)}
+.pt-mod-fileinfo small{font-size:12px;color:var(--text-muted)}
+.pt-mod-grid-settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:8px 0}
+.pt-mod-toggle-card{display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:10px;background:var(--bg-surface-container, rgba(128,128,128,0.04));border:1px solid var(--border-subtle, rgba(128,128,128,0.15))}
+.pt-mod-toggle-card label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text-main);cursor:pointer}
+.pt-mod-toggle-card p{font-size:11px;color:var(--text-muted);margin:0 0 0 24px}
+
+/* Step 2: Enhance Before/After */
+.pt-mod-enhance-view{display:flex;flex-direction:column;gap:12px}
+.pt-mod-split-container{position:relative;width:100%;height:440px;background:#1e1e1e;border-radius:10px;overflow:hidden;display:flex;justify-content:center;align-items:center}
+.pt-mod-enhance-img{max-height:100%;max-width:100%;object-fit:contain}
+.pt-mod-split-wrap{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}
+.pt-mod-split-col{display:flex;flex-direction:column;gap:6px;align-items:center}
+.pt-mod-split-col label{font-size:12px;font-weight:700;color:var(--text-muted)}
+.pt-mod-split-col .img-wrap{width:100%;height:400px;background:#111;border-radius:8px;overflow:hidden;display:flex;justify-content:center;align-items:center;border:1px solid var(--border-subtle, rgba(128,128,128,0.2))}
+.pt-mod-split-col img{max-height:100%;max-width:100%;object-fit:contain}
+
+/* Step 3: Region Detector Overlay */
+.pt-mod-region-overlay-container{position:relative;max-width:700px;margin:0 auto;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.1);overflow:hidden}
+.pt-mod-region-box{position:absolute;box-sizing:border-box;border:2px solid;border-radius:4px;cursor:pointer;transition:transform .1s, background-color .15s}
+.pt-mod-region-box:hover{transform:scale(1.01);background-color:rgba(255,255,255,0.2)}
+.pt-mod-region-box.heading{border-color:#2563eb;background-color:rgba(37,99,235,0.12)}
+.pt-mod-region-box.text{border-color:#0891b2;background-color:rgba(8,145,178,0.08)}
+.pt-mod-region-box.table{border-color:#7c3aed;background-color:rgba(124,58,237,0.12)}
+.pt-mod-region-box.rule{border-color:#374151;background-color:rgba(55,65,81,0.2)}
+.pt-mod-region-box.chart{border-color:#ea580c;background-color:rgba(234,88,12,0.14)}
+.pt-mod-region-box.photo, .pt-mod-region-box.stamp{border-color:#d97706;background-color:rgba(217,119,6,0.15)}
+.pt-mod-region-label{position:absolute;top:-18px;left:0;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;color:#fff;background:inherit;white-space:nowrap}
+
+/* Step 4: Review Screen */
+.pt-mod-review-layout{display:grid;grid-template-columns:320px 1fr;gap:16px;min-height:500px}
+.pt-mod-crop-pane{display:flex;flex-direction:column;gap:8px;background:var(--bg-surface-container, rgba(128,128,128,0.06));border:1px solid var(--border-subtle, rgba(128,128,128,0.2));border-radius:10px;padding:12px}
+.pt-mod-crop-pane h4{margin:0;font-size:13px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:6px}
+.pt-mod-crop-viewport{width:100%;height:280px;background:#18181b;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-subtle, rgba(128,128,128,0.2))}
+.pt-mod-crop-viewport img{max-width:100%;max-height:100%;object-fit:contain}
+.pt-mod-crop-meta{font-size:12px;color:var(--text-muted);display:flex;flex-direction:column;gap:4px;padding:6px;background:var(--bg-surface);border-radius:6px}
+
+.pt-mod-text-pane{display:flex;flex-direction:column;gap:10px;background:var(--bg-surface);border:1px solid var(--border-subtle, rgba(128,128,128,0.2));border-radius:10px;padding:14px}
+.pt-mod-text-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--border-subtle, rgba(128,128,128,0.15));flex-wrap:wrap}
+.pt-mod-badge-doubt{font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;background:#fef3c7;color:#92400e}
+.pt-mod-badge-doubt.verified{background:#dcfce7;color:#166534}
+
+.pt-mod-editor{display:flex;flex-direction:column;gap:12px;max-height:480px;overflow-y:auto;padding:14px;background:var(--bg-surface-highest, rgba(128,128,128,0.04));border-radius:8px;font-family:"Noto Sans Sinhala", "Sinhala MN", -apple-system, sans-serif;font-size:14px;line-height:1.6}
+.pt-mod-word{display:inline-block;padding:1px 3px;margin:0 1px;border-radius:3px;cursor:pointer;transition:all .15s}
+.pt-mod-word:hover{background:rgba(11,87,208,.15)}
+.pt-mod-word.active-focus{background:rgba(11,87,208,.25);box-shadow:0 0 0 1px var(--primary)}
+.pt-mod-word.doubtful{background:#fef08a;color:#713f12;box-shadow:0 0 0 1px #eab308}
+.pt-mod-word.accepted{background:transparent !important;color:inherit !important;box-shadow:none !important}
+
+/* Popover for Doubtful word */
+.pt-mod-popover{margin-top:8px;padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border-subtle, rgba(128,128,128,0.25));border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.15);display:flex;flex-direction:column;gap:6px}
+.pt-mod-popover-row{display:flex;align-items:center;justify-content:space-between;font-size:12px;gap:8px}
+.pt-mod-sugg-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px}
+.pt-mod-sugg-btn{font-size:12px;padding:3px 8px;border-radius:4px;border:1px solid var(--primary);background:rgba(11,87,208,.08);color:var(--primary);cursor:pointer}
+.pt-mod-sugg-btn:hover{background:var(--primary);color:#fff}
+
+/* Step 5: Export & Overlay Comparison */
+.pt-mod-export-panel{display:flex;flex-direction:column;gap:16px}
+.pt-mod-compare-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pt-mod-fidelity-card{display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:8px;background:rgba(11,87,208,.08);border:1px solid rgba(11,87,208,.2)}
+.pt-mod-fidelity-score{font-size:20px;font-weight:800;color:var(--primary)}
+.pt-mod-overlay-view{position:relative;width:100%;max-width:700px;margin:0 auto;height:520px;border-radius:10px;overflow:hidden;border:1px solid var(--border-subtle, rgba(128,128,128,0.2))}
+.pt-mod-overlay-view img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain}
+.pt-mod-export-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-top:14px;border-top:1px solid var(--border-subtle, rgba(128,128,128,0.15))}
+
 .pt-org-wrap{display:flex;flex-direction:column;gap:12px;width:100%}
 .pt-org-toolbar{display:flex;flex-direction:column;gap:10px;padding:12px;background:var(--bg-surface);border:1px solid var(--border-subtle, rgba(128,128,128,0.2));border-radius:12px}
 .pt-org-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
