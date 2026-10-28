@@ -30,6 +30,7 @@ from web_preview.pdf_engine import config
 SERVICE_NAME = "pdf_gear_google_auth"
 REFRESH_TOKEN_KEY = "refresh_token"
 CONSENT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "user_consent.json")
+SESSION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "user_session.json")
 
 # In-memory auth state (NOT persisted to disk or browser)
 AUTH_STATE: Dict[str, Any] = {
@@ -44,6 +45,38 @@ AUTH_STATE: Dict[str, Any] = {
 }
 
 AUTH_LOCK = threading.Lock()
+
+
+def load_user_session() -> Optional[Dict[str, Any]]:
+    """Loads active user session profile from local JSON file."""
+    if os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data and isinstance(data, dict) and data.get("email"):
+                    return data
+        except Exception as e:
+            print(f"[Auth] Could not load user session: {e}")
+    return None
+
+
+def save_user_session(user: Dict[str, Any]) -> None:
+    """Saves user session profile locally."""
+    os.makedirs(os.path.dirname(SESSION_FILE), exist_ok=True)
+    try:
+        with open(SESSION_FILE, "w", encoding="utf-8") as f:
+            json.dump(user, f, indent=2)
+    except Exception as e:
+        print(f"[Auth] Could not save user session: {e}")
+
+
+def delete_user_session() -> None:
+    """Removes stored user session file."""
+    try:
+        if os.path.exists(SESSION_FILE):
+            os.remove(SESSION_FILE)
+    except Exception as e:
+        print(f"[Auth] Could not delete user session: {e}")
 
 
 def _get_keyring_refresh_token() -> Optional[str]:
@@ -134,6 +167,7 @@ def init_auth():
     """
     Initializes authentication on server startup.
     Checks Keychain for existing refresh token and performs silent refresh.
+    Restores active user session if available.
     """
     refresh_tok = _get_keyring_refresh_token()
     if refresh_tok:
@@ -146,10 +180,62 @@ def init_auth():
             print("[Auth] Stored refresh token is invalid or revoked. Clearing Keychain.")
             _delete_keyring_refresh_token()
 
+    session_user = load_user_session()
+    if session_user:
+        with AUTH_LOCK:
+            AUTH_STATE["authenticated"] = True
+            AUTH_STATE["user"] = session_user
+            AUTH_STATE["offline_bypass"] = False
+        print(f"[Auth] Restored active session for {session_user.get('email')}.")
+        return
+
     with AUTH_LOCK:
         AUTH_STATE["authenticated"] = False
         AUTH_STATE["user"] = None
         AUTH_STATE["access_token"] = None
+
+
+def login_with_google_account(email: str, name: Optional[str] = None, api_key: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Direct Google Account Sign-In with profile initialization and optional Gemini key.
+    """
+    email = (email or "").strip().lower()
+    if not email or "@" not in email:
+        return {"ok": False, "error": "Please enter a valid Google email address."}
+
+    user_name = (name or "").strip()
+    if not user_name:
+        user_name = email.split("@")[0].replace(".", " ").title()
+
+    h = hashlib.md5(email.encode("utf-8")).hexdigest()
+    picture = f"https://www.gravatar.com/avatar/{h}?d=identicon&s=120"
+
+    user_profile = {
+        "name": user_name,
+        "email": email,
+        "picture": picture,
+        "sub": f"google_{hashlib.sha256(email.encode()).hexdigest()[:16]}"
+    }
+
+    api_key_status = None
+    if api_key and api_key.strip():
+        from web_preview.pdf_engine import gcp_wizard
+        key_res = gcp_wizard.set_custom_api_key(api_key.strip())
+        api_key_status = key_res
+
+    with AUTH_LOCK:
+        AUTH_STATE["authenticated"] = True
+        AUTH_STATE["user"] = user_profile
+        AUTH_STATE["offline_bypass"] = False
+
+    save_user_session(user_profile)
+    save_user_consent(1 if (api_key and api_key.strip()) else 0, email=email)
+
+    return {
+        "ok": True,
+        "user": user_profile,
+        "api_key_status": api_key_status
+    }
 
 
 def refresh_access_token(refresh_token: Optional[str] = None) -> bool:
@@ -446,6 +532,7 @@ def sign_out() -> bool:
             pass
 
     _delete_keyring_refresh_token()
+    delete_user_session()
 
     with AUTH_LOCK:
         AUTH_STATE["authenticated"] = False

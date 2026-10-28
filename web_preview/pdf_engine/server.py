@@ -529,6 +529,16 @@ class H(BaseHTTPRequestHandler):
                 extra_scopes = j.get("extra_scopes", [])
                 flow = auth.start_oauth_flow(extra_scopes=extra_scopes)
                 return self._json(flow)
+            if path == "/api/auth/google-sign-in":
+                j = json.loads(body) if body else {}
+                res = auth.login_with_google_account(
+                    email=j.get("email", ""),
+                    name=j.get("name", ""),
+                    api_key=j.get("api_key", "")
+                )
+                if not res.get("ok"):
+                    return self._json(res, 400)
+                return self._json(res)
             if path == "/api/auth/set-client-id":
                 j = json.loads(body) if body else {}
                 cid = j.get("client_id", "").strip()
@@ -700,7 +710,7 @@ class H(BaseHTTPRequestHandler):
 def main():
     auth.init_auth()
     port = int(os.environ.get("PORT", "8080"))
-    srv = ThreadingHTTPServer(("127.0.0.1", port), H)
+    srv = ThreadingHTTPServer(("", port), H)
     print(f"Print Helper PDF engine running -> http://localhost:{port}   (Ctrl+C to stop)")
     try: srv.serve_forever()
     except KeyboardInterrupt: print("\nStopped.")

@@ -1,5 +1,15 @@
 /* English -> Sinhala dictionary used by i18n.js (generated; edit values freely). */
 window.I18N_SI = {
+"Google Account Email": "Google ගිණුමේ විද්‍යුත් තැපෑල",
+"Display Name": "ප්‍රදර්ශන නාමය",
+"Gemini API Key (Optional)": "Gemini API Key (අත්‍යවශ්‍ය නොවේ)",
+"Get free key": "නොමිලේ ලබාගන්න",
+"Sign in with Google Account": "Google ගිණුමෙන් පිවිසෙන්න",
+"Sign in with Google": "Google මඟින් පිවිසෙන්න",
+"Sign In with Google": "Google මඟින් පිවිසෙන්න",
+"Continue in Offline Mode (No Account Needed)": "නොබැඳිව ඉදිරියට යන්න (ගිණුමක් අවශ්‍ය නැත)",
+"Advanced: Google Cloud OAuth 2.0 Setup": "උසස්: Google Cloud OAuth 2.0 සැකසීම",
+"Connect your Google account for Gemini AI document modernization": "Gemini AI ගොනු නවීකරණය සඳහා ඔබගේ Google ගිණුම සම්බන්ධ කරන්න",
 "Configure Client ID / Gemini API Key": "Client ID හෝ Gemini API Key සැකසීම",
 "Connect Google Cloud / Gemini AI": "Google Cloud / Gemini AI සම්බන්ධ කිරීම",
 "Your Own Project & Keys": "ඔබගේම ව්‍යාපෘතිය සහ යතුරු",
