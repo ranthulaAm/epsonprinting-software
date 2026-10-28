@@ -138,6 +138,12 @@ def validate_entity_regex(token: str) -> tuple[bool, str]:
     return True, ""
 
 
+def check_common_entities(word: str) -> dict:
+    """Convenience wrapper for entity regex validation."""
+    ok, reason = validate_entity_regex(word)
+    return {"valid": ok, "failed_format": reason if not ok else None}
+
+
 def inspect_word(word: str) -> dict:
     """
     Performs full validity inspection of a single word.

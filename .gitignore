@@ -35,3 +35,8 @@ scratch/
 # Python cache & archives
 __pycache__/
 *.zip
+
+# Engine runtime generated data
+web_preview/pdf_engine/data/jobs/
+web_preview/pdf_engine/data/sessions/
+web_preview/pdf_engine/data/training_data/

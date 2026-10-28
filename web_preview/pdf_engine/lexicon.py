@@ -11,9 +11,11 @@ import re
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 SINHALA_LEXICON_PATH = os.path.join(DATA_DIR, "sinhala_lexicon.txt")
 CONFUSION_MATRIX_PATH = os.path.join(DATA_DIR, "confusion_matrix.json")
+USER_LEXICON_PATH = os.path.join(DATA_DIR, "user_lexicon.json")
 
 SINHALA_LEXICON = set()
 ENGLISH_LEXICON = set()
+USER_LEXICON = set()
 CONFUSION_MATRIX = {}   # (src_char, dst_char) -> weight (lower cost for frequent OCR confusion)
 
 # Try loading SymSpell for English
@@ -31,7 +33,7 @@ except Exception:
 
 
 def load_lexicons():
-    global SINHALA_LEXICON, ENGLISH_LEXICON, CONFUSION_MATRIX
+    global SINHALA_LEXICON, ENGLISH_LEXICON, USER_LEXICON, CONFUSION_MATRIX
     # Sinhala lexicon
     if os.path.exists(SINHALA_LEXICON_PATH):
         with open(SINHALA_LEXICON_PATH, "r", encoding="utf-8") as f:
@@ -52,6 +54,17 @@ def load_lexicons():
     ]
     ENGLISH_LEXICON = set(common_en)
 
+    # User lexicon (persistent)
+    if os.path.exists(USER_LEXICON_PATH):
+        try:
+            with open(USER_LEXICON_PATH, "r", encoding="utf-8") as f:
+                user_list = json.load(f)
+                USER_LEXICON = set(user_list)
+        except Exception:
+            USER_LEXICON = set()
+    else:
+        USER_LEXICON = set()
+
     # Confusion matrix
     if os.path.exists(CONFUSION_MATRIX_PATH):
         try:
@@ -62,6 +75,74 @@ def load_lexicons():
 
 
 load_lexicons()
+
+
+def add_to_user_lexicon(word: str) -> None:
+    """Adds a human-verified word to persistent user lexicon."""
+    global USER_LEXICON
+    clean = clean_word(word)
+    if not clean or len(clean) < 2:
+        return
+    USER_LEXICON.add(clean)
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(USER_LEXICON_PATH, "w", encoding="utf-8") as f:
+            json.dump(sorted(list(USER_LEXICON)), f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Error saving user lexicon: {e}")
+
+
+def record_correction(ocr_text: str, user_text: str) -> None:
+    """
+    Stores (OCR text -> user text) at character level and feeds into confusion table
+    so later suggestions continuously improve.
+    """
+    global CONFUSION_MATRIX
+    ocr_clean = clean_word(ocr_text)
+    user_clean = clean_word(user_text)
+    if not ocr_clean or not user_clean or ocr_clean == user_clean:
+        return
+
+    # Character-level alignment
+    if len(ocr_clean) == len(user_clean):
+        pairs = [(c1, c2) for c1, c2 in zip(ocr_clean, user_clean) if c1 != c2]
+    else:
+        # Simple DP alignment for substitutions
+        m, n = len(ocr_clean), len(user_clean)
+        dp = [[0] * (n + 1) for _ in range(m + 1)]
+        for i in range(m + 1): dp[i][0] = i
+        for j in range(n + 1): dp[0][j] = j
+        for i in range(1, m + 1):
+            for j in range(1, n + 1):
+                cost = 0 if ocr_clean[i - 1] == user_clean[j - 1] else 1
+                dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
+
+        i, j = m, n
+        pairs = []
+        while i > 0 and j > 0:
+            if ocr_clean[i - 1] == user_clean[j - 1]:
+                i -= 1; j -= 1
+            elif dp[i][j] == dp[i - 1][j - 1] + 1:
+                pairs.append((ocr_clean[i - 1], user_clean[j - 1]))
+                i -= 1; j -= 1
+            elif dp[i][j] == dp[i - 1][j] + 1:
+                i -= 1
+            else:
+                j -= 1
+
+    changed = False
+    for c_src, c_dst in pairs:
+        key = f"{c_src}->{c_dst}"
+        cur_w = CONFUSION_MATRIX.get(key, 0.2)
+        CONFUSION_MATRIX[key] = round(min(0.85, cur_w + 0.08), 3)
+        changed = True
+
+    if changed:
+        try:
+            with open(CONFUSION_MATRIX_PATH, "w", encoding="utf-8") as f:
+                json.dump(CONFUSION_MATRIX, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error saving confusion matrix: {e}")
 
 
 def detect_script(text: str) -> str:
@@ -162,11 +243,13 @@ def suggest_candidates(word: str, max_candidates: int = 3) -> list[str]:
 
 
 def is_known_word(word: str) -> bool:
-    """Checks if a clean word is in the bundled Sinhala or English lexicon."""
+    """Checks if a clean word is in the bundled Sinhala, English, or persistent User lexicon."""
     clean = clean_word(word)
     if not clean:
         return True
     if clean.isdigit():
+        return True
+    if clean in USER_LEXICON or clean.lower() in USER_LEXICON:
         return True
     if clean in SINHALA_LEXICON:
         return True

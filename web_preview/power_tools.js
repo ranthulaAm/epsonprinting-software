@@ -52,7 +52,12 @@
       shadowRemoval: true,
       clahe: true,
       compareMode: "side_by_side",
-      overlayOpacity: 50
+      overlayOpacity: 50,
+      sensitivity: "strict",
+      cropMode: "orig",
+      singlishEnabled: false,
+      currentCard: null,
+      autoAppliedList: []
     },
     results: []
   };
@@ -89,6 +94,7 @@
     return j;
   }
   const post = (path, obj) => api(path, { method: "POST", body: JSON.stringify(obj) });
+  const get = (path) => api(path);
 
   async function checkEngine() {
     const banner = $("#ptBanner");
@@ -1190,6 +1196,14 @@
     if (!box) return;
 
     const mod = state.modernize;
+    if (!mod.jobId) {
+      const savedJob = sessionStorage.getItem("pt_mod_job_id");
+      if (savedJob) mod.jobId = savedJob;
+    }
+    const savedStep = sessionStorage.getItem("pt_mod_step");
+    if (savedStep && mod.jobId) {
+      mod.step = parseInt(savedStep, 10);
+    }
     const pdfs = selectedPdfs();
     const activeFile = pdfs[0] || null;
     mod.file = activeFile;
@@ -1235,6 +1249,7 @@
       };
     });
 
+    sessionStorage.setItem("pt_mod_step", mod.step);
     renderModernizeStep();
   }
 
@@ -1346,6 +1361,7 @@
           }
         });
         mod.jobId = resp.job_id;
+        sessionStorage.setItem("pt_mod_job_id", resp.job_id);
         mod.step = 2;
         loadModernize();
       } catch (e) {
@@ -1505,244 +1521,557 @@
     $("#btnGoToStep4").onclick = () => { mod.step = 4; loadModernize(); };
   }
 
-  // --- Step 4: Text Review Screen (Hard Honesty: Doubtful Words, Confusion Alternatives) ---
-  function renderModStep4(body) {
+  // Singlish phonetic transliteration rules
+  function transliterateSinglish(text) {
+    if (!text) return "";
+    const rules = [
+      ["shree", "ශ්‍රී"], ["sri", "ශ්‍රී"], ["lanka", "ලංකා"], ["amma", "අම්මා"], ["thaththa", "තාත්තා"],
+      ["ndha", "ඳ"], ["ngha", "ඟ"], ["ndha", "ඬ"], ["mba", "ඹ"],
+      ["pra", "ප්‍ර"], ["kra", "ක්‍ර"], ["tra", "ට්‍ර"], ["thra", "ත්‍ර"], ["gra", "ග්‍ර"], ["bra", "බ්‍ර"],
+      ["kaa", "කා"], ["kae", "කෑ"], ["kee", "කී"], ["koo", "කූ"], ["ka", "ක"], ["ki", "කි"], ["ku", "කු"], ["ke", "කෙ"], ["ko", "කො"], ["k", "ක්"],
+      ["gaa", "ගා"], ["gae", "ගෑ"], ["gee", "ගී"], ["goo", "ගූ"], ["ga", "ග"], ["gi", "ගි"], ["gu", "ගු"], ["ge", "ගෙ"], ["go", "ගො"], ["g", "ග්"],
+      ["chaa", "චා"], ["chae", "චෑ"], ["chee", "චී"], ["choo", "චූ"], ["cha", "ච"], ["chi", "චි"], ["chu", "චු"], ["che", "චෙ"], ["cho", "චො"], ["ch", "ච්"],
+      ["jaa", "ජා"], ["jae", "ජෑ"], ["jee", "ජී"], ["joo", "ජූ"], ["ja", "ජ"], ["ji", "ජි"], ["ju", "ජු"], ["je", "ජෙ"], ["jo", "ජො"], ["j", "ජ්"],
+      ["taa", "ටා"], ["tae", "ටෑ"], ["tee", "ටී"], ["too", "ටූ"], ["ta", "ට"], ["ti", "ටි"], ["tu", "ටු"], ["te", "ටෙ"], ["to", "ටො"], ["t", "ට්"],
+      ["thaa", "තා"], ["thae", "තෑ"], ["thee", "තී"], ["thoo", "තූ"], ["tha", "ත"], ["thi", "ති"], ["thu", "තු"], ["the", "තෙ"], ["tho", "තො"], ["th", "ත්"],
+      ["daa", "ඩා"], ["dae", "ඩෑ"], ["dee", "ඩී"], ["doo", "ඩූ"], ["da", "ඩ"], ["di", "ඩි"], ["du", "ඩු"], ["de", "ඩෙ"], ["do", "ඩො"], ["d", "ඩ්"],
+      ["dhaa", "දා"], ["dhae", "දෑ"], ["dhee", "දී"], ["dhoo", "දූ"], ["dha", "ද"], ["dhi", "දි"], ["dhu", "දු"], ["dhe", "දෙ"], ["dho", "දො"], ["dh", "ද්"],
+      ["naa", "නා"], ["nae", "නෑ"], ["nee", "නී"], ["noo", "නූ"], ["na", "න"], ["ni", "නි"], ["nu", "නු"], ["ne", "නෙ"], ["no", "නො"], ["n", "න්"],
+      ["paa", "පා"], ["pae", "පෑ"], ["pee", "පී"], ["poo", "පූ"], ["pa", "ප"], ["pi", "පි"], ["pu", "පු"], ["pe", "පෙ"], ["po", "පො"], ["p", "ප්"],
+      ["baa", "බා"], ["bae", "බෑ"], ["bee", "බී"], ["boo", "බූ"], ["ba", "බ"], ["bi", "බි"], ["bu", "බු"], ["be", "බෙ"], ["bo", "බො"], ["b", "බ්"],
+      ["maa", "මා"], ["mae", "මෑ"], ["mee", "මී"], ["moo", "මූ"], ["ma", "ම"], ["mi", "මි"], ["mu", "මු"], ["me", "මෙ"], ["mo", "මො"], ["m", "ම්"],
+      ["yaa", "යා"], ["yae", "යෑ"], ["yee", "යී"], ["yoo", "යූ"], ["ya", "ය"], ["yi", "යි"], ["yu", "යු"], ["ye", "යෙ"], ["yo", "යො"], ["y", "ය්"],
+      ["raa", "රා"], ["rae", "රෑ"], ["ree", "රී"], ["roo", "රූ"], ["ra", "ර"], ["ri", "රි"], ["ru", "රු"], ["re", "රෙ"], ["ro", "රො"], ["r", "ර්"],
+      ["laa", "ලා"], ["lae", "ලෑ"], ["lee", "ලී"], ["loo", "ලූ"], ["la", "ල"], ["li", "ලි"], ["lu", "ලු"], ["le", "ලෙ"], ["lo", "ලො"], ["l", "ල්"],
+      ["vaa", "වා"], ["vae", "වෑ"], ["vee", "වී"], ["voo", "වූ"], ["va", "ව"], ["vi", "වි"], ["vu", "වු"], ["ve", "වෙ"], ["vo", "වො"], ["v", "ව්"],
+      ["waa", "වා"], ["wae", "වෑ"], ["wee", "වී"], ["woo", "වූ"], ["wa", "ව"], ["wi", "වි"], ["wu", "වු"], ["we", "වෙ"], ["wo", "වො"], ["w", "ව්"],
+      ["saa", "සා"], ["sae", "සෑ"], ["see", "සී"], ["soo", "සූ"], ["sa", "ස"], ["si", "සි"], ["su", "සු"], ["se", "සෙ"], ["so", "සො"], ["s", "ස්"],
+      ["shaa", "ශා"], ["shae", "ශෑ"], ["shee", "ශී"], ["shoo", "ශූ"], ["sha", "ශ"], ["shi", "ශි"], ["shu", "ශු"], ["she", "ශෙ"], ["sho", "ශො"], ["sh", "ශ්"],
+      ["haa", "හා"], ["hae", "හෑ"], ["hee", "හී"], ["hoo", "හූ"], ["ha", "හ"], ["hi", "හි"], ["hu", "හු"], ["he", "හෙ"], ["ho", "හො"], ["h", "හ්"],
+      ["aa", "ආ"], ["aae", "ඈ"], ["ae", "ඇ"], ["a", "අ"],
+      ["ee", "ඊ"], ["ii", "ඊ"], ["i", "ඉ"],
+      ["oo", "ඌ"], ["uu", "ඌ"], ["u", "උ"],
+      ["ea", "ඒ"], ["e", "එ"],
+      ["oe", "ඕ"], ["o", "ඔ"]
+    ];
+    let res = text;
+    for (const [lat, sin] of rules) {
+      res = res.replaceAll(lat, sin);
+    }
+    return res;
+  }
+
+  // --- Step 4: Guided "Unknown Word" Question Card Loop ---
+  async function renderModStep4(body) {
     const mod = state.modernize;
-    const docModel = mod.docModel;
-    if (!docModel || !docModel.pages || !docModel.pages[0]) { mod.step = 1; loadModernize(); return; }
+    if (!mod.jobId) {
+      mod.jobId = sessionStorage.getItem("pt_mod_job_id");
+    }
+    if (!mod.jobId) { mod.step = 1; loadModernize(); return; }
 
-    const page = docModel.pages[mod.currentPage - 1] || docModel.pages[0];
-    const preview = (mod.job && mod.job.previews && mod.job.previews[mod.currentPage - 1]) || null;
-    const scanSrc = preview ? preview.enh_b64 : "";
-
-    // Count doubtful words
-    let doubtfulCount = 0;
-    const allWords = [];
-    (page.blocks || []).forEach(b => {
-      (b.lines || []).forEach(l => {
-        (l.words || []).forEach(w => {
-          allWords.push(w);
-          if (w.doubtful) doubtfulCount++;
-        });
-      });
-    });
-
-    // Build editable text blocks
-    let editorHtml = "";
-    (page.blocks || []).forEach((b, bIdx) => {
-      if (b.type === "heading" || b.type === "text") {
-        const align = b.alignment || "left";
-        const fSize = b.font_size_pt || 13;
-        const fWeight = b.font_weight || (b.type === "heading" ? "bold" : "normal");
-
-        const lineSpans = (b.lines || []).map((l, lIdx) => {
-          const wordSpans = (l.words || []).map((w, wIdx) => {
-            const isDoubt = w.doubtful;
-            const wId = `${bIdx}_${lIdx}_${wIdx}`;
-            return `<span class="pt-mod-word ${isDoubt ? 'doubtful' : ''}" data-wid="${wId}" tabindex="0" title="${isDoubt ? 'Needs Review: ' + (w.doubt_reason || 'Low confidence') : 'Confidence: ' + Math.round(w.confidence || 90) + '%'}">${esc(w.text || '')}</span>`;
-          }).join(" ");
-          return `<div>${wordSpans}</div>`;
-        }).join("");
-
-        editorHtml += `<div class="pt-mod-blk-item" style="text-align:${align}; font-size:${fSize}pt; font-weight:${fWeight}; margin-bottom:8px;">${lineSpans}</div>`;
-      } else if (b.type === "table") {
-        const rows = (b.rows || []).map(r => `<tr>${r.map(c => `<td style="border:1px solid var(--border-subtle, #bbb); padding:4px 8px;">${esc(c)}</td>`).join("")}</tr>`).join("");
-        editorHtml += `<div style="margin:10px 0;"><table style="width:100%; border-collapse:collapse; font-size:12px;">${rows}</table></div>`;
-      } else if (b.type === "rule") {
-        editorHtml += `<hr style="margin:10px 0; border:none; border-top:1.5px solid var(--border-subtle, #444);">`;
-      }
-    });
+    const isSi = isSinhala();
+    const sens = mod.sensitivity || "strict";
+    const cropMode = mod.cropMode || "orig";
 
     body.innerHTML = `
       <div class="pt-mod-panel">
-        <div class="pt-mod-review-layout">
-          <!-- Left Column: Scan Crop Viewport -->
-          <div class="pt-mod-crop-pane">
-            <h4><span class="material-symbols-rounded">zoom_in</span> <span>Scan Crop Inspector</span></h4>
-            <div class="pt-mod-crop-viewport" id="ptModCropViewport">
-              <img id="ptModScanCropImg" src="${scanSrc}" alt="Scan Crop">
-            </div>
-            <div class="pt-mod-crop-meta" id="ptModCropMeta">
-              <span>Click any word to inspect original scan coordinates.</span>
-            </div>
-            <div id="ptModWordPopover" class="pt-mod-popover hidden"></div>
+        <div style="display:flex;align-items:center;justify-content:center;min-height:280px;gap:10px;color:var(--text-muted);">
+          <span class="material-symbols-rounded spinning">progress_activity</span>
+          <span>${isSi ? 'නොදන්නා වචන පරීක්ෂා කරමින්...' : 'Loading unknown word queue...'}</span>
+        </div>
+      </div>
+    `;
+
+    let card;
+    try {
+      card = await get(`/api/modernize/${mod.jobId}/next-unknown?sensitivity=${sens}`);
+      mod.currentCard = card;
+    } catch (e) {
+      toast("Error: " + e.message);
+      return;
+    }
+
+    if (card.is_done) {
+      body.innerHTML = `
+        <div class="pt-mod-panel" style="text-align:center; padding:48px 24px;">
+          <div style="display:inline-flex; align-items:center; justify-content:center; width:64px; height:64px; border-radius:50%; background:#dcfce7; color:#16a34a; margin-bottom:16px;">
+            <span class="material-symbols-rounded" style="font-size:36px;">verified</span>
+          </div>
+          <h3 style="font-size:20px; font-weight:700; color:var(--text-main); margin-bottom:8px;">
+            ${isSi ? 'සියලු වචන තහවුරු කර අවසන්!' : 'All Words Verified!'}
+          </h3>
+          <p style="color:var(--text-muted); font-size:14px; max-width:460px; margin:0 auto 24px auto;">
+            ${isSi ? 'ලේඛනයේ සැක සහිත සියලු වචන සාර්ථකව පරීක්ෂා කර තහවුරු කර ඇත. සම්පූර්ණ ලේඛනය සුරක්ෂිතව අපනයනය කිරීමට සූදානම්.' : 'Every unknown or uncertain word in the document has been verified. The verified document is ready for export.'}
+          </p>
+          <div style="display:flex; justify-content:center; gap:12px;">
+            <button class="btn btn-outline" id="btnBackToStep3">← ${isSi ? 'කලාප වෙත' : 'Back to Regions'}</button>
+            <button class="btn btn-primary" id="btnGoToStep5">${isSi ? 'අපනයනය සහ සැසඳීම →' : 'Export & Compare →'}</button>
+          </div>
+        </div>
+      `;
+      $("#btnBackToStep3").onclick = () => { mod.step = 3; loadModernize(); };
+      $("#btnGoToStep5").onclick = () => { mod.step = 5; loadModernize(); };
+      return;
+    }
+
+    const total = card.total || 1;
+    const remaining = card.remaining || 1;
+    const progressPct = Math.round(((total - remaining) / total) * 100);
+    const progressLabel = isSi 
+      ? `වචන ${remaining} ක් ඉතිරියි (මුළු ${total} න්)`
+      : `${remaining} of ${total} left`;
+
+    const reasonsHtml = (card.reasons || []).map(r => `
+      <span class="pt-mod-reason-tag">
+        <span class="material-symbols-rounded" style="font-size:14px;">info</span>
+        <span>${esc(r)}</span>
+      </span>
+    `).join("");
+
+    const altsHtml = (card.alternatives || []).slice(0, 3).map(alt => `
+      <button class="pt-mod-sugg-chip" data-text="${esc(alt.text)}">
+        <b>${esc(alt.text)}</b>
+        <small>${Math.round(alt.conf || 80)}%</small>
+      </button>
+    `).join("");
+
+    // Sinhala Character Palette content
+    const vowels = ['අ', 'ආ', 'ඇ', 'ඈ', 'ඉ', 'ඊ', 'උ', 'ඌ', 'එ', 'ඒ', 'ඔ', 'ඕ'];
+    const pili = ['්', 'ා', 'ැ', 'ෑ', 'ි', 'ී', 'ු', 'ූ', 'ෘ', 'ෙ', 'ේ', 'ෛ', 'ො', 'ෝ', 'ෞ', 'ං', 'ඃ'];
+    const conjuncts = ['\u200D', '්‍ර', '්‍ය', 'ර්‍', 'ඳ', 'ඟ', 'ඬ', 'ඹ'];
+    const consonants = ['ක', 'ග', 'ච', 'ජ', 'ට', 'ඩ', 'ණ', 'ත', 'ද', 'න', 'ප', 'බ', 'ම', 'ය', 'ර', 'ල', 'ව', 'ස', 'හ', 'ළ'];
+
+    const charButtons = [...pili, ...conjuncts, ...vowels, ...consonants].map(ch => {
+      const label = ch === '\u200D' ? 'ZWJ' : ch;
+      return `<button class="pt-mod-char-btn" data-char="${esc(ch)}" title="${label}">${label}</button>`;
+    }).join("");
+
+    body.innerHTML = `
+      <div class="pt-mod-panel pt-mod-guided-container">
+        <!-- Guided Loop Header Bar -->
+        <div class="pt-mod-guided-header">
+          <div class="pt-mod-sens-group">
+            <span style="font-size:12px; font-weight:700; color:var(--text-muted);">${isSi ? 'සංවේදීතාව:' : 'Sensitivity:'}</span>
+            <button class="seg-btn ${sens === 'strict' ? 'active' : ''}" data-sens="strict" title="Default for Sinhala. Asks more for maximum accuracy.">${isSi ? 'තදින් (Strict)' : 'Strict'}</button>
+            <button class="seg-btn ${sens === 'balanced' ? 'active' : ''}" data-sens="balanced">${isSi ? 'මධ්‍යස්ථ (Balanced)' : 'Balanced'}</button>
+            <button class="seg-btn ${sens === 'fast' ? 'active' : ''}" data-sens="fast">${isSi ? 'වේගවත් (Fast)' : 'Fast'}</button>
           </div>
 
-          <!-- Right Column: Document Text Review -->
-          <div class="pt-mod-text-pane">
-            <div class="pt-mod-text-toolbar">
-              <span id="ptModDoubtBadge" class="pt-mod-badge-doubt ${doubtfulCount === 0 ? 'verified' : ''}">
-                ${doubtfulCount > 0 ? `⚠️ ${doubtfulCount} words need review` : `✓ 0 words need review — All Verified`}
+          <div class="pt-mod-progress-wrap">
+            <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px;">
+              <span>${progressLabel}</span>
+              <span>${progressPct}%</span>
+            </div>
+            <div class="pt-mod-progress-bar">
+              <div class="pt-mod-progress-fill" style="width:${progressPct}%;"></div>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-outline btn-sm" id="btnModUndo" title="Undo previous answer (Cmd/Ctrl+Z)">
+              <span class="material-symbols-rounded">undo</span>
+              <span>${isSi ? 'පෙර තත්ත්වයට' : 'Undo'}</span>
+            </button>
+            <button class="btn btn-tonal btn-sm hidden" id="btnModAutoReview">
+              <span class="material-symbols-rounded">auto_awesome</span>
+              <span id="lblAutoCount">0 auto-applied</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Guided Question Card Body -->
+        <div class="pt-mod-guided-body">
+          <!-- Left Column: Visual Inspector & Context -->
+          <div class="pt-mod-inspect-col">
+            <div class="pt-mod-crop-head">
+              <span style="font-weight:700; font-size:13px; display:flex; align-items:center; gap:6px;">
+                <span class="material-symbols-rounded">crop</span>
+                <span>${isSi ? 'විශාල කළ වචනය (3x)' : 'Enlarged Word Image (3x)'}</span>
               </span>
-              <div style="display:flex; gap:6px;">
-                <button class="btn btn-outline btn-sm" id="btnAcceptAllConfident">Accept All Confident</button>
-                <button class="btn btn-tonal btn-sm" id="btnNextDoubtful">Next Doubtful (Alt+N)</button>
+              <div class="pt-mod-mode-toggle">
+                <button class="seg-btn ${cropMode === 'orig' ? 'active' : ''}" id="btnModeOrig">${isSi ? 'මුල් ස්කෑන්' : 'Original'}</button>
+                <button class="seg-btn ${cropMode === 'enh' ? 'active' : ''}" id="btnModeEnh">${isSi ? 'පැහැදිලි කළ' : 'Enhanced'}</button>
               </div>
             </div>
 
-            <div class="pt-mod-editor" id="ptModEditor" contenteditable="true">
-              ${editorHtml}
+            <!-- Enlarged Word Image Frame -->
+            <div class="pt-mod-enlarged-crop">
+              <img id="ptModWordCropImg" src="${card.word_crop_url}?mode=${cropMode}&t=${Date.now()}" alt="Word Crop">
             </div>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-              <button class="btn btn-outline" id="btnBackToStep3">← Back to Regions</button>
-              <button class="btn btn-primary" id="btnGoToStep5">Export & Compare →</button>
+            <!-- Full Line Context with Draggable Handles -->
+            <div style="margin-top:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:12px; font-weight:700; color:var(--text-muted);">${isSi ? 'පේළියේ සන්දර්භය (කැපුම වෙනස් කිරීමට අදින්න):' : 'Line Context (drag handles to fix cut):'}</span>
+                <span style="font-size:11px; color:var(--text-muted);">${isSi ? 'පිටුව ' + card.page : 'Page ' + card.page}</span>
+              </div>
+              <div class="pt-mod-line-frame" id="ptModLineFrame">
+                <img id="ptModLineImg" src="${card.line_crop_url}?mode=${cropMode}&t=${Date.now()}" alt="Line Context">
+                <div class="pt-mod-word-box" id="ptModWordBox">
+                  <div class="pt-box-handle left" data-handle="left"></div>
+                  <div class="pt-box-handle right" data-handle="right"></div>
+                </div>
+              </div>
             </div>
+          </div>
+
+          <!-- Right Column: Verification Input & Controls -->
+          <div class="pt-mod-input-col">
+            <!-- Reasons Badges -->
+            <div class="pt-mod-reasons-bar">
+              ${reasonsHtml}
+            </div>
+
+            <!-- Suggestions Chips -->
+            <div class="pt-mod-suggestions-bar">
+              <span style="font-size:12px; font-weight:600; color:var(--text-muted);">${isSi ? 'යෝජනා:' : 'Suggestions:'}</span>
+              ${altsHtml || '<span style="font-size:12px; color:var(--text-muted);">No dictionary matches</span>'}
+            </div>
+
+            <!-- Text Input Header: Singlish & Character Palette Toggles -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+              <label style="font-size:13px; font-weight:700; color:var(--text-main);">${isSi ? 'නිවැරදි වචනය ඇතුළත් කරන්න:' : 'Type or verify the word:'}</label>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button class="btn btn-outline btn-sm ${mod.singlishEnabled ? 'active' : ''}" id="btnToggleSinglish" title="Type phonetically in English (e.g. 'sri' -> 'ශ්‍රී')">
+                  <span class="material-symbols-rounded">translate</span>
+                  <span>${isSi ? 'සිංග්ලිෂ්: ' : 'Singlish: '}${mod.singlishEnabled ? 'ON' : 'OFF'}</span>
+                </button>
+                <button class="btn btn-outline btn-sm" id="btnTogglePalette" title="Open Sinhala character picker">
+                  <span class="material-symbols-rounded">keyboard</span>
+                  <span>${isSi ? 'අක්ෂර' : 'Characters'}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Large Unicode Sinhala Text Input -->
+            <input type="text" id="ptModWordInput" class="pt-mod-large-input" value="${esc(card.ocr_text || '')}" autofocus autocomplete="off" spellcheck="false" placeholder="Type correct word (Unicode Sinhala)...">
+
+            <!-- Compact On-Screen Sinhala Character Palette -->
+            <div id="ptModCharPalette" class="pt-mod-char-palette hidden">
+              ${charButtons}
+            </div>
+
+            <!-- Action Buttons Row -->
+            <div class="pt-mod-actions-grid">
+              <button class="btn btn-primary" id="btnModAccept" style="grid-column: span 2; font-weight:700;">
+                <span class="material-symbols-rounded">check</span>
+                <span>${isSi ? 'තහවුරු කර ඉදිරියට (Enter)' : 'Accept & Next (Enter)'}</span>
+              </button>
+              <button class="btn btn-outline" id="btnModSkip" title="Move to end of queue">
+                <span class="material-symbols-rounded">skip_next</span>
+                <span>${isSi ? 'දැනට මඟහරින්න (Esc)' : 'Skip for now (Esc)'}</span>
+              </button>
+              <button class="btn btn-tonal" id="btnModIgnore" title="Mark as noise, line or image">
+                <span class="material-symbols-rounded">delete</span>
+                <span>${isSi ? 'කසළ / පින්තූරයකි' : 'Noise / Not Word'}</span>
+              </button>
+              <button class="btn btn-tonal" id="btnModMerge" title="Merge with the next word on line">
+                <span class="material-symbols-rounded">call_merge</span>
+                <span>${isSi ? 'ඊළඟ හා එක් කරන්න' : 'Merge Next'}</span>
+              </button>
+              <button class="btn btn-tonal" id="btnModSplit" title="Split word into two">
+                <span class="material-symbols-rounded">call_split</span>
+                <span>${isSi ? 'වචනය වෙන් කරන්න' : 'Split Word'}</span>
+              </button>
+            </div>
+
+            <!-- Auto-applied Banner Alert -->
+            <div id="ptModAutoBanner" class="pt-mod-banner-applied hidden"></div>
+          </div>
+        </div>
+
+        <!-- Footer Navigation -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding-top:12px; border-top:1px solid var(--border-subtle, rgba(128,128,128,0.15));">
+          <button class="btn btn-outline" id="btnBackToStep3">← ${isSi ? 'කලාප වෙත' : 'Back to Regions'}</button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-primary" id="btnGoToStep5">${isSi ? 'අපනයනය සහ සැසඳීම →' : 'Export & Compare →'}</button>
+          </div>
+        </div>
+
+        <!-- Modal Drawer for Reviewing Auto-Applied Words -->
+        <div id="ptModAutoModal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center;">
+          <div style="background:var(--bg-surface); border-radius:12px; width:90%; max-width:540px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border-subtle, rgba(128,128,128,0.2));">
+              <b style="font-size:14px; color:var(--text-main);">${isSi ? 'ස්වයංක්‍රීයව පිරවූ වචන' : 'Auto-Applied Identical Words'}</b>
+              <button class="btn btn-outline btn-sm" id="btnCloseAutoModal">✕</button>
+            </div>
+            <div id="ptModAutoList" style="padding:14px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
           </div>
         </div>
       </div>
     `;
 
-    // Word click handler
-    const popover = $("#ptModWordPopover");
-    const cropImg = $("#ptModScanCropImg");
-    const cropMeta = $("#ptModCropMeta");
-
-    function selectWord(wordEl) {
-      body.querySelectorAll(".pt-mod-word.active-focus").forEach(w => w.classList.remove("active-focus"));
-      wordEl.classList.add("active-focus");
-      const [bI, lI, wI] = wordEl.dataset.wid.split("_").map(n => parseInt(n, 10));
-      const wObj = page.blocks[bI].lines[lI].words[wI];
-
-      // Update crop info
-      if (cropMeta) {
-        cropMeta.innerHTML = `
-          <div>Word: <b>${esc(wObj.text)}</b> (Confidence: <b>${Math.round(wObj.confidence || 0)}%</b>)</div>
-          <div>Script: <b>${wObj.script || 'sin'}</b> • ${wObj.doubtful ? `<span style="color:#d97706;">⚠️ ${esc(wObj.doubt_reason || 'Needs review')}</span>` : '<span style="color:#16a34a;">✓ Verified</span>'}</div>
-        `;
-      }
-
-      // Show alternatives popover if doubtful
-      if (popover) {
-        if (wObj.doubtful) {
-          popover.classList.remove("hidden");
-          const alts = (wObj.alternatives || []).map(a => `<button class="pt-mod-sugg-btn" data-val="${esc(a)}">${esc(a)}</button>`).join("");
-          popover.innerHTML = `
-            <div class="pt-mod-popover-row">
-              <span style="color:#b45309; font-weight:700;">Suggestion Alternatives</span>
-              <button class="btn btn-tonal btn-sm" id="btnAcceptThisWord">✓ Accept</button>
-            </div>
-            <div class="pt-mod-sugg-group">
-              ${alts || '<small style="color:var(--text-muted)">No dictionary matches</small>'}
-            </div>
-          `;
-
-          popover.querySelectorAll(".pt-mod-sugg-btn").forEach(btn => {
-            btn.onclick = () => {
-              wObj.text = btn.dataset.val;
-              wObj.doubtful = false;
-              wordEl.textContent = btn.dataset.val;
-              wordEl.classList.remove("doubtful");
-              wordEl.classList.add("accepted");
-              popover.classList.add("hidden");
-              updateDoubtCounter();
-            };
-          });
-
-          $("#btnAcceptThisWord").onclick = () => {
-            wObj.doubtful = false;
-            wordEl.classList.remove("doubtful");
-            wordEl.classList.add("accepted");
-            popover.classList.add("hidden");
-            updateDoubtCounter();
-          };
-        } else {
-          popover.classList.add("hidden");
-        }
-      }
-    }
-
-    function updateDoubtCounter() {
-      let count = 0;
-      (page.blocks || []).forEach(b => {
-        (b.lines || []).forEach(l => {
-          (l.words || []).forEach(w => {
-            if (w.doubtful) count++;
-          });
-        });
-      });
-      const badge = $("#ptModDoubtBadge");
-      if (badge) {
-        if (count === 0) {
-          badge.className = "pt-mod-badge-doubt verified";
-          badge.textContent = "✓ 0 words need review — All Verified";
-        } else {
-          badge.className = "pt-mod-badge-doubt";
-          badge.textContent = `⚠️ ${count} words need review`;
-        }
-      }
-    }
-
-    body.querySelectorAll(".pt-mod-word").forEach(wEl => {
-      wEl.onclick = () => selectWord(wEl);
+    // 1. Sensitivity button handlers
+    body.querySelectorAll(".pt-mod-sens-group .seg-btn").forEach(btn => {
+      btn.onclick = () => {
+        mod.sensitivity = btn.dataset.sens;
+        renderModStep4(body);
+      };
     });
 
-    $("#btnAcceptAllConfident").onclick = () => {
-      (page.blocks || []).forEach(b => {
-        (b.lines || []).forEach(l => {
-          (l.words || []).forEach(w => {
-            if (w.confidence >= 70.0) {
-              w.doubtful = false;
-            }
-          });
-        });
-      });
-      body.querySelectorAll(".pt-mod-word.doubtful").forEach(el => {
-        el.classList.remove("doubtful");
-      });
-      if (popover) popover.classList.add("hidden");
-      updateDoubtCounter();
-      toast("✓ Accepted all confident words");
+    // 2. Crop mode switcher
+    $("#btnModeOrig").onclick = () => { mod.cropMode = "orig"; renderModStep4(body); };
+    $("#btnModeEnh").onclick = () => { mod.cropMode = "enh"; renderModStep4(body); };
+
+    // 3. Suggestions chips
+    body.querySelectorAll(".pt-mod-sugg-chip").forEach(chip => {
+      chip.onclick = () => {
+        const inp = $("#ptModWordInput");
+        if (inp) {
+          inp.value = chip.dataset.text;
+          inp.focus();
+        }
+      };
+    });
+
+    // 4. Input focus & Singlish transliteration
+    const inp = $("#ptModWordInput");
+    if (inp) {
+      inp.focus();
+      inp.select();
+      inp.oninput = () => {
+        if (mod.singlishEnabled) {
+          const curVal = inp.value;
+          const converted = transliterateSinglish(curVal);
+          if (converted !== curVal) {
+            inp.value = converted;
+          }
+        }
+      };
+    }
+
+    $("#btnToggleSinglish").onclick = () => {
+      mod.singlishEnabled = !mod.singlishEnabled;
+      const b = $("#btnToggleSinglish");
+      if (b) {
+        b.innerHTML = `<span class="material-symbols-rounded">translate</span> <span>${isSi ? 'සිංග්ලිෂ්: ' : 'Singlish: '}${mod.singlishEnabled ? 'ON' : 'OFF'}</span>`;
+        b.classList.toggle('active', mod.singlishEnabled);
+      }
     };
 
-    function goToNextDoubtful() {
-      const doubts = Array.from(body.querySelectorAll(".pt-mod-word.doubtful"));
-      if (doubts.length > 0) {
-        selectWord(doubts[0]);
-        doubts[0].scrollIntoView({ behavior: "smooth", block: "center" });
-      } else {
-        toast("✓ All words verified!");
+    // 5. Sinhala Character Palette
+    $("#btnTogglePalette").onclick = () => {
+      const p = $("#ptModCharPalette");
+      if (p) p.classList.toggle("hidden");
+    };
+
+    body.querySelectorAll(".pt-mod-char-btn").forEach(btn => {
+      btn.onclick = () => {
+        if (!inp) return;
+        const start = inp.selectionStart || inp.value.length;
+        const end = inp.selectionEnd || inp.value.length;
+        const ch = btn.dataset.char;
+        inp.value = inp.value.substring(0, start) + ch + inp.value.substring(end);
+        inp.focus();
+        inp.setSelectionRange(start + ch.length, start + ch.length);
+      };
+    });
+
+    // 6. Action Execution Function
+    async function submitAnswer(action) {
+      const val = inp ? inp.value.trim() : "";
+      if (action === "accept" && !val) {
+        toast("Please type a word or choose Skip / Noise");
+        return;
+      }
+
+      // Check if space exists: automatic split as per requirements
+      let actualAction = action;
+      if (action === "accept" && val.includes(" ")) {
+        actualAction = "split";
+      }
+
+      try {
+        const res = await post(`/api/modernize/${mod.jobId}/answer`, {
+          id: card.id,
+          action: actualAction,
+          text: val
+        });
+
+        if (res.applied_to && res.applied_to.length > 0) {
+          toast(isSi ? `සමාන වචන ${res.applied_to.length} කට යෙදුවා` : `Applied to ${res.applied_to.length} similar words`);
+        }
+
+        renderModStep4(body);
+      } catch (e) {
+        toast("Error: " + e.message);
       }
     }
 
-    $("#btnNextDoubtful").onclick = goToNextDoubtful;
+    $("#btnModAccept").onclick = () => submitAnswer("accept");
+    $("#btnModSkip").onclick = () => submitAnswer("skip");
+    $("#btnModIgnore").onclick = () => submitAnswer("ignore");
+    $("#btnModMerge").onclick = () => submitAnswer("merge");
+    $("#btnModSplit").onclick = () => submitAnswer("split");
 
-    document.addEventListener("keydown", e => {
-      if (mod.step === 4 && e.altKey && (e.key === "n" || e.key === "N")) {
-        e.preventDefault();
-        goToNextDoubtful();
+    // 7. Undo handler
+    $("#btnModUndo").onclick = async () => {
+      try {
+        const res = await post(`/api/modernize/${mod.jobId}/undo`, {});
+        if (res.error) {
+          toast(res.error);
+        } else {
+          toast(isSi ? "පෙර වචනය නැවත ලබා ගත්තා" : "Restored previous word");
+          renderModStep4(body);
+        }
+      } catch (e) {
+        toast("Error: " + e.message);
       }
-    });
+    };
+
+    // 8. Auto-applied drawer handler
+    async function updateAutoAppliedUI() {
+      try {
+        const autoData = await get(`/api/modernize/${mod.jobId}/auto-applied`);
+        const count = autoData.count || 0;
+        const b = $("#btnModAutoReview");
+        const lbl = $("#lblAutoCount");
+        if (b && lbl) {
+          if (count > 0) {
+            b.classList.remove("hidden");
+            lbl.textContent = isSi ? `ස්වයංක්‍රීයව පිරවූ ${count}` : `${count} auto-applied`;
+            b.onclick = () => showAutoModal(autoData.auto_applied || []);
+          } else {
+            b.classList.add("hidden");
+          }
+        }
+      } catch (e) {}
+    }
+    updateAutoAppliedUI();
+
+    function showAutoModal(records) {
+      const m = $("#ptModAutoModal");
+      const list = $("#ptModAutoList");
+      if (!m || !list) return;
+
+      list.innerHTML = records.map(r => `
+        <div style="display:flex; align-items:center; gap:12px; padding:8px 10px; border-radius:8px; background:var(--bg-surface-highest, rgba(128,128,128,0.1));">
+          <img src="${r.word_crop_url}?mode=orig" style="height:32px; border-radius:4px; border:1px solid #999;">
+          <div style="flex:1;">
+            <b>${esc(r.text)}</b>
+            <div style="font-size:11px; color:var(--text-muted);">${Math.round((r.similarity || 0.95) * 100)}% match • Page ${r.page}</div>
+          </div>
+          <button class="btn btn-outline btn-sm btn-undo-auto" data-id="${esc(r.id)}">Undo</button>
+        </div>
+      `).join("") || '<p style="color:var(--text-muted); font-size:12px;">No auto-applied words yet.</p>';
+
+      list.querySelectorAll(".btn-undo-auto").forEach(btn => {
+        btn.onclick = async () => {
+          await post(`/api/modernize/${mod.jobId}/auto-applied/undo`, { id: btn.dataset.id });
+          toast("Reverted auto-applied word");
+          m.classList.add("hidden");
+          renderModStep4(body);
+        };
+      });
+
+      $("#btnCloseAutoModal").onclick = () => m.classList.add("hidden");
+      m.classList.remove("hidden");
+    }
+
+    // 9. Draggable Crop Box on Line Image
+    const lineImg = $("#ptModLineImg");
+    const wordBox = $("#ptModWordBox");
+    if (lineImg && wordBox) {
+      const positionBox = () => {
+        const natW = lineImg.naturalWidth || 1;
+        const natH = lineImg.naturalHeight || 1;
+        const dispW = lineImg.clientWidth || 300;
+        const dispH = lineImg.clientHeight || 40;
+        const scaleX = dispW / natW;
+        const scaleY = dispH / natH;
+
+        const [wx, wy, ww, wh] = card.bbox || [0, 0, 40, 20];
+        let curX = Math.round(wx * scaleX);
+        let curW = Math.round(ww * scaleX);
+
+        wordBox.style.left = Math.max(0, curX) + "px";
+        wordBox.style.top = "2px";
+        wordBox.style.width = Math.max(16, curW) + "px";
+        wordBox.style.height = Math.max(16, dispH - 4) + "px";
+
+        wordBox.querySelectorAll(".pt-box-handle").forEach(h => {
+          h.onmousedown = (ev) => {
+            ev.stopPropagation();
+            const draggingHandle = h.dataset.handle;
+            const startMouseX = ev.clientX;
+            const startBoxX = parseInt(wordBox.style.left, 10);
+            const startBoxW = parseInt(wordBox.style.width, 10);
+
+            const onMove = (e) => {
+              const dx = e.clientX - startMouseX;
+              if (draggingHandle === "left") {
+                const newLeft = Math.max(0, startBoxX + dx);
+                const newWidth = Math.max(12, startBoxW - dx);
+                wordBox.style.left = newLeft + "px";
+                wordBox.style.width = newWidth + "px";
+              } else if (draggingHandle === "right") {
+                const newWidth = Math.max(12, startBoxW + dx);
+                wordBox.style.width = newWidth + "px";
+              }
+            };
+
+            const onUp = async () => {
+              document.removeEventListener("mousemove", onMove);
+              document.removeEventListener("mouseup", onUp);
+              const updatedLeft = Math.round(parseInt(wordBox.style.left, 10) / scaleX);
+              const updatedWidth = Math.round(parseInt(wordBox.style.width, 10) / scaleX);
+              await post(`/api/modernize/${mod.jobId}/update-crop`, {
+                id: card.id,
+                bbox: [updatedLeft, wy, updatedWidth, wh]
+              });
+              const wImg = $("#ptModWordCropImg");
+              if (wImg) wImg.src = `${card.word_crop_url}?mode=${cropMode}&t=${Date.now()}`;
+            };
+
+            document.addEventListener("mousemove", onMove);
+            document.addEventListener("mouseup", onUp);
+          };
+        });
+      };
+
+      lineImg.onload = positionBox;
+      if (lineImg.complete) positionBox();
+    }
+
+    // 10. Keyboard Shortcut Listeners
+    if (inp) {
+      inp.onkeydown = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          submitAnswer("accept");
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          submitAnswer("skip");
+        } else if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
+          e.preventDefault();
+          $("#btnModUndo")?.click();
+        }
+      };
+    }
 
     $("#btnBackToStep3").onclick = () => { mod.step = 3; loadModernize(); };
-    $("#btnGoToStep5").onclick = () => {
-      // Sync document model changes to server
-      post("/api/modernize/update", { job_id: mod.jobId, doc_model: docModel }).catch(() => {});
-      mod.step = 5;
-      loadModernize();
-    };
+    $("#btnGoToStep5").onclick = () => { mod.step = 5; loadModernize(); };
   }
 
   // --- Step 5: Export & Comparative Overlay ---
-  function renderModStep5(body) {
+  async function renderModStep5(body) {
     const mod = state.modernize;
     const docModel = mod.docModel;
     if (!docModel || !docModel.pages || !docModel.pages[0]) { mod.step = 1; loadModernize(); return; }
 
+    const isSi = isSinhala();
     const page = docModel.pages[mod.currentPage - 1] || docModel.pages[0];
     const preview = (mod.job && mod.job.previews && mod.job.previews[mod.currentPage - 1]) || null;
     const origScan = preview ? preview.orig_b64 : "";
     const cleanScan = preview ? preview.enh_b64 : "";
 
-    let doubtfulCount = 0;
-    (page.blocks || []).forEach(b => {
-      (b.lines || []).forEach(l => {
-        (l.words || []).forEach(w => {
-          if (w.doubtful) doubtfulCount++;
-        });
-      });
-    });
+    // Query unverified words count
+    let unkRes = { remaining: 0 };
+    try {
+      unkRes = await get(`/api/modernize/${mod.jobId}/next-unknown?sensitivity=${mod.sensitivity || 'strict'}`);
+    } catch (e) {}
 
+    const unresolvedCount = unkRes.remaining || 0;
     const fidelity = page.fidelity || { fidelity_score: 96.5, ssim: 0.965 };
 
     body.innerHTML = `
@@ -1755,7 +2084,7 @@
               <small style="color:var(--text-muted);">Layout Fidelity Score (SSIM: ${fidelity.ssim || 0.965})</small>
             </div>
             <div style="margin-left:14px;">
-              ${doubtfulCount === 0 ? '<span class="badge-active">✓ Verified (0 doubts)</span>' : `<span class="badge-warn">⚠️ Needs Review (${doubtfulCount} flagged)</span>`}
+              ${unresolvedCount === 0 ? '<span class="badge-active">✓ Verified (0 doubts)</span>' : `<span class="badge-warn">⚠️ Needs Review (${unresolvedCount} unverified)</span>`}
             </div>
           </div>
 
@@ -1764,6 +2093,12 @@
             <button class="seg-btn ${mod.compareMode === 'overlay' ? 'active' : ''}" id="btnCmpOverlay">Opacity Overlay</button>
           </div>
         </div>
+
+        ${unresolvedCount > 0 ? `
+          <div class="pt-mod-unresolved-warning">
+            ⚠️ ${isSi ? `ලේඛනයේ තවමත් තහවුරු නොකළ වචන ${unresolvedCount} ක් පවතී. අපනයනය මුල් අනුමාන අනුව සිදුවේ.` : `Document has ${unresolvedCount} unresolved words. Exporting will proceed with original guesses for unresolved words.`}
+          </div>
+        ` : ''}
 
         <div id="ptModCompareContainer" style="margin-top:12px;">
           ${mod.compareMode === 'side_by_side' ? `

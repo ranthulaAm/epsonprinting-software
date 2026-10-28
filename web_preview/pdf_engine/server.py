@@ -22,6 +22,7 @@ import layout_analyzer
 import ocr_engine
 import renderer
 import fidelity
+import review_manager
 from PIL import Image, ImageSequence
 
 JOBS = {}       # job_id -> dict
@@ -243,6 +244,7 @@ def run_modernize_worker(job_id, fid, opts):
             # 1. Preprocess
             prep_res = preprocess.preprocess_document_page(pil_img)
             clean_bgr = prep_res["clean_bgr"]
+            review_manager.REVIEW_MANAGER.register_page_images(job_id, p_idx + 1, prep_res["orig_bgr"], clean_bgr)
 
             # Save preview before/after
             _, orig_buf = cv2.imencode(".jpg", prep_res["orig_bgr"], [int(cv2.IMWRITE_JPEG_QUALITY), 75])
@@ -282,6 +284,7 @@ def run_modernize_worker(job_id, fid, opts):
             "file_name": NAMES.get(fid, "document.pdf"),
             "pages": doc_pages
         }
+        review_manager.REVIEW_MANAGER.get_or_create_session(job_id, doc_model=doc_model)
 
         with JOBS_LOCK:
             JOBS[job_id]["status"] = "done"
@@ -333,6 +336,35 @@ class H(BaseHTTPRequestHandler):
                 if not job:
                     return self._json({"error": "Job not found"}, 404)
                 return self._json(job)
+            if path.startswith("/api/modernize/") and "/crop/word/" in path:
+                parts = path.split("/")
+                job_id = parts[3]
+                word_id = parts[6]
+                mode = parse_qs(u.query).get("mode", ["orig"])[0]
+                png_bytes = review_manager.REVIEW_MANAGER.get_word_crop_png(job_id, word_id, mode=mode)
+                if not png_bytes:
+                    return self._json({"error": "Word crop not found"}, 404)
+                return self._bytes(png_bytes, "image/png")
+            if path.startswith("/api/modernize/") and "/crop/line/" in path:
+                parts = path.split("/")
+                job_id = parts[3]
+                word_id = parts[6]
+                mode = parse_qs(u.query).get("mode", ["orig"])[0]
+                png_bytes = review_manager.REVIEW_MANAGER.get_line_crop_png(job_id, word_id, mode=mode)
+                if not png_bytes:
+                    return self._json({"error": "Line crop not found"}, 404)
+                return self._bytes(png_bytes, "image/png")
+            if path.startswith("/api/modernize/") and path.endswith("/next-unknown"):
+                parts = path.split("/")
+                job_id = parts[3]
+                sens = parse_qs(u.query).get("sensitivity", [None])[0]
+                res = review_manager.REVIEW_MANAGER.get_next_unknown(job_id, sensitivity=sens)
+                return self._json(res)
+            if path.startswith("/api/modernize/") and path.endswith("/auto-applied"):
+                parts = path.split("/")
+                job_id = parts[3]
+                res = review_manager.REVIEW_MANAGER.get_auto_applied(job_id)
+                return self._json(res)
             if path.startswith("/api/file/"):
                 parts = path.split("/")
                 if len(parts) < 4: return self._json({"error": "File not found"}, 404)
@@ -490,6 +522,35 @@ class H(BaseHTTPRequestHandler):
                         JOBS[job_id]["doc_model"] = new_model
                         return self._json({"ok": True})
                 return self._json({"error": "Job or model not found"}, 404)
+            if path.startswith("/api/modernize/") and path.endswith("/answer"):
+                parts = path.split("/")
+                job_id = parts[3]
+                j = json.loads(body)
+                res = review_manager.REVIEW_MANAGER.answer_word(
+                    job_id,
+                    j.get("id"),
+                    action=j.get("action", "accept"),
+                    text=j.get("text"),
+                    split_words=j.get("split_words")
+                )
+                return self._json(res)
+            if path.startswith("/api/modernize/") and path.endswith("/undo"):
+                parts = path.split("/")
+                job_id = parts[3]
+                res = review_manager.REVIEW_MANAGER.undo(job_id)
+                return self._json(res)
+            if path.startswith("/api/modernize/") and path.endswith("/auto-applied/undo"):
+                parts = path.split("/")
+                job_id = parts[3]
+                j = json.loads(body)
+                res = review_manager.REVIEW_MANAGER.undo_auto_applied_word(job_id, j.get("id"))
+                return self._json(res)
+            if path.startswith("/api/modernize/") and path.endswith("/update-crop"):
+                parts = path.split("/")
+                job_id = parts[3]
+                j = json.loads(body)
+                res = review_manager.REVIEW_MANAGER.update_crop(job_id, j.get("id"), j.get("bbox", []))
+                return self._json(res)
             if path == "/api/modernize/export":
                 j = json.loads(body)
                 job_id = j.get("job_id")
