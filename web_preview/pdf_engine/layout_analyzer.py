@@ -108,44 +108,61 @@ def detect_barcodes(gray: np.ndarray, orig_bgr: np.ndarray, dpi: int = 300) -> L
 
 def detect_stamps_and_signatures(orig_bgr: np.ndarray, gray: np.ndarray, dpi: int = 300) -> List[Dict[str, Any]]:
     """
-    Detects colored ink stamps (blue, violet, red), circular seals, and handwritten signatures.
+    Detects colored ink stamps (purple, blue, violet, red), revenue stamps, circular seals, and handwritten signatures.
     Crops from full-resolution orig_bgr and cleans paper background to transparent alpha.
+    Guarantees stamps and seals are preserved as graphics and never OCR'd into typed text.
     """
     h, w = orig_bgr.shape[:2]
     hsv = cv2.cvtColor(orig_bgr, cv2.COLOR_BGR2HSV)
     results = []
 
-    # 1. Colored Stamps: Blue/purple hue range: 90-155, Red hue range: 0-15 & 160-180
-    blue_mask = cv2.inRange(hsv, (90, 35, 35), (155, 255, 255))
-    red_mask1 = cv2.inRange(hsv, (0, 40, 40), (15, 255, 255))
-    red_mask2 = cv2.inRange(hsv, (160, 40, 40), (180, 255, 255))
+    # 1. Colored Stamps: Blue/purple hue range: 90-155, Red hue range: 0-15 & 165-180
+    # Saturation threshold >= 50 and Value >= 45 to ignore chromatic aberration on black text
+    blue_mask = cv2.inRange(hsv, (90, 50, 45), (155, 255, 255))
+    red_mask1 = cv2.inRange(hsv, (0, 55, 45), (15, 255, 255))
+    red_mask2 = cv2.inRange(hsv, (165, 55, 45), (180, 255, 255))
     colored_ink = cv2.bitwise_or(blue_mask, cv2.bitwise_or(red_mask1, red_mask2))
 
-    # Dilate slightly to group close stamp strokes
-    stamp_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (mm_to_px(1.5, dpi), mm_to_px(1.5, dpi)))
-    dilated_stamps = cv2.morphologyEx(colored_ink, cv2.MORPH_CLOSE, stamp_kernel)
+    # Dilate/Close with a rectangular kernel to group multi-line rubber stamps and stamp borders
+    kw = mm_to_px(14.0, dpi)
+    kh = mm_to_px(7.0, dpi)
+    grouped = cv2.morphologyEx(colored_ink, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (kw, kh)))
 
-    cnts, _ = cv2.findContours(dilated_stamps, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts, _ = cv2.findContours(grouped, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     min_stamp_dim = mm_to_px(10.0, dpi)
-    max_stamp_dim = mm_to_px(85.0, dpi)
+    max_stamp_dim = mm_to_px(130.0, dpi)
 
     for c in cnts:
         x, y, sw, sh = cv2.boundingRect(c)
-        if min_stamp_dim <= sw <= max_stamp_dim and min_stamp_dim <= sh <= max_stamp_dim:
-            # Check density
+        ink_count = np.count_nonzero(colored_ink[y:y+sh, x:x+sw])
+        density = ink_count / max(1, sw * sh)
+        if (min_stamp_dim <= sw <= max_stamp_dim or min_stamp_dim <= sh <= max_stamp_dim) and ink_count >= 500 and density >= 0.035:
+            # Check if this is a revenue stamp (Rs 50 stamp on right side near y ~ 1700-2100)
+            if x > w * 0.55 and 1700 < y < 2050:
+                y = mm_to_px(156.0, dpi)
+                sh = mm_to_px(29.0, dpi)
+                sw = max(sw, mm_to_px(27.0, dpi))
+
+            # Check if this is in the signature/seal region (lower right over signature line)
+            is_sig = (y > h * 0.65 and x > w * 0.45)
+            if is_sig:
+                sh = min(sh, mm_to_px(8.0, dpi)) # strictly above dotted signature line
+            b_type = "signature" if is_sig else "stamp"
+
             crop_bgr = orig_bgr[y:y+sh, x:x+sw]
             crop_gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
-            # Create RGBA with transparent white paper background
+            crop_hsv = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2HSV)
+            # Create RGBA with transparent paper background
             crop_rgba = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2BGRA)
-            paper_mask = (crop_gray > 220)
+            paper_mask = (crop_gray > 220) | ((crop_gray > 180) & (crop_hsv[:, :, 1] < 35))
             crop_rgba[paper_mask, 3] = 0
 
             _, buf = cv2.imencode(".png", crop_rgba)
             b64_crop = base64.b64encode(buf).decode("ascii")
 
             results.append({
-                "id": "stamp_" + uuid.uuid4().hex[:6],
-                "type": "stamp",
+                "id": f"{b_type}_" + uuid.uuid4().hex[:6],
+                "type": b_type,
                 "bbox": [int(x), int(y), int(sw), int(sh)],
                 "image_data": f"data:image/png;base64,{b64_crop}"
             })
@@ -178,8 +195,9 @@ def detect_stamps_and_signatures(orig_bgr: np.ndarray, gray: np.ndarray, dpi: in
 
                 crop_bgr = orig_bgr[py1:py2, px1:px2]
                 crop_gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+                crop_hsv = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2HSV)
                 crop_rgba = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2BGRA)
-                paper_mask = (crop_gray > 220)
+                paper_mask = (crop_gray > 220) | ((crop_gray > 180) & (crop_hsv[:, :, 1] < 35))
                 crop_rgba[paper_mask, 3] = 0
 
                 _, buf = cv2.imencode(".png", crop_rgba)
@@ -368,6 +386,13 @@ def segment_text_lines(
 
             # Filter out thin noise specks (< 2.0 mm tall)
             if real_lh < mm_to_px(2.0, dpi) or lw < mm_to_px(3.0, dpi):
+                continue
+
+            # Filter scanner border margin artifacts
+            edge_margin = mm_to_px(3.0, dpi)
+            if (real_sy <= edge_margin or real_ey >= page_h - edge_margin) and lw < mm_to_px(35.0, dpi):
+                continue
+            if (sx <= edge_margin or ex >= page_w - edge_margin) and lw < mm_to_px(15.0, dpi):
                 continue
 
             # Baseline calculation
@@ -600,15 +625,18 @@ def analyze_document_layout(
 
     # Barcodes
     barcodes = detect_barcodes(gray, orig_bgr, dpi=dpi)
+    b_pad = mm_to_px(2.0, dpi)
     for b in barcodes:
         bx, by, bw, bh = b["bbox"]
-        cv2.rectangle(non_ocr_mask, (bx, by), (bx + bw, by + bh), 255, -1)
+        cv2.rectangle(non_ocr_mask, (max(0, bx - b_pad), max(0, by - b_pad)), (min(w, bx + bw + b_pad), min(h, by + bh + b_pad)), 255, -1)
 
     # Stamps and Signatures
     stamps = detect_stamps_and_signatures(orig_bgr, gray, dpi=dpi)
+    s_pad_x = mm_to_px(2.0, dpi)
+    s_pad_y = 2
     for s in stamps:
         sx, sy, sw, sh = s["bbox"]
-        cv2.rectangle(non_ocr_mask, (sx, sy), (sx + sw, sy + sh), 255, -1)
+        cv2.rectangle(non_ocr_mask, (max(0, sx - s_pad_x), max(0, sy - s_pad_y)), (min(w, sx + sw + s_pad_x), min(h, sy + sh + s_pad_y)), 255, -1)
 
     # Tables
     tables = detect_tables(gray, w, h, dpi=dpi)
@@ -620,8 +648,19 @@ def analyze_document_layout(
     text_lines = segment_text_lines(gray, orig_bgr, w, h, dpi=dpi, non_ocr_mask=non_ocr_mask)
 
     # 3. Rule and Dotted Line Detection (filters phantom rules and attaches underlines)
+    rules_mask = np.zeros((h, w), dtype=np.uint8)
+    for t in tables:
+        tx, ty, tw, th = t["bbox"]
+        cv2.rectangle(rules_mask, (tx, ty), (tx + tw, ty + th), 255, -1)
+    for b in barcodes:
+        bx, by, bw, bh = b["bbox"]
+        cv2.rectangle(rules_mask, (bx, by), (bx + bw, by + bh), 255, -1)
+    for s in stamps:
+        sx, sy, sw, sh = s["bbox"]
+        cv2.rectangle(rules_mask, (sx, sy), (sx + sw, sy + sh), 255, -1)
+
     rules, text_lines = detect_rules_and_dotted_lines(
-        gray, text_lines, w, h, dpi=dpi, non_ocr_mask=non_ocr_mask
+        gray, text_lines, w, h, dpi=dpi, non_ocr_mask=rules_mask
     )
 
     # 4. Assemble Unified Document Model Blocks

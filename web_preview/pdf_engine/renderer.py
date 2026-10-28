@@ -270,7 +270,7 @@ def generate_document_html(doc_model: Dict[str, Any], standalone: bool = True) -
         margin: 0;
         padding: 0;
         background-color: #f3f4f6;
-        font-family: "Noto Sans Sinhala", "Sinhala MN", "Iskoola Pota", -apple-system, sans-serif;
+        font-family: "Noto Sans Sinhala", sans-serif;
         color: #111827;
         -webkit-font-smoothing: antialiased;
     }}
@@ -288,21 +288,12 @@ def generate_document_html(doc_model: Dict[str, Any], standalone: bool = True) -
             var target = parseFloat(el.getAttribute('data-target-width'));
             if (!target || target <= 0) return;
             var cur = el.getBoundingClientRect().width;
-            if (Math.abs(cur - target) / target <= 0.01) return;
-            var low = -2.0, high = 6.0, bestSpacing = 0.0, bestDiff = 999999;
-            for (var i = 0; i < 15; i++) {{
-                var mid = (low + high) / 2.0;
-                el.style.letterSpacing = mid.toFixed(3) + 'pt';
-                var w = el.getBoundingClientRect().width;
-                var diff = Math.abs(w - target);
-                if (diff < bestDiff) {{
-                    bestDiff = diff;
-                    bestSpacing = mid;
-                }}
-                if (diff / target <= 0.008) break;
-                if (w < target) low = mid; else high = mid;
+            if (cur <= 0) return;
+            var ratio = target / cur;
+            if (ratio >= 0.85 && ratio <= 1.25 && Math.abs(ratio - 1.0) > 0.01) {{
+                el.style.transformOrigin = 'left center';
+                el.style.transform = 'scaleX(' + ratio.toFixed(4) + ')';
             }}
-            el.style.letterSpacing = bestSpacing.toFixed(3) + 'pt';
         }});
     }}
     if (document.readyState === 'loading') {{
@@ -325,6 +316,7 @@ def export_pdf(doc_model: Dict[str, Any]) -> bytes:
         browser = p.chromium.launch()
         page = browser.new_page()
         page.set_content(html_content, wait_until="networkidle")
+        page.evaluate("document.fonts.ready")
         page.evaluate("if (typeof fitLines === 'function') fitLines();")
         pdf_bytes = page.pdf(
             prefer_css_page_size=True,

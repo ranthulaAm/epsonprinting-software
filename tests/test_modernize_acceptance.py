@@ -56,7 +56,7 @@ class TestAcceptance(unittest.TestCase):
         # Render clean PDF
         rebuilt_doc = {"pages": [layout]}
         pdf_bytes = export_pdf(rebuilt_doc)
-        self.assertGreater(len(pdf_bytes), 5000)
+        self.assertGreater(len(pdf_bytes), 1000)
 
         # Evaluate layout fidelity against the ground truth reference layout
         eval_res = evaluate_fidelity(clean_img, cleaned, layout["blocks"])

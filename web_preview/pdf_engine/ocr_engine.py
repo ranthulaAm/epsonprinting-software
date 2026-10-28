@@ -53,11 +53,11 @@ class OcrEngine:
 class TesseractEngine(OcrEngine):
     """
     Tesseract line reader calling --oem 1 --psm 7.
-    Upscales line image so x-height >= 30px.
+    Upscales line image so x-height >= 30px, with white padding and tessdata_best.
     """
     name = "tesseract"
 
-    def __init__(self):
+    def __init__(self, tessdata_dir: Optional[str] = None):
         cmd = shutil.which("tesseract")
         if not cmd:
             for cand in ["/opt/homebrew/bin/tesseract", "/usr/local/bin/tesseract", "/usr/bin/tesseract"]:
@@ -65,6 +65,16 @@ class TesseractEngine(OcrEngine):
                     cmd = cand
                     break
         self.tesseract_cmd = cmd
+        best_candidates = [
+            tessdata_dir,
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "tessdata_best"),
+            "/tmp/ocrx/td"
+        ]
+        self.tessdata_dir = None
+        for c in best_candidates:
+            if c and os.path.exists(c) and (os.path.exists(os.path.join(c, "sin.traineddata")) or os.path.exists(os.path.join(c, "Sinhala.traineddata"))):
+                self.tessdata_dir = os.path.abspath(c)
+                break
         self.available_langs = self._get_langs()
 
     def is_available(self) -> bool:
@@ -74,7 +84,11 @@ class TesseractEngine(OcrEngine):
         if not self.is_available():
             return []
         try:
-            res = subprocess.run([self.tesseract_cmd, "--list-langs"], capture_output=True, text=True, timeout=10)
+            cmd = [self.tesseract_cmd]
+            if self.tessdata_dir:
+                cmd.extend(["--tessdata-dir", self.tessdata_dir])
+            cmd.append("--list-langs")
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             return [l.strip() for l in res.stdout.splitlines()[1:] if l.strip() and l.strip() != "osd"]
         except Exception:
             return []
@@ -96,10 +110,19 @@ class TesseractEngine(OcrEngine):
             scale = 1.0
             proc_img = line_img
 
+        pad_px = 14
+        from PIL import ImageOps
+        proc_img = ImageOps.expand(proc_img, border=pad_px, fill="white")
+
         active_langs = []
-        req_langs = langs or ["eng", "sin"]
+        req_langs = langs or ["sin", "eng"]
         for l in req_langs:
-            if l in self.available_langs:
+            if l == "sin":
+                if "sin" in self.available_langs and "sin" not in active_langs:
+                    active_langs.append("sin")
+                elif "Sinhala" in self.available_langs and "Sinhala" not in active_langs:
+                    active_langs.append("Sinhala")
+            elif l in self.available_langs and l not in active_langs:
                 active_langs.append(l)
         if not active_langs:
             active_langs = ["eng"] if "eng" in self.available_langs else (self.available_langs[:1] or ["eng"])
@@ -115,15 +138,17 @@ class TesseractEngine(OcrEngine):
 
         tmp_out_base = tmp_in_name + "_out"
         try:
-            cmd = [
-                self.tesseract_cmd,
+            cmd = [self.tesseract_cmd]
+            if self.tessdata_dir:
+                cmd.extend(["--tessdata-dir", self.tessdata_dir])
+            cmd.extend([
                 tmp_in_name,
                 tmp_out_base,
                 "-l", lang_str,
                 "--oem", "1",
                 "--psm", "7",
-                "tsv"
-            ]
+                "-c", "tessedit_create_tsv=1"
+            ])
             subprocess.run(cmd, capture_output=True, timeout=15)
             tsv_path = tmp_out_base + ".tsv"
             if os.path.exists(tsv_path):
@@ -139,8 +164,10 @@ class TesseractEngine(OcrEngine):
                             if text:
                                 try:
                                     conf = float(row_dict.get("conf", 0))
-                                    left = int(int(row_dict.get("left", 0)) / scale)
-                                    top = int(int(row_dict.get("top", 0)) / scale)
+                                    raw_l = int(row_dict.get("left", 0)) - pad_px
+                                    raw_t = int(row_dict.get("top", 0)) - pad_px
+                                    left = max(0, int(raw_l / scale))
+                                    top = max(0, int(raw_t / scale))
                                     width = int(int(row_dict.get("width", 0)) / scale)
                                     height = int(int(row_dict.get("height", 0)) / scale)
                                 except (ValueError, TypeError):
